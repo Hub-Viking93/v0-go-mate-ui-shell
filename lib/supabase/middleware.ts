@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   })
 
@@ -10,63 +10,64 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   // If Supabase is not configured, allow the request to proceed without auth
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("[GoMate] Supabase environment variables not configured")
+  // This allows the app to load even without Supabase configured
+  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === "" || supabaseAnonKey === "") {
+    console.warn("[GoMate] Supabase not configured - allowing request without auth")
     return supabaseResponse
   }
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
+  try {
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
+      }
+    )
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Protected routes - redirect to login if not authenticated
+    const protectedPaths = ["/dashboard", "/chat", "/guides", "/booking", "/settings"]
+    const isProtectedPath = protectedPaths.some((path) =>
+      request.nextUrl.pathname.startsWith(path)
+    )
+
+    if (isProtectedPath && !user) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/auth/login"
+      return NextResponse.redirect(url)
     }
-  )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    // If user is logged in and tries to access auth pages, redirect to dashboard
+    if (user && request.nextUrl.pathname.startsWith("/auth")) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/dashboard"
+      return NextResponse.redirect(url)
+    }
 
-  // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ["/dashboard", "/chat", "/guides", "/booking", "/settings"]
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+    // If user is logged in and at root, redirect to dashboard
+    if (user && request.nextUrl.pathname === "/") {
+      const url = request.nextUrl.clone()
+      url.pathname = "/dashboard"
+      return NextResponse.redirect(url)
+    }
 
-  if (isProtectedPath && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/auth/login"
-    return NextResponse.redirect(url)
+    return supabaseResponse
+  } catch (error) {
+    console.error("[GoMate] Middleware auth error:", error)
+    // On any error, allow the request to proceed
+    return supabaseResponse
   }
-
-  // If user is logged in and tries to access auth pages, redirect to dashboard
-  if (user && request.nextUrl.pathname.startsWith("/auth")) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
-    return NextResponse.redirect(url)
-  }
-
-  // If user is logged in and at root, redirect to dashboard
-  if (user && request.nextUrl.pathname === "/") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
-    return NextResponse.redirect(url)
-  }
-
-  return supabaseResponse
 }
