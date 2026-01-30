@@ -12,6 +12,7 @@ import { CountdownTimer } from "@/components/countdown-timer"
 import { BudgetPlanCard, type BudgetPlanData } from "@/components/budget-plan-card"
 import { VisaRoutesCard, type VisaData } from "@/components/visa-routes-card"
 import { VisaResearchCard, type VisaResearchData } from "@/components/visa-research-card"
+import { LocalRequirementsCard, type LocalRequirementsData } from "@/components/local-requirements-card"
 import { DocumentProgressCard, type DocumentItem, type DocumentStatus } from "@/components/document-progress-card"
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
@@ -440,6 +441,7 @@ export default function DashboardPage() {
   const [lockLoading, setLockLoading] = useState(false)
   const [selectedVisaRoute, setSelectedVisaRoute] = useState<number | undefined>(0)
   const [visaResearch, setVisaResearch] = useState<VisaResearchData | null>(null)
+  const [localRequirements, setLocalRequirements] = useState<LocalRequirementsData | null>(null)
   const [researchStatus, setResearchStatus] = useState<string | null>(null)
 
   // Fetch the user's plan, guide, and document statuses on mount
@@ -455,9 +457,12 @@ export default function DashboardPage() {
         if (planRes.ok) {
           const data = await planRes.json()
           setPlan(data.plan)
-          // Check for cached visa research
+          // Check for cached research data
           if (data.plan?.visa_research) {
             setVisaResearch(data.plan.visa_research)
+          }
+          if (data.plan?.local_requirements_research) {
+            setLocalRequirements(data.plan.local_requirements_research)
           }
           if (data.plan?.research_status) {
             setResearchStatus(data.plan.research_status)
@@ -889,6 +894,22 @@ export default function DashboardPage() {
               onSelectRoute={setSelectedVisaRoute}
             />
           </div>
+        </div>
+      )}
+
+      {/* Local Requirements Section */}
+      {hasDestination && (
+        <div className="mb-8">
+          <LocalRequirementsCard
+            planId={plan?.id}
+            destination={targetCountry}
+            city={profile.target_city}
+            cachedResearch={localRequirements}
+            researchStatus={researchStatus}
+            onResearchComplete={(data) => {
+              setLocalRequirements(data)
+            }}
+          />
         </div>
       )}
 
