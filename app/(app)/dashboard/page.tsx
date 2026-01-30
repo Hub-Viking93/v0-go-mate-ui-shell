@@ -11,6 +11,7 @@ import { InfoCard } from "@/components/info-card"
 import { CountdownTimer } from "@/components/countdown-timer"
 import { BudgetPlanCard, type BudgetPlanData } from "@/components/budget-plan-card"
 import { VisaRoutesCard, type VisaData } from "@/components/visa-routes-card"
+import { VisaResearchCard, type VisaResearchData } from "@/components/visa-research-card"
 import { DocumentProgressCard, type DocumentItem, type DocumentStatus } from "@/components/document-progress-card"
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
@@ -438,6 +439,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [lockLoading, setLockLoading] = useState(false)
   const [selectedVisaRoute, setSelectedVisaRoute] = useState<number | undefined>(0)
+  const [visaResearch, setVisaResearch] = useState<VisaResearchData | null>(null)
+  const [researchStatus, setResearchStatus] = useState<string | null>(null)
 
   // Fetch the user's plan, guide, and document statuses on mount
   useEffect(() => {
@@ -452,6 +455,13 @@ export default function DashboardPage() {
         if (planRes.ok) {
           const data = await planRes.json()
           setPlan(data.plan)
+          // Check for cached visa research
+          if (data.plan?.visa_research) {
+            setVisaResearch(data.plan.visa_research)
+          }
+          if (data.plan?.research_status) {
+            setResearchStatus(data.plan.research_status)
+          }
         }
         
         if (guidesRes.ok) {
@@ -846,13 +856,32 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Visa Routes Section */}
+      {/* AI Visa Research Section */}
       {hasDestination && hasCitizenship && (
+        <div className="mb-8">
+          <VisaResearchCard
+            planId={plan?.id}
+            destination={targetCountry}
+            citizenship={citizenship}
+            purpose={profile.purpose}
+            cachedResearch={visaResearch}
+            researchStatus={researchStatus}
+            onResearchComplete={(data) => {
+              setVisaResearch(data)
+              setResearchStatus("completed")
+            }}
+          />
+        </div>
+      )}
+
+      {/* Static Visa Routes Section (fallback when no AI research) */}
+      {hasDestination && hasCitizenship && !visaResearch && (
         <div className="mb-8">
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2 mb-6">
               <FileText className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Visa Recommendations</h2>
+              <h2 className="text-lg font-semibold text-foreground">Common Visa Options</h2>
+              <Badge variant="outline" className="text-xs">Static data</Badge>
             </div>
             <VisaRoutesCard 
               visaData={visaData}
