@@ -34,7 +34,9 @@ import {
   Sparkles,
   Lock,
   Unlock,
-  Shield
+  Shield,
+  Loader2,
+  AlertCircle
 } from "lucide-react"
 import { type Profile, getRequiredFields } from "@/lib/gomate/profile-schema"
 import { getCompletionPercentage, getFilledFields } from "@/lib/gomate/state-machine"
