@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { ArrowLeft, FileCheck, RefreshCw } from "lucide-react"
+import { ArrowLeft, FileCheck, RefreshCw, Sparkles, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import {
   InteractiveDocumentChecklist,
   type DocumentItem,
   type DocumentStatus,
 } from "@/components/interactive-document-checklist"
 import type { Profile } from "@/lib/gomate/profile-schema"
+import type { GeneratedChecklist } from "@/lib/gomate/checklist-generator"
 
 // Generate document checklist based on profile
 function generateDocumentChecklist(profile: Profile): DocumentItem[] {
@@ -263,24 +265,32 @@ function generateDocumentChecklist(profile: Profile): DocumentItem[] {
 export default function DocumentsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [researching, setResearching] = useState(false)
+  const [researchError, setResearchError] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [planId, setPlanId] = useState<string | null>(null)
   const [statuses, setStatuses] = useState<Record<string, DocumentStatus>>({})
   const [items, setItems] = useState<DocumentItem[]>([])
+  const [aiChecklist, setAiChecklist] = useState<GeneratedChecklist | null>(null)
+  const [isAiGenerated, setIsAiGenerated] = useState(false)
 
-  // Fetch profile and document statuses
+  // Fetch profile, document statuses, and cached AI checklist
   useEffect(() => {
     async function fetchData() {
       try {
-        const [profileRes, docsRes] = await Promise.all([
+        const [profileRes, docsRes, checklistRes] = await Promise.all([
           fetch("/api/profile"),
           fetch("/api/documents"),
+          fetch("/api/research/checklist"),
         ])
 
         if (profileRes.ok) {
           const data = await profileRes.json()
           const profileData = data.plan?.profile_data as Profile
           setProfile(profileData)
+          setPlanId(data.plan?.id || null)
           
+          // Use static checklist as fallback
           if (profileData) {
             setItems(generateDocumentChecklist(profileData))
           }
@@ -289,6 +299,16 @@ export default function DocumentsPage() {
         if (docsRes.ok) {
           const data = await docsRes.json()
           setStatuses(data.statuses || {})
+        }
+
+        // Check for cached AI-generated checklist
+        if (checklistRes.ok) {
+          const data = await checklistRes.json()
+          if (data.checklist && data.checklist.items?.length > 0) {
+            setAiChecklist(data.checklist)
+            setItems(data.checklist.items)
+            setIsAiGenerated(true)
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -299,6 +319,39 @@ export default function DocumentsPage() {
 
     fetchData()
   }, [])
+
+  // Handle AI research
+  const handleResearchChecklist = useCallback(async () => {
+    if (!planId || !profile) return
+    
+    setResearching(true)
+    setResearchError(null)
+    
+    try {
+      const response = await fetch("/api/research/checklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to research requirements")
+      }
+      
+      const data = await response.json()
+      if (data.checklist && data.checklist.items?.length > 0) {
+        setAiChecklist(data.checklist)
+        setItems(data.checklist.items)
+        setIsAiGenerated(true)
+      }
+    } catch (error) {
+      console.error("Error researching checklist:", error)
+      setResearchError(error instanceof Error ? error.message : "Research failed")
+    } finally {
+      setResearching(false)
+    }
+  }, [planId, profile])
 
   // Handle status change
   const handleStatusChange = useCallback(async (documentId: string, completed: boolean) => {
@@ -391,13 +444,37 @@ export default function DocumentsPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {isAiGenerated && (
+              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                <Sparkles className="w-3 h-3 mr-1" />
+                AI Generated
+              </Badge>
+            )}
             {saving && (
               <span className="text-sm text-muted-foreground flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 Saving...
               </span>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResearchChecklist}
+              disabled={researching || !planId}
+            >
+              {researching ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Researching...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {isAiGenerated ? "Refresh Research" : "Research My Requirements"}
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -425,12 +502,45 @@ export default function DocumentsPage() {
           </div>
         </div>
 
+        {/* Research Error */}
+        {researchError && (
+          <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Research Failed</p>
+              <p className="text-xs text-destructive/80">{researchError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* AI Checklist Info */}
+        {isAiGenerated && aiChecklist && (
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  Personalized for: {aiChecklist.visaType || "Your visa type"}
+                </span>
+              </div>
+              {aiChecklist.generatedAt && (
+                <span className="text-xs text-muted-foreground">
+                  Updated {new Date(aiChecklist.generatedAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+            {aiChecklist.summary && (
+              <p className="mt-2 text-sm text-muted-foreground">{aiChecklist.summary}</p>
+            )}
+          </div>
+        )}
+
         {/* Interactive Checklist */}
         <InteractiveDocumentChecklist
           items={items}
           statuses={statuses}
           onStatusChange={handleStatusChange}
-          title="Your Documents"
+          title={isAiGenerated ? "AI-Generated Checklist" : "Document Checklist"}
           collapsible={false}
           defaultExpanded={true}
         />
