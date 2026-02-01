@@ -700,6 +700,31 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Research Status Banner */}
+      {researchStatus === "in_progress" && (
+        <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Researching your relocation requirements...</p>
+            <p className="text-xs text-muted-foreground">We're gathering visa options and local requirements for {targetCountry}. This may take a minute.</p>
+          </div>
+        </div>
+      )}
+      
+      {researchStatus === "failed" && (
+        <div className="mb-6 p-4 rounded-xl bg-destructive/5 border border-destructive/20 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/10">
+            <AlertCircle className="w-4 h-4 text-destructive" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Research couldn't be completed</p>
+            <p className="text-xs text-muted-foreground">You can manually trigger research from the visa and requirements sections below.</p>
+          </div>
+        </div>
+      )}
+
       {/* Countdown Timer - Prominent at top */}
       {hasDestination && (
         <div className="mb-8">
