@@ -272,15 +272,25 @@ export function VisaResearchCard({
     }
   }
 
-  const formatResearchDate = (dateStr: string) => {
+  const CACHE_EXPIRY_DAYS = 7
+
+  const getResearchAge = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+    return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const formatResearchDate = (dateStr: string) => {
+    const diffDays = getResearchAge(dateStr)
     
     if (diffDays === 0) return "Today"
     if (diffDays === 1) return "Yesterday"
     if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString()
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  const isResearchStale = (dateStr: string) => {
+    return getResearchAge(dateStr) >= CACHE_EXPIRY_DAYS
   }
 
   // Show research prompt if no cached research
