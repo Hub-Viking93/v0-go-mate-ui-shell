@@ -515,24 +515,61 @@ export default function DocumentsPage() {
 
         {/* AI Checklist Info */}
         {isAiGenerated && aiChecklist && (
-          <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">
-                  Personalized for: {aiChecklist.visaType || "Your visa type"}
-                </span>
+          (() => {
+            const CACHE_EXPIRY_DAYS = 7
+            const getChecklistAge = () => {
+              if (!aiChecklist.generatedAt) return 0
+              const date = new Date(aiChecklist.generatedAt)
+              const now = new Date()
+              return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+            }
+            const formatChecklistDate = () => {
+              if (!aiChecklist.generatedAt) return ""
+              const diffDays = getChecklistAge()
+              if (diffDays === 0) return "Today"
+              if (diffDays === 1) return "Yesterday"
+              if (diffDays < 7) return `${diffDays} days ago`
+              return new Date(aiChecklist.generatedAt).toLocaleDateString()
+            }
+            const isStale = getChecklistAge() >= CACHE_EXPIRY_DAYS
+
+            return (
+              <div className={`p-4 rounded-xl ${isStale ? "bg-amber-500/5 border border-amber-500/20" : "bg-primary/5 border border-primary/10"}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className={`w-4 h-4 ${isStale ? "text-amber-600" : "text-primary"}`} />
+                    <span className="text-sm font-medium text-foreground">
+                      Personalized for: {aiChecklist.visaType || "Your visa type"}
+                    </span>
+                  </div>
+                  {aiChecklist.generatedAt && (
+                    <span className={`text-xs ${isStale ? "text-amber-600" : "text-muted-foreground"}`}>
+                      Updated {formatChecklistDate()}
+                    </span>
+                  )}
+                </div>
+                {isStale && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      This checklist is over 7 days old. Requirements may have changed.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResearchChecklist}
+                      disabled={researching}
+                      className="border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 text-xs h-7 bg-transparent"
+                    >
+                      {researching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+                    </Button>
+                  </div>
+                )}
+                {aiChecklist.summary && !isStale && (
+                  <p className="mt-2 text-sm text-muted-foreground">{aiChecklist.summary}</p>
+                )}
               </div>
-              {aiChecklist.generatedAt && (
-                <span className="text-xs text-muted-foreground">
-                  Updated {new Date(aiChecklist.generatedAt).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-            {aiChecklist.summary && (
-              <p className="mt-2 text-sm text-muted-foreground">{aiChecklist.summary}</p>
-            )}
-          </div>
+            )
+          })()
         )}
 
         {/* Interactive Checklist */}

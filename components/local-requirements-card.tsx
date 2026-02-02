@@ -292,15 +292,25 @@ export function LocalRequirementsCard({
     }
   }
 
-  const formatResearchDate = (dateStr: string) => {
+  const CACHE_EXPIRY_DAYS = 7
+
+  const getResearchAge = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+    return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const formatResearchDate = (dateStr: string) => {
+    const diffDays = getResearchAge(dateStr)
 
     if (diffDays === 0) return "Today"
     if (diffDays === 1) return "Yesterday"
     if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString()
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  const isResearchStale = (dateStr: string) => {
+    return getResearchAge(dateStr) >= CACHE_EXPIRY_DAYS
   }
 
   // Show research prompt if no cached research
@@ -390,6 +400,27 @@ export function LocalRequirementsCard({
           </Button>
         </div>
       </div>
+
+      {/* Stale cache warning */}
+      {isResearchStale(research.researchedAt) && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
+          <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              This research is over 7 days old and may be outdated.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResearch}
+            disabled={isResearching}
+            className="border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 bg-transparent"
+          >
+            {isResearching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+          </Button>
+        </div>
+      )}
 
       {research.summary && (
         <p className="text-sm text-muted-foreground mb-4">{research.summary}</p>
