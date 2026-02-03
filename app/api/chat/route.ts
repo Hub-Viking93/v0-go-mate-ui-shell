@@ -218,11 +218,13 @@ export async function POST(req: Request) {
       budget: budgetData,
       savings: savingsData,
       researchReport,
-      // Extraction feedback for debugging/tracking
+      // Extraction feedback - helps AI verify data was captured
       lastExtraction: extractionAttempted ? {
         attempted: true,
         fieldsExtracted: extractionResult ? Object.keys(extractionResult) : [],
+        extractedValues: extractionResult || {},
         success: extractionResult !== null && Object.keys(extractionResult).length > 0,
+        pendingFieldBefore: pendingFieldKey,
       } : null,
     }
     
