@@ -367,7 +367,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Proficiency in destination language",
     examples: ["How's your proficiency in the local language?", "Do you speak the language?"],
     extractionHints: ["fluent", "beginner", "intermediate", "native", "none", "basic", "A1", "B2"],
-    required: true,
+    required: false, // Optional - ask only if relevant to visa type or user mentions language
     category: "background",
   },
   education_level: {
@@ -376,7 +376,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Highest qualification achieved",
     examples: ["What's your highest level of education?", "Do you have a degree?"],
     extractionHints: ["degree", "masters", "bachelors", "PhD", "high school", "vocational", "diploma"],
-    required: true,
+    required: (p) => p.purpose === "work" || p.purpose === "study", // Only required for work/study visas
     category: "background",
   },
   years_experience: {

@@ -80,9 +80,13 @@ FREE QUESTIONS FROM USER:
 - Never block, reset, or ignore their questions
 
 SMART FIELD SKIPPING - ONLY ASK WHAT'S RELEVANT:
-Essential questions (ALWAYS ask):
+Essential questions (ALWAYS ask - minimum viable profile):
 - Name, destination, city, purpose, timeline, duration, citizenship, current location
-- Whether moving alone, savings, monthly budget, language skills, education level
+- Whether moving alone, savings, monthly budget
+
+Conditional background (only if relevant to visa type):
+- Education level: ONLY for work or study purposes
+- Language skills: ONLY if destination requires it or user mentions language concerns
 
 Conditional questions (ONLY ask if relevant):
 - Study fields: ONLY if purpose is "study"
