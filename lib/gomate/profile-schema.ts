@@ -356,7 +356,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Whether user needs help with budgeting",
     examples: ["Would you like help planning your budget?", "Should I help you estimate costs?"],
     extractionHints: ["help", "estimate", "plan", "figure out", "not sure", "yes", "no"],
-    required: true,
+    required: false, // Offer only if user seems uncertain about finances
     category: "financial",
   },
 
@@ -390,14 +390,14 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     dependsOn: { field: "purpose", values: ["work"] },
   },
 
-  // LEGAL/VISA HISTORY
+  // LEGAL/VISA HISTORY - Only ask if relevant or user mentions visa concerns
   prior_visa: {
     key: "prior_visa",
     label: "Prior Visa History",
     intent: "Previous visas for destination country",
     examples: ["Have you held any visas for this country before?", "Have you visited or lived there previously?"],
     extractionHints: ["visited", "lived", "previous visa", "been there", "traveled", "tourist"],
-    required: true,
+    required: false, // Only ask if user mentions visa history or concerns
     category: "legal",
   },
   visa_rejections: {
@@ -406,18 +406,18 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Any previous visa rejections",
     examples: ["Have you ever had a visa rejected?", "Any previous visa issues we should know about?"],
     extractionHints: ["rejected", "denied", "refused", "overstay", "issues", "problems", "no"],
-    required: true,
+    required: false, // Only ask if user mentions visa issues or has prior_visa
     category: "legal",
   },
 
-  // HEALTHCARE & SPECIAL NEEDS
+  // HEALTHCARE & SPECIAL NEEDS - Only ask if user mentions or context suggests
   healthcare_needs: {
     key: "healthcare_needs",
     label: "Healthcare Needs",
     intent: "Medical requirements and conditions",
     examples: ["Do you have any ongoing healthcare needs?", "Any medical conditions we should consider for your move?"],
     extractionHints: ["medical", "health", "condition", "medication", "doctor", "treatment", "none"],
-    required: true,
+    required: false, // Only ask if user mentions health concerns
     category: "special",
   },
   pets: {
@@ -426,7 +426,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Animals relocating with user",
     examples: ["Will you be bringing any pets?", "Do you have animals that need to travel with you?"],
     extractionHints: ["pet", "dog", "cat", "animal", "bird", "none", "no pets"],
-    required: true,
+    required: false, // Only ask if user mentions pets
     category: "special",
   },
   special_requirements: {
