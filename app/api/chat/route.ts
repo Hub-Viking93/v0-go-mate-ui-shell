@@ -106,9 +106,13 @@ export async function POST(req: Request) {
     const lastUserText = lastUserMessage ? getMessageText(lastUserMessage) : ""
 
     // If there's a user message and plan is NOT locked, extract data from it
+    let extractionResult: Partial<Profile> | null = null
+    let extractionAttempted = false
+    
     if (lastUserText && !userConfirmed && !planLocked) {
-      const extractionResult = await extractProfileData(lastUserText, profile)
-      if (extractionResult) {
+      extractionAttempted = true
+      extractionResult = await extractProfileData(lastUserText, profile)
+      if (extractionResult && Object.keys(extractionResult).length > 0) {
         profile = updateProfile(profile, extractionResult)
         
         // Save the updated profile to Supabase
@@ -214,6 +218,12 @@ export async function POST(req: Request) {
       budget: budgetData,
       savings: savingsData,
       researchReport,
+      // Extraction feedback for debugging/tracking
+      lastExtraction: extractionAttempted ? {
+        attempted: true,
+        fieldsExtracted: extractionResult ? Object.keys(extractionResult) : [],
+        success: extractionResult !== null && Object.keys(extractionResult).length > 0,
+      } : null,
     }
     
     const messageId = `msg_${Date.now()}`
