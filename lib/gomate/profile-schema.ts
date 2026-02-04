@@ -12,39 +12,40 @@ export const ALL_FIELDS = [
   "target_city",
   "purpose",
   
-  // Study-specific fields
-  "study_type", // university, language_school, vocational, exchange
-  "study_field", // engineering, medicine, arts, etc.
-  "study_funding", // self-funded, scholarship, loan
+  // Visa role - MUST come right after purpose to enable proper branching
+  "visa_role", // primary, dependent - clarifies who the visa is for
   
-  // Work-specific fields
-  "job_offer", // yes, no, in_progress
-  "job_field", // tech, healthcare, finance, etc.
-  "employer_sponsorship", // yes, no, unknown
-  "highly_skilled", // yes, no - for skilled worker visas
-  
-  // Digital nomad / freelance specific
-  "remote_income", // yes, no
-  "income_source", // freelance, employed_remote, business_owner
-  "monthly_income", // for digital nomad visa requirements
-  
-  // Settlement specific
-  "settlement_reason", // retirement, family_reunion, investment, ancestry
-  "family_ties", // yes, no - existing family in destination
+  // Partner/sponsor info - ONLY for dependents and family reunion
+  // Asked early so we understand the visa pathway before asking irrelevant fields
+  "partner_citizenship", // citizenship of the partner/sponsor
+  "partner_visa_status", // citizen, permanent_resident, work_visa, student_visa, other
+  "relationship_type", // spouse, fiancé, registered_partner, cohabitant, parent, child
+  "partner_residency_duration", // how long partner has lived there
+  "relationship_duration", // how long in relationship (some visas require proof)
   
   // Timeline & duration (always required)
   "duration",
   "timeline",
   
-  // Visa role - primary applicant or dependent
-  "visa_role", // primary, dependent - clarifies who the visa is for
+  // Study-specific fields (ONLY if purpose=study AND visa_role=primary)
+  "study_type", // university, language_school, vocational, exchange
+  "study_field", // engineering, medicine, arts, etc.
+  "study_funding", // self-funded, scholarship, loan
   
-  // Partner/sponsor info (for dependents and family reunion)
-  "partner_citizenship", // citizenship of the partner/sponsor
-  "partner_visa_status", // citizen, permanent_resident, work_visa, student_visa, other
-  "partner_residency_duration", // how long partner has lived there
-  "relationship_type", // spouse, fiancé, registered_partner, cohabitant, parent, child
-  "relationship_duration", // how long in relationship (some visas require proof)
+  // Work-specific fields (ONLY if purpose=work AND visa_role=primary)
+  "job_offer", // yes, no, in_progress
+  "job_field", // tech, healthcare, finance, etc.
+  "employer_sponsorship", // yes, no, unknown
+  "highly_skilled", // yes, no - for skilled worker visas
+  
+  // Digital nomad / freelance specific (ONLY if purpose=digital_nomad)
+  "remote_income", // yes, no
+  "income_source", // freelance, employed_remote, business_owner
+  "monthly_income", // for digital nomad visa requirements
+  
+  // Settlement specific (ONLY if purpose=settle)
+  "settlement_reason", // retirement, family_reunion, investment, ancestry
+  "family_ties", // yes, no - existing family in destination
   
   // Family & dependents
   "moving_alone", // yes, no
