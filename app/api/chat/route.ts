@@ -317,24 +317,50 @@ ${fieldDescriptions}
 
 EXTRACTION RULES:
 1. Extract MULTIPLE fields from one message when applicable
-   - "I'm Maria from Brazil, planning to move to Germany for work" → name, citizenship, destination, purpose
+   - "I'm Maria from Brazil, planning to move to Germany for work" → name, citizenship, destination, purpose, visa_role="primary"
    - "I'm Swedish living in Denmark" → citizenship="Swedish", current_location="Denmark"
    
-2. INFER values intelligently:
+2. VISA_ROLE - CRITICAL for determining visa pathway:
+   - "primary" = user is main visa applicant (getting their own visa)
+   - "dependent" = user is joining someone else (partner, spouse, family)
+   
+   DETECT DEPENDENT scenarios:
+   - "joining my partner/spouse/husband/wife" → visa_role="dependent"
+   - "my fiancé lives in Sweden" → visa_role="dependent", destination="Sweden"
+   - "my wife got a job in Berlin" → visa_role="dependent"
+   - "following my partner" → visa_role="dependent"
+   - "moving to be with my boyfriend" → visa_role="dependent"
+   - "I got a job offer" or "I'm studying" → visa_role="primary"
+   
+3. PARTNER FIELDS (only when visa_role="dependent" or joining someone):
+   - partner_citizenship: "He's Swedish" → partner_citizenship="Swedish"
+   - partner_visa_status: "citizen", "permanent_resident", "work_visa", "student_visa", "other"
+     - "She's a citizen there" → partner_visa_status="citizen"
+     - "He has a work permit" → partner_visa_status="work_visa"
+     - "She has PR" → partner_visa_status="permanent_resident"
+   - relationship_type: "spouse", "fiancé", "registered_partner", "cohabitant", "parent", "child", "other"
+     - "my husband" → relationship_type="spouse"
+     - "my fiancée" → relationship_type="fiancé"
+     - "my sambo/partner" → relationship_type="cohabitant"
+   - partner_residency_duration: "He's lived there for 3 years" → partner_residency_duration="3 years"
+   - relationship_duration: "We've been married 2 years" → relationship_duration="2 years"
+
+4. INFER values intelligently:
    - "with my wife and kids" → moving_alone="no", spouse_joining="yes"
-   - "just me" or "going solo" → moving_alone="yes"
+   - "just me" or "going solo" → moving_alone="yes", visa_role="primary"
    - "I'm a software engineer" → could indicate job_field, highly_skilled
    - "studying medicine" → purpose="study", study_field="medicine"
    
-3. PURPOSE values (use exactly): "study", "work", "settle", "digital_nomad", "other"
+5. PURPOSE values (use exactly): "study", "work", "settle", "digital_nomad", "other"
    - "university" or "masters" → purpose="study"
    - "job" or "career" → purpose="work"  
    - "retire" or "permanently" → purpose="settle"
    - "remote work" or "freelance" → purpose="digital_nomad"
+   - "joining my partner" → purpose="settle" (family reunion)
 
-4. YES/NO fields: Extract "yes" or "no"
-5. Numbers: Extract as string ("2" not 2)
-6. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
+6. YES/NO fields: Extract "yes" or "no"
+7. Numbers: Extract as string ("2" not 2)
+8. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
 
 IMPORTANT: Extract everything mentioned. Don't leave fields empty if the user provided the information.
 
@@ -381,6 +407,26 @@ Respond with a JSON object of extracted fields only. Empty object {} if nothing 
         const lowerValue = value.toLowerCase()
         if (validPurposes.includes(lowerValue)) {
           result.purpose = lowerValue as Profile["purpose"]
+        }
+      } else if (key === "visa_role") {
+        const validRoles = ["primary", "dependent"]
+        const lowerValue = value.toLowerCase()
+        if (validRoles.includes(lowerValue)) {
+          result.visa_role = lowerValue as Profile["visa_role"]
+        }
+      } else if (key === "partner_visa_status") {
+        const validStatuses = ["citizen", "permanent_resident", "work_visa", "student_visa", "other"]
+        const lowerValue = value.toLowerCase().replace(" ", "_")
+        if (validStatuses.includes(lowerValue)) {
+          result.partner_visa_status = lowerValue as Profile["partner_visa_status"]
+        }
+      } else if (key === "relationship_type") {
+        const validTypes = ["spouse", "fiancé", "registered_partner", "cohabitant", "parent", "child", "other"]
+        const lowerValue = value.toLowerCase()
+        // Handle variations
+        const normalized = lowerValue === "fiancee" ? "fiancé" : lowerValue
+        if (validTypes.includes(normalized)) {
+          result.relationship_type = normalized as Profile["relationship_type"]
         }
       } else {
         result[key as keyof Profile] = value as Profile[keyof Profile]
