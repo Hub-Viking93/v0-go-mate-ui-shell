@@ -358,7 +358,17 @@ EXTRACTION RULES:
    - "remote work" or "freelance" → purpose="digital_nomad"
    - "joining my partner" → purpose="settle" (family reunion)
 
-6. YES/NO fields: Extract "yes" or "no"
+6. INCOME STABILITY (for digital nomads - IMPORTANT for visa eligibility):
+   - income_consistency: "stable", "variable", or "new"
+     - "steady income" or "consistent clients" → income_consistency="stable"
+     - "income fluctuates" or "varies month to month" → income_consistency="variable"
+     - "just started freelancing" or "new business" → income_consistency="new"
+   - income_history_months: Extract duration of income history
+     - "been freelancing for 2 years" → income_history_months="24 months"
+     - "started 6 months ago" → income_history_months="6 months"
+     - "working remotely since 2022" → calculate and extract
+
+7. YES/NO fields: Extract "yes" or "no"
 7. Numbers: Extract as string ("2" not 2)
 8. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
 
@@ -427,6 +437,12 @@ Respond with a JSON object of extracted fields only. Empty object {} if nothing 
         const normalized = lowerValue === "fiancee" ? "fiancé" : lowerValue
         if (validTypes.includes(normalized)) {
           result.relationship_type = normalized as Profile["relationship_type"]
+        }
+      } else if (key === "income_consistency") {
+        const validConsistency = ["stable", "variable", "new"]
+        const lowerValue = value.toLowerCase()
+        if (validConsistency.includes(lowerValue)) {
+          result.income_consistency = lowerValue as Profile["income_consistency"]
         }
       } else {
         result[key as keyof Profile] = value as Profile[keyof Profile]

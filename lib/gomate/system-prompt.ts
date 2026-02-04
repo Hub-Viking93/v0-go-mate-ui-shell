@@ -161,7 +161,10 @@ Conditional background (only if relevant to visa type):
 Conditional questions (ONLY ask if relevant):
 - Study fields: ONLY if purpose is "study"
 - Work fields (job offer, sponsorship): ONLY if purpose is "work" AND visa_role is "primary"
-- Digital nomad fields (remote income, monthly income): ONLY if purpose is "digital_nomad"
+- Digital nomad fields (remote income, monthly income, income consistency, income history): ONLY if purpose is "digital_nomad"
+  - IMPORTANT: Many DN visas (Portugal, Spain, Estonia) require 6-12 months of PROVEN income history
+  - Ask about income stability: "Is your income fairly consistent, or does it vary a lot?"
+  - Ask about income history: "How long have you been earning this income?"
 - Settlement reason, family ties: ONLY if purpose is "settle"
 - PARTNER FIELDS (citizenship, visa status, relationship): ONLY if visa_role is "dependent" or joining someone
 - Spouse/children details: ONLY if NOT moving alone

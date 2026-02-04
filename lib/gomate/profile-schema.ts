@@ -42,6 +42,8 @@ export const ALL_FIELDS = [
   "remote_income", // yes, no
   "income_source", // freelance, employed_remote, business_owner
   "monthly_income", // for digital nomad visa requirements
+  "income_consistency", // stable, variable, new - how consistent is income
+  "income_history_months", // how many months of income history (e.g., "12 months")
   
   // Settlement specific (ONLY if purpose=settle)
   "settlement_reason", // retirement, family_reunion, investment, ancestry
@@ -254,6 +256,26 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Income level for digital nomad visa requirements",
     examples: ["What's your approximate monthly income?", "How much do you earn per month?"],
     extractionHints: ["per month", "monthly", "income", "earn", "make", "salary"],
+    required: (p) => p.purpose === "digital_nomad",
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
+  income_consistency: {
+    key: "income_consistency",
+    label: "Income Consistency",
+    intent: "How stable/consistent the income is - important for DN visa proof",
+    examples: ["Is your income fairly consistent month-to-month?", "Would you say your income is stable, or does it vary a lot?"],
+    extractionHints: ["stable", "consistent", "regular", "variable", "fluctuates", "varies", "new", "just started"],
+    required: (p) => p.purpose === "digital_nomad",
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
+  income_history_months: {
+    key: "income_history_months",
+    label: "Income History",
+    intent: "How long user has had this income - many DN visas require 6-12 months proof",
+    examples: ["How long have you been earning this income?", "How many months of income history can you show?"],
+    extractionHints: ["months", "years", "been freelancing", "started", "working for", "since"],
     required: (p) => p.purpose === "digital_nomad",
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["digital_nomad"] },
@@ -555,6 +577,8 @@ export const ProfileSchema = z.object({
   remote_income: z.string().nullable(),
   income_source: z.string().nullable(),
   monthly_income: z.string().nullable(),
+  income_consistency: z.enum(["stable", "variable", "new"]).nullable(),
+  income_history_months: z.string().nullable(),
   
   // Settlement specific
   settlement_reason: z.string().nullable(),
@@ -616,6 +640,8 @@ export const EMPTY_PROFILE: Profile = {
   remote_income: null,
   income_source: null,
   monthly_income: null,
+  income_consistency: null,
+  income_history_months: null,
   settlement_reason: null,
   family_ties: null,
   duration: null,
