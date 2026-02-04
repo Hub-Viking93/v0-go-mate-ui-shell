@@ -5,6 +5,8 @@ export const ALL_FIELDS = [
   // Core identity (always required)
   "name",
   "citizenship",
+  "other_citizenships", // dual/multiple passports - unlocks additional visa pathways
+  "birth_year", // for age-restricted visas (Working Holiday, retirement)
   "current_location",
   
   // Destination & purpose (always required)
@@ -114,6 +116,24 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     examples: ["What's your citizenship?", "Which passport do you hold?"],
     extractionHints: ["nationality", "passport", "citizen of", "I'm from", "I hold"],
     required: true,
+    category: "core",
+  },
+  other_citizenships: {
+    key: "other_citizenships",
+    label: "Other Citizenships",
+    intent: "Dual/multiple passports that may unlock additional visa pathways",
+    examples: ["Do you hold any other passports or citizenships?", "Any dual citizenship?"],
+    extractionHints: ["also have", "dual", "another passport", "second citizenship", "both", "and"],
+    required: false, // Only ask if user mentions or context suggests multiple citizenships
+    category: "core",
+  },
+  birth_year: {
+    key: "birth_year",
+    label: "Birth Year",
+    intent: "Age for age-restricted visas (Working Holiday 18-30/35, retirement 50+)",
+    examples: ["What year were you born?", "How old are you?"],
+    extractionHints: ["born in", "I'm", "years old", "age", "born", "birthday"],
+    required: false, // Only ask if destination has age-restricted visas or user mentions age
     category: "core",
   },
   current_location: {
@@ -549,6 +569,8 @@ export const ProfileSchema = z.object({
   // Core
   name: z.string().nullable(),
   citizenship: z.string().nullable(),
+  other_citizenships: z.string().nullable(),
+  birth_year: z.string().nullable(),
   current_location: z.string().nullable(),
   destination: z.string().nullable(),
   target_city: z.string().nullable(),
@@ -620,6 +642,8 @@ export type Profile = z.infer<typeof ProfileSchema>
 export const EMPTY_PROFILE: Profile = {
   name: null,
   citizenship: null,
+  other_citizenships: null,
+  birth_year: null,
   current_location: null,
   destination: null,
   target_city: null,

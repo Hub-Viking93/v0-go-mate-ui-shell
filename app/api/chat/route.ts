@@ -368,9 +368,24 @@ EXTRACTION RULES:
      - "started 6 months ago" → income_history_months="6 months"
      - "working remotely since 2022" → calculate and extract
 
-7. YES/NO fields: Extract "yes" or "no"
-7. Numbers: Extract as string ("2" not 2)
-8. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
+7. BIRTH YEAR & AGE (for age-restricted visas):
+   - birth_year: Extract or calculate from age
+     - "I'm 28" → calculate birth_year from current year (e.g., "1997")
+     - "born in 1990" → birth_year="1990"
+     - "I'll be 30 next year" → calculate appropriately
+   - IMPORTANT: Working Holiday visas often have age limits (18-30 or 18-35)
+   - Retirement visas often require 50+ years old
+
+8. OTHER CITIZENSHIPS (dual/multiple passports):
+   - other_citizenships: Extract additional citizenships beyond primary
+     - "I also have an Irish passport" → other_citizenships="Irish"
+     - "I'm American but also have German citizenship" → citizenship="American", other_citizenships="German"
+     - "dual US/Canadian citizen" → citizenship="US", other_citizenships="Canadian"
+   - Multiple additional: "I have Italian and Brazilian passports too" → other_citizenships="Italian, Brazilian"
+
+9. YES/NO fields: Extract "yes" or "no"
+10. Numbers: Extract as string ("2" not 2)
+11. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
 
 IMPORTANT: Extract everything mentioned. Don't leave fields empty if the user provided the information.
 

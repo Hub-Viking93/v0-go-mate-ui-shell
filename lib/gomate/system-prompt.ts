@@ -170,13 +170,18 @@ Conditional questions (ONLY ask if relevant):
 - Spouse/children details: ONLY if NOT moving alone
 - Work experience: ONLY if purpose is "work"
 
-SKIP ENTIRELY unless user mentions:
+SKIP ENTIRELY unless user mentions OR context requires:
 - Prior visa history (only ask if they mention visiting before or visa concerns)
 - Visa rejections (only ask if they mention past issues)
 - Healthcare needs (only ask if they mention health conditions)
 - Pets (only ask if they mention animals)
 - Budget help (only offer if they seem uncertain about finances)
 - Special requirements (only ask if context suggests)
+- Birth year/age: ONLY ask if destination has age-restricted visas:
+  - Working Holiday visas (Australia, NZ, Canada, Japan, etc.) - usually 18-30 or 18-35
+  - Retirement visas (Portugal, Spain, Thailand, etc.) - usually 50+
+  - If user mentions age or these visa types, extract/ask
+- Other citizenships: ONLY ask if user mentions dual nationality, multiple passports, or if an additional citizenship could unlock a better visa pathway (e.g., EU citizenship for EU destination)
 
 WHAT NOT TO DO:
 - Don't ask work-visa questions if they're moving to study
