@@ -33,6 +33,15 @@ import {
 
 export const maxDuration = 30
 
+// Field confidence levels for extraction tracking
+type FieldConfidence = "explicit" | "inferred" | "assumed"
+
+// Extraction result with confidence metadata
+type ExtractionResultWithConfidence = {
+  fields: Partial<Profile>
+  confidence: Record<string, FieldConfidence>
+}
+
 // Helper to extract text from UIMessage parts
 function getMessageText(message: UIMessage): string {
   return message.parts
@@ -106,14 +115,14 @@ export async function POST(req: Request) {
     const lastUserText = lastUserMessage ? getMessageText(lastUserMessage) : ""
 
     // If there's a user message and plan is NOT locked, extract data from it
-    let extractionResult: Partial<Profile> | null = null
+    let extractionResultWithConfidence: ExtractionResultWithConfidence | null = null
     let extractionAttempted = false
     
     if (lastUserText && !userConfirmed && !planLocked) {
       extractionAttempted = true
-      extractionResult = await extractProfileData(lastUserText, profile)
-      if (extractionResult && Object.keys(extractionResult).length > 0) {
-        profile = updateProfile(profile, extractionResult)
+      extractionResultWithConfidence = await extractProfileData(lastUserText, profile)
+      if (extractionResultWithConfidence && Object.keys(extractionResultWithConfidence.fields).length > 0) {
+        profile = updateProfile(profile, extractionResultWithConfidence.fields)
         
         // Save the updated profile to Supabase
         await saveProfileToSupabase(profile)
@@ -218,12 +227,13 @@ export async function POST(req: Request) {
       budget: budgetData,
       savings: savingsData,
       researchReport,
-      // Extraction feedback - helps AI verify data was captured
+// Extraction feedback - helps AI verify data was captured
       lastExtraction: extractionAttempted ? {
         attempted: true,
-        fieldsExtracted: extractionResult ? Object.keys(extractionResult) : [],
-        extractedValues: extractionResult || {},
-        success: extractionResult !== null && Object.keys(extractionResult).length > 0,
+        fieldsExtracted: extractionResultWithConfidence ? Object.keys(extractionResultWithConfidence.fields) : [],
+        extractedValues: extractionResultWithConfidence?.fields || {},
+        fieldConfidence: extractionResultWithConfidence?.confidence || {},
+        success: extractionResultWithConfidence !== null && Object.keys(extractionResultWithConfidence.fields).length > 0,
         pendingFieldBefore: pendingFieldKey,
       } : null,
     }
@@ -294,10 +304,11 @@ export async function POST(req: Request) {
 }
 
 // Extract profile data from user message using fetch
+// Returns both extracted fields and confidence levels for each field
 async function extractProfileData(
   userMessage: string,
   currentProfile: Profile
-): Promise<Partial<Profile> | null> {
+): Promise<ExtractionResultWithConfidence | null> {
   // Build dynamic field list based on current profile state
   const relevantFields = getRequiredFields(currentProfile)
   const fieldDescriptions = relevantFields.map(field => {
@@ -389,7 +400,44 @@ EXTRACTION RULES:
 
 IMPORTANT: Extract everything mentioned. Don't leave fields empty if the user provided the information.
 
-Respond with a JSON object of extracted fields only. Empty object {} if nothing extractable.`
+CONFIDENCE LEVELS - For each extracted field, also provide a confidence level:
+- "explicit": User directly stated this value (e.g., "I'm moving to Germany" → destination is explicit)
+- "inferred": Value was derived from context (e.g., "my husband" → relationship_type="spouse" is inferred)
+- "assumed": Reasonable assumption from limited context (e.g., solo traveler mentioning work → visa_role="primary" is assumed)
+
+Respond with a JSON object containing:
+{
+  "fields": { extracted field values },
+  "confidence": { field_name: "explicit" | "inferred" | "assumed" }
+}
+
+Example:
+User: "I'm Maria, a software engineer from Brazil moving to Berlin to join my German husband"
+Response:
+{
+  "fields": {
+    "name": "Maria",
+    "citizenship": "Brazilian", 
+    "job_field": "software engineering",
+    "destination": "Germany",
+    "target_city": "Berlin",
+    "visa_role": "dependent",
+    "relationship_type": "spouse",
+    "partner_citizenship": "German"
+  },
+  "confidence": {
+    "name": "explicit",
+    "citizenship": "explicit",
+    "job_field": "explicit",
+    "destination": "inferred",
+    "target_city": "explicit",
+    "visa_role": "inferred",
+    "relationship_type": "inferred",
+    "partner_citizenship": "explicit"
+  }
+}
+
+Return {"fields": {}, "confidence": {}} if nothing extractable.`
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -412,18 +460,24 @@ Respond with a JSON object of extracted fields only. Empty object {} if nothing 
     const data = await response.json()
     const text = data.choices?.[0]?.message?.content || "{}"
     
-    let parsed: Record<string, unknown>
+    let parsed: { fields?: Record<string, unknown>; confidence?: Record<string, string> }
     try {
       parsed = JSON.parse(text)
     } catch {
       return null
     }
     
+    // Handle both old format (flat object) and new format (with fields/confidence)
+    const extractedFields = parsed.fields || parsed
+    const extractedConfidence = parsed.confidence || {}
+    
     // Filter out null/undefined values and validate
     const result: Partial<Profile> = {}
+    const resultConfidence: Record<string, FieldConfidence> = {}
     const validKeys = new Set(ALL_FIELDS)
+    const validConfidenceLevels = new Set(["explicit", "inferred", "assumed"])
     
-    for (const [key, value] of Object.entries(parsed)) {
+    for (const [key, value] of Object.entries(extractedFields)) {
       if (!validKeys.has(key)) continue
       if (typeof value !== "string" || value === "") continue
       
@@ -462,9 +516,22 @@ Respond with a JSON object of extracted fields only. Empty object {} if nothing 
       } else {
         result[key as keyof Profile] = value as Profile[keyof Profile]
       }
+      
+      // Track confidence for successfully extracted fields
+      if (result[key as keyof Profile] !== undefined) {
+        const confidence = extractedConfidence[key]
+        if (confidence && validConfidenceLevels.has(confidence)) {
+          resultConfidence[key] = confidence as FieldConfidence
+        } else {
+          // Default to "explicit" if not specified
+          resultConfidence[key] = "explicit"
+        }
+      }
     }
     
-    return Object.keys(result).length > 0 ? result : null
+    return Object.keys(result).length > 0 
+      ? { fields: result, confidence: resultConfidence } 
+      : null
   } catch {
     return null
   }
