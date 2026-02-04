@@ -22,7 +22,7 @@ import {
   Calendar,
   ArrowRight,
   Loader2,
-  Sparkles
+  Sparkles,
 } from "lucide-react"
 
 interface UserGuide {
@@ -31,24 +31,10 @@ interface UserGuide {
   destination: string
   destination_city?: string
   purpose: string
-  guide_type?: string
   status: string
   created_at: string
   updated_at: string
-}
-
-const guideTypeLabels: Record<string, string> = {
-  main: "Main Guide",
-  visa: "Visa & Legal",
-  budget: "Budget & Finance",
-  housing: "Housing",
-  practical: "Practical Setup",
-  culture: "Culture & Lifestyle",
-  nightlife: "Nightlife & Social",
-  safety: "Safety & Emergency",
-  expat: "Expat Community",
-  transport: "Transport",
-  food: "Food & Dining",
+  guide_type?: string
 }
 
 const countries = [
@@ -69,6 +55,11 @@ const countries = [
 const filters = ["All", "Work", "Study", "Settle", "Remote Work"]
 const regions = ["All Regions", "Europe", "Asia", "North America", "Oceania"]
 
+const guideTypeLabels: Record<string, string> = {
+  main: "Main",
+  additional: "Additional",
+}
+
 export default function GuidesPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
@@ -81,7 +72,7 @@ export default function GuidesPage() {
   const [loadingGuides, setLoadingGuides] = useState(true)
   const [generatingGuide, setGeneratingGuide] = useState(false)
   const [generatingAll, setGeneratingAll] = useState(false)
-  const [generateProgress, setGenerateProgress] = useState({ current: 0, total: 11 })
+  const [generateProgress, setGenerateProgress] = useState<{ current: number, total: number }>({ current: 0, total: 0 })
 
   // Fetch user's guides
   useEffect(() => {
@@ -129,37 +120,8 @@ export default function GuidesPage() {
     }
   }
 
-  // Generate all guides at once
   const handleGenerateAllGuides = async () => {
-    setGeneratingAll(true)
-    setGenerateProgress({ current: 0, total: 11 })
-    
-    try {
-      const response = await fetch("/api/guides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generateAll: true }),
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        // Refresh the guides list
-        const guidesResponse = await fetch("/api/guides")
-        if (guidesResponse.ok) {
-          const guidesData = await guidesResponse.json()
-          setUserGuides(guidesData.guides || [])
-        }
-        setGenerateProgress({ current: data.total, total: data.total })
-      } else {
-        const error = await response.json()
-        alert(error.error || "Failed to generate guides")
-      }
-    } catch (error) {
-      console.error("Error generating all guides:", error)
-      alert("Failed to generate guides")
-    } finally {
-      setGeneratingAll(false)
-    }
+    // Placeholder for handleGenerateAllGuides function
   }
 
   const filteredCountries = countries.filter((country) => {
@@ -183,38 +145,18 @@ export default function GuidesPage() {
         title="Guides"
         description="Your personalized relocation guides and country information."
         action={
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={handleGenerateAllGuides} 
-              disabled={generatingAll || generatingGuide}
-              variant="outline"
-              className="gap-2 bg-transparent"
-            >
-              {generatingAll ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating All...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Generate All Guides
-                </>
-              )}
-            </Button>
-            <Button 
-              onClick={handleGenerateGuide} 
-              disabled={generatingGuide || generatingAll}
-              className="gap-2"
-            >
-              {generatingGuide ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              {generatingGuide ? "Generating..." : "Generate Guide"}
-            </Button>
-          </div>
+          <Button 
+            onClick={handleGenerateGuide} 
+            disabled={generatingGuide}
+            className="gap-2"
+          >
+            {generatingGuide ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            {generatingGuide ? "Generating..." : "Generate Guide"}
+          </Button>
         }
       />
 
@@ -258,30 +200,10 @@ export default function GuidesPage() {
                   Complete your profile in the chat to generate a personalized relocation guide 
                   with visa recommendations, budget planning, housing tips, and more.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button onClick={() => router.push("/chat")} className="gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Start Planning
-                  </Button>
-                  <Button 
-                    onClick={handleGenerateAllGuides} 
-                    variant="outline" 
-                    disabled={generatingAll || generatingGuide}
-                    className="gap-2 bg-transparent"
-                  >
-                    {generatingAll ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating All...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        Generate All Guides
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button onClick={() => router.push("/chat")} className="gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Start Planning
+                </Button>
               </div>
             </Card>
           ) : (
@@ -304,16 +226,9 @@ export default function GuidesPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      <Badge variant="outline">
-                        {purposeLabels[guide.purpose] || guide.purpose}
-                      </Badge>
-                      {guide.guide_type && guide.guide_type !== "main" && (
-                        <Badge variant="secondary" className="text-xs">
-                          {guideTypeLabels[guide.guide_type] || guide.guide_type}
-                        </Badge>
-                      )}
-                    </div>
+                    <Badge variant="outline">
+                      {purposeLabels[guide.purpose] || guide.purpose}
+                    </Badge>
                   </div>
                   
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
