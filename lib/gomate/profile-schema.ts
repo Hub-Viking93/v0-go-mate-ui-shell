@@ -36,6 +36,16 @@ export const ALL_FIELDS = [
   "duration",
   "timeline",
   
+  // Visa role - primary applicant or dependent
+  "visa_role", // primary, dependent - clarifies who the visa is for
+  
+  // Partner/sponsor info (for dependents and family reunion)
+  "partner_citizenship", // citizenship of the partner/sponsor
+  "partner_visa_status", // citizen, permanent_resident, work_visa, student_visa, other
+  "partner_residency_duration", // how long partner has lived there
+  "relationship_type", // spouse, fiancé, registered_partner, cohabitant, parent, child
+  "relationship_duration", // how long in relationship (some visas require proof)
+  
   // Family & dependents
   "moving_alone", // yes, no
   "spouse_joining", // yes, no, later
@@ -254,8 +264,16 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     label: "Settlement Reason",
     intent: "Specific reason for permanent settlement",
     examples: ["What's bringing you to settle there permanently?", "Is this for retirement, family, investment, or another reason?"],
-    extractionHints: ["retire", "retirement", "family", "investment", "ancestry", "marriage", "join"],
-    required: (p) => p.purpose === "settle",
+    extractionHints: [
+      "retire", "retirement", // retirement
+      "family", "family reunion", "join family", // family_reunion
+      "investment", "investor", "business", // investment
+      "ancestry", "heritage", "grandparents", "roots", // ancestry
+      "spouse", "husband", "wife", "partner", "spouse_work", // spouse_work
+      "fiancé", "fiancee", "engaged", "getting married", "marriage", // fiancé
+      "cohabitant", "sambo", "living together", "move in", // cohabitation
+    ],
+    required: (p) => p.purpose === "settle" || p.visa_role === "dependent",
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["settle"] },
   },
@@ -268,6 +286,69 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     required: (p) => p.purpose === "settle",
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["settle"] },
+  },
+
+  // VISA ROLE - Determines if user is primary applicant or joining someone
+  visa_role: {
+    key: "visa_role",
+    label: "Visa Role",
+    intent: "Whether user is the primary visa applicant or joining someone else (dependent)",
+    examples: ["Are you applying for the visa yourself, or joining someone who already has one?", "Will you be the main visa holder, or are you accompanying someone?"],
+    extractionHints: ["joining", "accompanying", "my partner has", "my spouse works", "following", "dependent", "main applicant", "primary", "myself"],
+    required: true,
+    category: "core",
+  },
+
+  // PARTNER/SPONSOR INFO - Only for dependents and family reunion
+  partner_citizenship: {
+    key: "partner_citizenship",
+    label: "Partner's Citizenship",
+    intent: "Citizenship/nationality of the partner or sponsor",
+    examples: ["What's your partner's citizenship?", "Is your spouse a citizen there, or do they hold a different nationality?"],
+    extractionHints: ["citizen", "citizenship", "nationality", "passport", "Swedish", "German", "American", "local"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  partner_visa_status: {
+    key: "partner_visa_status",
+    label: "Partner's Visa/Residency Status",
+    intent: "What visa or residency status the partner holds",
+    examples: ["What's your partner's residency status there?", "Does your partner have citizenship, permanent residency, or a work visa?"],
+    extractionHints: ["citizen", "permanent resident", "work visa", "student visa", "residency", "PR", "green card", "settled"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  partner_residency_duration: {
+    key: "partner_residency_duration",
+    label: "Partner's Time in Country",
+    intent: "How long partner has been living in destination",
+    examples: ["How long has your partner been living there?", "When did your partner move there?"],
+    extractionHints: ["years", "months", "since", "moved", "living there", "been there"],
+    required: false, // Only ask if relevant for visa type
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  relationship_type: {
+    key: "relationship_type",
+    label: "Relationship Type",
+    intent: "Type of relationship with partner/sponsor",
+    examples: ["What's your relationship?", "Are you married, engaged, or in a registered partnership?"],
+    extractionHints: ["married", "spouse", "wife", "husband", "fiancé", "engaged", "partner", "cohabitant", "sambo", "boyfriend", "girlfriend"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  relationship_duration: {
+    key: "relationship_duration",
+    label: "Relationship Duration",
+    intent: "How long in the relationship (some visas require proof)",
+    examples: ["How long have you been together?", "When did you get married or start your relationship?"],
+    extractionHints: ["years", "months", "since", "married in", "together for", "met", "dating"],
+    required: false, // Only ask if relevant for specific visa types
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
   },
 
   // TIMELINE & DURATION - Always required
@@ -449,6 +530,14 @@ export const ProfileSchema = z.object({
   destination: z.string().nullable(),
   target_city: z.string().nullable(),
   purpose: z.enum(["study", "work", "settle", "digital_nomad", "other"]).nullable(),
+  visa_role: z.enum(["primary", "dependent"]).nullable(),
+  
+  // Partner/sponsor info
+  partner_citizenship: z.string().nullable(),
+  partner_visa_status: z.enum(["citizen", "permanent_resident", "work_visa", "student_visa", "other"]).nullable(),
+  partner_residency_duration: z.string().nullable(),
+  relationship_type: z.enum(["spouse", "fiancé", "registered_partner", "cohabitant", "parent", "child", "other"]).nullable(),
+  relationship_duration: z.string().nullable(),
   
   // Study-specific
   study_type: z.string().nullable(),
@@ -510,6 +599,12 @@ export const EMPTY_PROFILE: Profile = {
   destination: null,
   target_city: null,
   purpose: null,
+  visa_role: null,
+  partner_citizenship: null,
+  partner_visa_status: null,
+  partner_residency_duration: null,
+  relationship_type: null,
+  relationship_duration: null,
   study_type: null,
   study_field: null,
   study_funding: null,

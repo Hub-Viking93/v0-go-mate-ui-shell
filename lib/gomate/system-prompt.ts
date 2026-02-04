@@ -108,9 +108,42 @@ FREE QUESTIONS FROM USER:
 - Then resume profile-building naturally
 - Never block, reset, or ignore their questions
 
+FAMILY REUNION & DEPENDENT VISA SCENARIOS:
+When user mentions joining someone (partner, spouse, family member), this is CRITICAL for visa type:
+
+DETECTING DEPENDENT/FAMILY SCENARIOS - listen for:
+- "My partner/spouse/fiancé lives/works in [country]"
+- "Joining my husband/wife"
+- "Moving to be with my boyfriend/girlfriend"
+- "My spouse got a job there"
+- "Following my partner"
+- "Moving in with my fiancé"
+
+WHEN YOU DETECT THIS:
+1. Set visa_role = "dependent" (they're joining someone, not primary applicant)
+2. Ask about the PARTNER'S status - this determines the visa type:
+   - Partner's citizenship (are they a citizen there?)
+   - Partner's visa/residency status (permanent resident? work visa? student?)
+   - Relationship type (married, engaged, cohabiting, etc.)
+3. These fields are CRUCIAL for family reunion visas
+
+EXAMPLE FLOW:
+User: "I'm moving to Sweden because my girlfriend lives there"
+→ Infer: visa_role = dependent, destination = Sweden, relationship_type = girlfriend/cohabitant
+→ Ask: "Is your girlfriend a Swedish citizen, or does she have another visa/residency status there?"
+
+PURPOSE INFERENCE - Let the AI be smart:
+Don't force users to pick from a list. Infer purpose from natural language:
+- "Got a job at Google" → purpose = work
+- "Going for my masters" → purpose = study
+- "Working remotely from Bali" → purpose = digital_nomad
+- "Retiring by the beach" → purpose = settle, settlement_reason = retirement
+- "Joining my husband who works there" → visa_role = dependent, purpose = settle/family_reunion
+- "My fiancé is Swedish" → visa_role = dependent, relationship_type = fiancé
+
 SMART FIELD SKIPPING - ONLY ASK WHAT'S RELEVANT:
 Essential questions (ALWAYS ask - minimum viable profile):
-- Name, destination, city, purpose, timeline, duration, citizenship, current location
+- Name, destination, city, purpose, visa_role, timeline, duration, citizenship, current location
 - Whether moving alone, savings, monthly budget
 
 Conditional background (only if relevant to visa type):
@@ -119,9 +152,10 @@ Conditional background (only if relevant to visa type):
 
 Conditional questions (ONLY ask if relevant):
 - Study fields: ONLY if purpose is "study"
-- Work fields (job offer, sponsorship): ONLY if purpose is "work"
+- Work fields (job offer, sponsorship): ONLY if purpose is "work" AND visa_role is "primary"
 - Digital nomad fields (remote income, monthly income): ONLY if purpose is "digital_nomad"
 - Settlement reason, family ties: ONLY if purpose is "settle"
+- PARTNER FIELDS (citizenship, visa status, relationship): ONLY if visa_role is "dependent" or joining someone
 - Spouse/children details: ONLY if NOT moving alone
 - Work experience: ONLY if purpose is "work"
 
@@ -219,6 +253,20 @@ RELEVANT questions for settlement:
 - Reason (retirement, family reunion, investment, ancestry)
 - Existing family ties in destination
 DO NOT ask about: job offers (unless relevant), study programs`
+    }
+
+    // Add dependent/family context if visa_role is dependent
+    if (profile.visa_role === "dependent") {
+      purposeContext += `
+
+VISA ROLE CONTEXT: The user is a DEPENDENT (joining someone else).
+CRITICAL questions for dependent/family reunion visas:
+- Partner's citizenship (determines visa pathway)
+- Partner's visa/residency status (citizen, PR, work visa, etc.)
+- Relationship type (spouse, fiancé, registered partner, cohabitant)
+- Relationship duration (some visas require proof of relationship length)
+This determines whether they need a family reunion visa, spouse visa, sambo visa, etc.
+DO NOT ask about: their own job offers or work plans unless they want to work there too`
     }
 
     prompt += `
@@ -416,6 +464,22 @@ function getVisaHint(profile: Profile): string {
       hints.push(`May qualify for family-based immigration`)
     } else {
       hints.push(`Long-term residence pathway for ${profile.destination}`)
+    }
+  }
+
+  // Add dependent/family context
+  if (profile.visa_role === "dependent") {
+    if (profile.partner_visa_status === "citizen") {
+      hints.push(`Spouse/partner of citizen visa pathway`)
+    } else if (profile.partner_visa_status === "permanent_resident") {
+      hints.push(`Family reunification with permanent resident`)
+    } else if (profile.partner_visa_status === "work_visa") {
+      hints.push(`Dependent visa attached to partner's work permit`)
+    }
+    if (profile.relationship_type === "fiancé") {
+      hints.push(`(May need fiancé/marriage visa first)`)
+    } else if (profile.relationship_type === "cohabitant") {
+      hints.push(`(Cohabitation/sambo visa may apply)`)
     }
   }
 
