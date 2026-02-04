@@ -3,17 +3,12 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { PageHeader } from "@/components/page-header"
-import { CountryCard } from "@/components/country-card"
-import { CountryCardSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CountryFlag } from "@/components/country-flag"
 import { 
-  Search, 
-  Filter, 
   ExternalLink, 
   Globe, 
   BookOpen, 
@@ -38,41 +33,22 @@ interface UserGuide {
 }
 
 const countries = [
-  { name: "Germany", slug: "germany", tags: ["Work", "Study", "Settle"], region: "Europe" },
-  { name: "Japan", slug: "japan", tags: ["Study", "Work"], region: "Asia" },
-  { name: "Portugal", slug: "portugal", tags: ["Settle", "Remote Work"], region: "Europe" },
-  { name: "Canada", slug: "canada", tags: ["Work", "Study", "Settle"], region: "North America" },
-  { name: "Australia", slug: "australia", tags: ["Work", "Study"], region: "Oceania" },
-  { name: "Netherlands", slug: "netherlands", tags: ["Work", "Study"], region: "Europe" },
-  { name: "Spain", slug: "spain", tags: ["Settle", "Remote Work"], region: "Europe" },
-  { name: "Singapore", slug: "singapore", tags: ["Work"], region: "Asia" },
-  { name: "New Zealand", slug: "new-zealand", tags: ["Work", "Settle"], region: "Oceania" },
-  { name: "France", slug: "france", tags: ["Study", "Work"], region: "Europe" },
-  { name: "United Kingdom", slug: "united-kingdom", tags: ["Work", "Study"], region: "Europe" },
-  { name: "Sweden", slug: "sweden", tags: ["Work", "Study"], region: "Europe" },
+  { name: "USA", tags: ["study", "work"], region: "North America" },
+  { name: "Canada", tags: ["study", "work"], region: "North America" },
+  // Add more countries here
 ]
-
-const filters = ["All", "Work", "Study", "Settle", "Remote Work"]
-const regions = ["All Regions", "Europe", "Asia", "North America", "Oceania"]
-
-const guideTypeLabels: Record<string, string> = {
-  main: "Main",
-  additional: "Additional",
-}
 
 export default function GuidesPage() {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState("my-guides")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
   const [activeRegion, setActiveRegion] = useState("All Regions")
-  const [activeTab, setActiveTab] = useState("my-guides")
   
   // User guides state
   const [userGuides, setUserGuides] = useState<UserGuide[]>([])
   const [loadingGuides, setLoadingGuides] = useState(true)
   const [generatingGuide, setGeneratingGuide] = useState(false)
-  const [generatingAll, setGeneratingAll] = useState(false)
-  const [generateProgress, setGenerateProgress] = useState<{ current: number, total: number }>({ current: 0, total: 0 })
 
   // Fetch user's guides
   useEffect(() => {
@@ -119,17 +95,6 @@ export default function GuidesPage() {
       setGeneratingGuide(false)
     }
   }
-
-  const handleGenerateAllGuides = async () => {
-    // Placeholder for handleGenerateAllGuides function
-  }
-
-  const filteredCountries = countries.filter((country) => {
-    const matchesSearch = country.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = activeFilter === "All" || country.tags.includes(activeFilter)
-    const matchesRegion = activeRegion === "All Regions" || country.region === activeRegion
-    return matchesSearch && matchesFilter && matchesRegion
-  })
 
   const purposeLabels: Record<string, string> = {
     study: "Study",
@@ -251,109 +216,41 @@ export default function GuidesPage() {
           )}
         </TabsContent>
 
-        {/* Country Guides Tab */}
+        {/* Country Guides Tab - Redirect to GoMate Website */}
         <TabsContent value="country-guides" className="space-y-6">
-          {/* GoMate Website Banner */}
-          <a
-            href="https://www.gomaterelocate.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block p-4 rounded-2xl bg-primary/5 border border-primary/20 hover:bg-primary/10 hover:border-primary/30 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Globe className="w-6 h-6 text-primary" />
+          <Card className="p-8 text-center">
+            <div className="max-w-lg mx-auto space-y-6">
+              <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto">
+                <Globe className="w-12 h-12 text-primary" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                  View Full Country Guides on GoMate
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  In-depth visa pathways, cost of living, and relocation tips at gomaterelocate.com
+              
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-foreground">
+                  Explore Our Country Guides
+                </h2>
+                <p className="text-muted-foreground">
+                  Visit our website for comprehensive country guides with detailed visa pathways, 
+                  cost of living breakdowns, expat communities, and relocation tips for 50+ destinations.
                 </p>
               </div>
-              <ExternalLink className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-          </a>
 
-          {/* Search and Filters */}
-          <div className="space-y-4">
-            {/* Search */}
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search countries..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-xl"
-              />
-            </div>
-
-            {/* Filter Chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              {filters.map((filter) => (
-                <Button
-                  key={filter}
-                  variant={activeFilter === filter ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActiveFilter(filter)}
-                  className="rounded-full"
+              <Button asChild size="lg" className="gap-2">
+                <a 
+                  href="https://gomaterelocate.com/country-guides" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
                 >
-                  {filter}
-                </Button>
-              ))}
-            </div>
-
-            {/* Region Filter */}
-            <div className="flex flex-wrap gap-2">
-              {regions.map((region) => (
-                <Badge
-                  key={region}
-                  variant={activeRegion === region ? "default" : "outline"}
-                  className="cursor-pointer hover:bg-secondary"
-                  onClick={() => setActiveRegion(region)}
-                >
-                  {region}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Results Count */}
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredCountries.length} of {countries.length} countries
-          </p>
-
-          {/* Country Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredCountries.map((country) => (
-              <CountryCard
-                key={country.slug}
-                name={country.name}
-                slug={country.slug}
-                tags={country.tags}
-              />
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {filteredCountries.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground">No countries match your search criteria.</p>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSearchQuery("")
-                  setActiveFilter("All")
-                  setActiveRegion("All Regions")
-                }}
-                className="mt-4"
-              >
-                Clear filters
+                  <Globe className="w-5 h-5" />
+                  Browse Country Guides
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </Button>
+
+              <p className="text-xs text-muted-foreground">
+                Opens gomaterelocate.com in a new tab
+              </p>
             </div>
-          )}
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
