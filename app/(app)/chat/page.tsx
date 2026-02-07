@@ -56,6 +56,8 @@ function ChatPageContent() {
   const [officialSources, setOfficialSources] = useState<OfficialSource[]>([])
   const [visaStatus, setVisaStatus] = useState<{ visaFree: boolean; reason: string; badge: string } | null>(null)
   const [planLocked, setPlanLocked] = useState(false)
+  const [planId, setPlanId] = useState<string | null>(null)
+  const [researchTriggered, setResearchTriggered] = useState(false)
   const [profileSummary, setProfileSummary] = useState<string | null>(null)
   const [visaRecommendation, setVisaRecommendation] = useState<string | null>(null)
   const [budgetData, setBudgetData] = useState<{ minimum: number; comfortable: number; breakdown: Record<string, number> } | null>(null)
@@ -79,6 +81,11 @@ function ChatPageContent() {
         const response = await fetch("/api/profile")
         if (response.ok) {
           const data = await response.json()
+          
+          // Capture plan ID
+          if (data.plan?.id) {
+            setPlanId(data.plan.id)
+          }
           
           // Check if plan is locked
           if (data.plan?.locked) {
@@ -351,9 +358,26 @@ function ChatPageContent() {
     setInput("")
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setConfirmed(true)
     sendMessage("Yes, that looks correct. Please generate my recommendations.")
+    
+    // Trigger AI research in the background after confirmation
+    if (planId && !researchTriggered) {
+      setResearchTriggered(true)
+      try {
+        // Fire and forget - research runs in background
+        fetch("/api/research/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId }),
+        }).catch(err => {
+          console.error("[GoMate] Failed to trigger research:", err)
+        })
+      } catch (error) {
+        console.error("[GoMate] Error triggering research:", error)
+      }
+    }
   }
 
   const handleEdit = () => {

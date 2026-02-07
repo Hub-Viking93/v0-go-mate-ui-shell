@@ -10,6 +10,10 @@ import {
   ChevronUp,
   Loader2,
   Sparkles,
+  ExternalLink,
+  Clock,
+  DollarSign,
+  MapPin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -23,6 +27,11 @@ export interface DocumentItem {
   required: boolean
   category?: string
   tips?: string[]
+  whereToGet?: string
+  officialLink?: string
+  estimatedTime?: string
+  cost?: string
+  visaSpecific?: boolean
 }
 
 export interface DocumentStatus {
@@ -334,6 +343,44 @@ export function InteractiveDocumentChecklist({
                                 </span>
                               </div>
                             </div>
+
+                            {/* Additional Info (whereToGet, estimatedTime, cost) */}
+                            {!isCompleted && (item.whereToGet || item.estimatedTime || item.cost) && (
+                              <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                {item.whereToGet && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {item.whereToGet}
+                                  </span>
+                                )}
+                                {item.estimatedTime && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {item.estimatedTime}
+                                  </span>
+                                )}
+                                {item.cost && (
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="w-3 h-3" />
+                                    {item.cost}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Official Link */}
+                            {item.officialLink && !isCompleted && (
+                              <a
+                                href={item.officialLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Official source
+                              </a>
+                            )}
 
                             {/* Tips */}
                             {item.tips && item.tips.length > 0 && !isCompleted && (

@@ -5,6 +5,8 @@ export const ALL_FIELDS = [
   // Core identity (always required)
   "name",
   "citizenship",
+  "other_citizenships", // dual/multiple passports - unlocks additional visa pathways
+  "birth_year", // for age-restricted visas (Working Holiday, retirement)
   "current_location",
   
   // Destination & purpose (always required)
@@ -12,29 +14,42 @@ export const ALL_FIELDS = [
   "target_city",
   "purpose",
   
-  // Study-specific fields
+  // Visa role - MUST come right after purpose to enable proper branching
+  "visa_role", // primary, dependent - clarifies who the visa is for
+  
+  // Partner/sponsor info - ONLY for dependents and family reunion
+  // Asked early so we understand the visa pathway before asking irrelevant fields
+  "partner_citizenship", // citizenship of the partner/sponsor
+  "partner_visa_status", // citizen, permanent_resident, work_visa, student_visa, other
+  "relationship_type", // spouse, fiancé, registered_partner, cohabitant, parent, child
+  "partner_residency_duration", // how long partner has lived there
+  "relationship_duration", // how long in relationship (some visas require proof)
+  
+  // Timeline & duration (always required)
+  "duration",
+  "timeline",
+  
+  // Study-specific fields (ONLY if purpose=study AND visa_role=primary)
   "study_type", // university, language_school, vocational, exchange
   "study_field", // engineering, medicine, arts, etc.
   "study_funding", // self-funded, scholarship, loan
   
-  // Work-specific fields
+  // Work-specific fields (ONLY if purpose=work AND visa_role=primary)
   "job_offer", // yes, no, in_progress
   "job_field", // tech, healthcare, finance, etc.
   "employer_sponsorship", // yes, no, unknown
   "highly_skilled", // yes, no - for skilled worker visas
   
-  // Digital nomad / freelance specific
+  // Digital nomad / freelance specific (ONLY if purpose=digital_nomad)
   "remote_income", // yes, no
   "income_source", // freelance, employed_remote, business_owner
   "monthly_income", // for digital nomad visa requirements
+  "income_consistency", // stable, variable, new - how consistent is income
+  "income_history_months", // how many months of income history (e.g., "12 months")
   
-  // Settlement specific
+  // Settlement specific (ONLY if purpose=settle)
   "settlement_reason", // retirement, family_reunion, investment, ancestry
   "family_ties", // yes, no - existing family in destination
-  
-  // Timeline & duration (always required)
-  "duration",
-  "timeline",
   
   // Family & dependents
   "moving_alone", // yes, no
@@ -101,6 +116,24 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     examples: ["What's your citizenship?", "Which passport do you hold?"],
     extractionHints: ["nationality", "passport", "citizen of", "I'm from", "I hold"],
     required: true,
+    category: "core",
+  },
+  other_citizenships: {
+    key: "other_citizenships",
+    label: "Other Citizenships",
+    intent: "Dual/multiple passports that may unlock additional visa pathways",
+    examples: ["Do you hold any other passports or citizenships?", "Any dual citizenship?"],
+    extractionHints: ["also have", "dual", "another passport", "second citizenship", "both", "and"],
+    required: false, // Only ask if user mentions or context suggests multiple citizenships
+    category: "core",
+  },
+  birth_year: {
+    key: "birth_year",
+    label: "Birth Year",
+    intent: "Age for age-restricted visas (Working Holiday 18-30/35, retirement 50+)",
+    examples: ["What year were you born?", "How old are you?"],
+    extractionHints: ["born in", "I'm", "years old", "age", "born", "birthday"],
+    required: false, // Only ask if destination has age-restricted visas or user mentions age
     category: "core",
   },
   current_location: {
@@ -247,6 +280,26 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["digital_nomad"] },
   },
+  income_consistency: {
+    key: "income_consistency",
+    label: "Income Consistency",
+    intent: "How stable/consistent the income is - important for DN visa proof",
+    examples: ["Is your income fairly consistent month-to-month?", "Would you say your income is stable, or does it vary a lot?"],
+    extractionHints: ["stable", "consistent", "regular", "variable", "fluctuates", "varies", "new", "just started"],
+    required: (p) => p.purpose === "digital_nomad",
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
+  income_history_months: {
+    key: "income_history_months",
+    label: "Income History",
+    intent: "How long user has had this income - many DN visas require 6-12 months proof",
+    examples: ["How long have you been earning this income?", "How many months of income history can you show?"],
+    extractionHints: ["months", "years", "been freelancing", "started", "working for", "since"],
+    required: (p) => p.purpose === "digital_nomad",
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
 
   // SETTLEMENT SPECIFIC
   settlement_reason: {
@@ -254,8 +307,16 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     label: "Settlement Reason",
     intent: "Specific reason for permanent settlement",
     examples: ["What's bringing you to settle there permanently?", "Is this for retirement, family, investment, or another reason?"],
-    extractionHints: ["retire", "retirement", "family", "investment", "ancestry", "marriage", "join"],
-    required: (p) => p.purpose === "settle",
+    extractionHints: [
+      "retire", "retirement", // retirement
+      "family", "family reunion", "join family", // family_reunion
+      "investment", "investor", "business", // investment
+      "ancestry", "heritage", "grandparents", "roots", // ancestry
+      "spouse", "husband", "wife", "partner", "spouse_work", // spouse_work
+      "fiancé", "fiancee", "engaged", "getting married", "marriage", // fiancé
+      "cohabitant", "sambo", "living together", "move in", // cohabitation
+    ],
+    required: (p) => p.purpose === "settle" || p.visa_role === "dependent",
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["settle"] },
   },
@@ -268,6 +329,69 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     required: (p) => p.purpose === "settle",
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["settle"] },
+  },
+
+  // VISA ROLE - Determines if user is primary applicant or joining someone
+  visa_role: {
+    key: "visa_role",
+    label: "Visa Role",
+    intent: "Whether user is the primary visa applicant or joining someone else (dependent)",
+    examples: ["Are you applying for the visa yourself, or joining someone who already has one?", "Will you be the main visa holder, or are you accompanying someone?"],
+    extractionHints: ["joining", "accompanying", "my partner has", "my spouse works", "following", "dependent", "main applicant", "primary", "myself"],
+    required: true,
+    category: "core",
+  },
+
+  // PARTNER/SPONSOR INFO - Only for dependents and family reunion
+  partner_citizenship: {
+    key: "partner_citizenship",
+    label: "Partner's Citizenship",
+    intent: "Citizenship/nationality of the partner or sponsor",
+    examples: ["What's your partner's citizenship?", "Is your spouse a citizen there, or do they hold a different nationality?"],
+    extractionHints: ["citizen", "citizenship", "nationality", "passport", "Swedish", "German", "American", "local"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  partner_visa_status: {
+    key: "partner_visa_status",
+    label: "Partner's Visa/Residency Status",
+    intent: "What visa or residency status the partner holds",
+    examples: ["What's your partner's residency status there?", "Does your partner have citizenship, permanent residency, or a work visa?"],
+    extractionHints: ["citizen", "permanent resident", "work visa", "student visa", "residency", "PR", "green card", "settled"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  partner_residency_duration: {
+    key: "partner_residency_duration",
+    label: "Partner's Time in Country",
+    intent: "How long partner has been living in destination",
+    examples: ["How long has your partner been living there?", "When did your partner move there?"],
+    extractionHints: ["years", "months", "since", "moved", "living there", "been there"],
+    required: false, // Only ask if relevant for visa type
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  relationship_type: {
+    key: "relationship_type",
+    label: "Relationship Type",
+    intent: "Type of relationship with partner/sponsor",
+    examples: ["What's your relationship?", "Are you married, engaged, or in a registered partnership?"],
+    extractionHints: ["married", "spouse", "wife", "husband", "fiancé", "engaged", "partner", "cohabitant", "sambo", "boyfriend", "girlfriend"],
+    required: (p) => p.visa_role === "dependent" || p.settlement_reason === "family_reunion",
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
+  },
+  relationship_duration: {
+    key: "relationship_duration",
+    label: "Relationship Duration",
+    intent: "How long in the relationship (some visas require proof)",
+    examples: ["How long have you been together?", "When did you get married or start your relationship?"],
+    extractionHints: ["years", "months", "since", "married in", "together for", "met", "dating"],
+    required: false, // Only ask if relevant for specific visa types
+    category: "family",
+    dependsOn: { field: "visa_role", values: ["dependent"] },
   },
 
   // TIMELINE & DURATION - Always required
@@ -356,7 +480,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Whether user needs help with budgeting",
     examples: ["Would you like help planning your budget?", "Should I help you estimate costs?"],
     extractionHints: ["help", "estimate", "plan", "figure out", "not sure", "yes", "no"],
-    required: true,
+    required: false, // Offer only if user seems uncertain about finances
     category: "financial",
   },
 
@@ -367,7 +491,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Proficiency in destination language",
     examples: ["How's your proficiency in the local language?", "Do you speak the language?"],
     extractionHints: ["fluent", "beginner", "intermediate", "native", "none", "basic", "A1", "B2"],
-    required: true,
+    required: false, // Optional - ask only if relevant to visa type or user mentions language
     category: "background",
   },
   education_level: {
@@ -376,7 +500,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Highest qualification achieved",
     examples: ["What's your highest level of education?", "Do you have a degree?"],
     extractionHints: ["degree", "masters", "bachelors", "PhD", "high school", "vocational", "diploma"],
-    required: true,
+    required: (p) => p.purpose === "work" || p.purpose === "study", // Only required for work/study visas
     category: "background",
   },
   years_experience: {
@@ -390,14 +514,14 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     dependsOn: { field: "purpose", values: ["work"] },
   },
 
-  // LEGAL/VISA HISTORY
+  // LEGAL/VISA HISTORY - Only ask if relevant or user mentions visa concerns
   prior_visa: {
     key: "prior_visa",
     label: "Prior Visa History",
     intent: "Previous visas for destination country",
     examples: ["Have you held any visas for this country before?", "Have you visited or lived there previously?"],
     extractionHints: ["visited", "lived", "previous visa", "been there", "traveled", "tourist"],
-    required: true,
+    required: false, // Only ask if user mentions visa history or concerns
     category: "legal",
   },
   visa_rejections: {
@@ -406,18 +530,18 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Any previous visa rejections",
     examples: ["Have you ever had a visa rejected?", "Any previous visa issues we should know about?"],
     extractionHints: ["rejected", "denied", "refused", "overstay", "issues", "problems", "no"],
-    required: true,
+    required: false, // Only ask if user mentions visa issues or has prior_visa
     category: "legal",
   },
 
-  // HEALTHCARE & SPECIAL NEEDS
+  // HEALTHCARE & SPECIAL NEEDS - Only ask if user mentions or context suggests
   healthcare_needs: {
     key: "healthcare_needs",
     label: "Healthcare Needs",
     intent: "Medical requirements and conditions",
     examples: ["Do you have any ongoing healthcare needs?", "Any medical conditions we should consider for your move?"],
     extractionHints: ["medical", "health", "condition", "medication", "doctor", "treatment", "none"],
-    required: true,
+    required: false, // Only ask if user mentions health concerns
     category: "special",
   },
   pets: {
@@ -426,7 +550,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Animals relocating with user",
     examples: ["Will you be bringing any pets?", "Do you have animals that need to travel with you?"],
     extractionHints: ["pet", "dog", "cat", "animal", "bird", "none", "no pets"],
-    required: true,
+    required: false, // Only ask if user mentions pets
     category: "special",
   },
   special_requirements: {
@@ -445,10 +569,20 @@ export const ProfileSchema = z.object({
   // Core
   name: z.string().nullable(),
   citizenship: z.string().nullable(),
+  other_citizenships: z.string().nullable(),
+  birth_year: z.string().nullable(),
   current_location: z.string().nullable(),
   destination: z.string().nullable(),
   target_city: z.string().nullable(),
   purpose: z.enum(["study", "work", "settle", "digital_nomad", "other"]).nullable(),
+  visa_role: z.enum(["primary", "dependent"]).nullable(),
+  
+  // Partner/sponsor info
+  partner_citizenship: z.string().nullable(),
+  partner_visa_status: z.enum(["citizen", "permanent_resident", "work_visa", "student_visa", "other"]).nullable(),
+  partner_residency_duration: z.string().nullable(),
+  relationship_type: z.enum(["spouse", "fiancé", "registered_partner", "cohabitant", "parent", "child", "other"]).nullable(),
+  relationship_duration: z.string().nullable(),
   
   // Study-specific
   study_type: z.string().nullable(),
@@ -465,6 +599,8 @@ export const ProfileSchema = z.object({
   remote_income: z.string().nullable(),
   income_source: z.string().nullable(),
   monthly_income: z.string().nullable(),
+  income_consistency: z.enum(["stable", "variable", "new"]).nullable(),
+  income_history_months: z.string().nullable(),
   
   // Settlement specific
   settlement_reason: z.string().nullable(),
@@ -506,10 +642,18 @@ export type Profile = z.infer<typeof ProfileSchema>
 export const EMPTY_PROFILE: Profile = {
   name: null,
   citizenship: null,
+  other_citizenships: null,
+  birth_year: null,
   current_location: null,
   destination: null,
   target_city: null,
   purpose: null,
+  visa_role: null,
+  partner_citizenship: null,
+  partner_visa_status: null,
+  partner_residency_duration: null,
+  relationship_type: null,
+  relationship_duration: null,
   study_type: null,
   study_field: null,
   study_funding: null,
@@ -520,6 +664,8 @@ export const EMPTY_PROFILE: Profile = {
   remote_income: null,
   income_source: null,
   monthly_income: null,
+  income_consistency: null,
+  income_history_months: null,
   settlement_reason: null,
   family_ties: null,
   duration: null,

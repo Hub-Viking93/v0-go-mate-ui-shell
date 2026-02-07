@@ -11,6 +11,8 @@ import { InfoCard } from "@/components/info-card"
 import { CountdownTimer } from "@/components/countdown-timer"
 import { BudgetPlanCard, type BudgetPlanData } from "@/components/budget-plan-card"
 import { VisaRoutesCard, type VisaData } from "@/components/visa-routes-card"
+import { VisaResearchCard, type VisaResearchData } from "@/components/visa-research-card"
+import { LocalRequirementsCard, type LocalRequirementsData } from "@/components/local-requirements-card"
 import { DocumentProgressCard, type DocumentItem, type DocumentStatus } from "@/components/document-progress-card"
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
@@ -32,7 +34,9 @@ import {
   Sparkles,
   Lock,
   Unlock,
-  Shield
+  Shield,
+  Loader2,
+  AlertCircle
 } from "lucide-react"
 import { type Profile, getRequiredFields } from "@/lib/gomate/profile-schema"
 import { getCompletionPercentage, getFilledFields } from "@/lib/gomate/state-machine"
@@ -438,6 +442,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [lockLoading, setLockLoading] = useState(false)
   const [selectedVisaRoute, setSelectedVisaRoute] = useState<number | undefined>(0)
+  const [visaResearch, setVisaResearch] = useState<VisaResearchData | null>(null)
+  const [localRequirements, setLocalRequirements] = useState<LocalRequirementsData | null>(null)
+  const [researchStatus, setResearchStatus] = useState<string | null>(null)
 
   // Fetch the user's plan, guide, and document statuses on mount
   useEffect(() => {
@@ -452,6 +459,16 @@ export default function DashboardPage() {
         if (planRes.ok) {
           const data = await planRes.json()
           setPlan(data.plan)
+          // Check for cached research data
+          if (data.plan?.visa_research) {
+            setVisaResearch(data.plan.visa_research)
+          }
+          if (data.plan?.local_requirements_research) {
+            setLocalRequirements(data.plan.local_requirements_research)
+          }
+          if (data.plan?.research_status) {
+            setResearchStatus(data.plan.research_status)
+          }
         }
         
         if (guidesRes.ok) {
@@ -683,6 +700,31 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Research Status Banner */}
+      {researchStatus === "in_progress" && (
+        <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Researching your relocation requirements...</p>
+            <p className="text-xs text-muted-foreground">We're gathering visa options and local requirements for {targetCountry}. This may take a minute.</p>
+          </div>
+        </div>
+      )}
+      
+      {researchStatus === "failed" && (
+        <div className="mb-6 p-4 rounded-xl bg-destructive/5 border border-destructive/20 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/10">
+            <AlertCircle className="w-4 h-4 text-destructive" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Research couldn't be completed</p>
+            <p className="text-xs text-muted-foreground">You can manually trigger research from the visa and requirements sections below.</p>
+          </div>
+        </div>
+      )}
+
       {/* Countdown Timer - Prominent at top */}
       {hasDestination && (
         <div className="mb-8">
@@ -846,13 +888,32 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Visa Routes Section */}
+      {/* AI Visa Research Section */}
       {hasDestination && hasCitizenship && (
+        <div className="mb-8">
+          <VisaResearchCard
+            planId={plan?.id}
+            destination={targetCountry}
+            citizenship={citizenship}
+            purpose={profile.purpose}
+            cachedResearch={visaResearch}
+            researchStatus={researchStatus}
+            onResearchComplete={(data) => {
+              setVisaResearch(data)
+              setResearchStatus("completed")
+            }}
+          />
+        </div>
+      )}
+
+      {/* Static Visa Routes Section (fallback when no AI research) */}
+      {hasDestination && hasCitizenship && !visaResearch && (
         <div className="mb-8">
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2 mb-6">
               <FileText className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Visa Recommendations</h2>
+              <h2 className="text-lg font-semibold text-foreground">Common Visa Options</h2>
+              <Badge variant="outline" className="text-xs">Static data</Badge>
             </div>
             <VisaRoutesCard 
               visaData={visaData}
@@ -860,6 +921,22 @@ export default function DashboardPage() {
               onSelectRoute={setSelectedVisaRoute}
             />
           </div>
+        </div>
+      )}
+
+      {/* Local Requirements Section */}
+      {hasDestination && (
+        <div className="mb-8">
+          <LocalRequirementsCard
+            planId={plan?.id}
+            destination={targetCountry}
+            city={profile.target_city}
+            cachedResearch={localRequirements}
+            researchStatus={researchStatus}
+            onResearchComplete={(data) => {
+              setLocalRequirements(data)
+            }}
+          />
         </div>
       )}
 

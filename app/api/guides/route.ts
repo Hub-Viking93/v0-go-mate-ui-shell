@@ -33,22 +33,8 @@ export async function GET() {
   }
 }
 
-// Guide types to generate
-const GUIDE_TYPES = [
-  { name: "Main Relocation Guide", type: "main" },
-  { name: "Visa & Legal Guide", type: "visa" },
-  { name: "Budget & Finance Guide", type: "budget" },
-  { name: "Housing & Accommodation Guide", type: "housing" },
-  { name: "Practical Setup Guide", type: "practical" }, // banking, healthcare, utilities
-  { name: "Culture & Lifestyle Guide", type: "culture" },
-  { name: "Nightlife & Social Guide", type: "nightlife" },
-  { name: "Safety & Emergency Guide", type: "safety" },
-  { name: "Expat Community Guide", type: "expat" },
-  { name: "Transport & Getting Around", type: "transport" },
-  { name: "Food & Dining Guide", type: "food" },
-]
-
 // POST - Generate a new guide from profile
+// Generates ONE complete guide per destination/purpose combination with all sections
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()
@@ -58,7 +44,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     
-    const { planId, generateAll } = await req.json()
+    const { planId } = await req.json()
     
     // Fetch the plan to get profile data
     let profile: Profile | null = null
@@ -99,67 +85,7 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
     
-    // If generateAll is true, create all guide types
-    if (generateAll) {
-      const guides: Array<{ type: string; guide: unknown; created: boolean; updated: boolean }> = []
-      
-      for (const guideType of GUIDE_TYPES) {
-        // Check if this guide type already exists
-        const { data: existingGuide } = await supabase
-          .from("guides")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("destination", profile.destination)
-          .eq("purpose", profile.purpose || "other")
-          .eq("guide_type", guideType.type)
-          .maybeSingle()
-        
-        const guide = generateGuide(profile)
-        const dbData = {
-          ...guideToDbFormat(guide, user.id, currentPlanId),
-          title: `${profile.destination} - ${guideType.name}`,
-          guide_type: guideType.type,
-        }
-        
-        if (existingGuide) {
-          // Update existing
-          const { data: updatedGuide, error: updateError } = await supabase
-            .from("guides")
-            .update({
-              ...dbData,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingGuide.id)
-            .select()
-            .single()
-          
-          if (!updateError && updatedGuide) {
-            guides.push({ type: guideType.type, guide: updatedGuide, created: false, updated: true })
-          }
-        } else {
-          // Create new
-          const { data: newGuide, error: insertError } = await supabase
-            .from("guides")
-            .insert(dbData)
-            .select()
-            .single()
-          
-          if (!insertError && newGuide) {
-            guides.push({ type: guideType.type, guide: newGuide, created: true, updated: false })
-          }
-        }
-      }
-      
-      return NextResponse.json({ 
-        guides, 
-        total: guides.length,
-        created: guides.filter(g => g.created).length,
-        updated: guides.filter(g => g.updated).length,
-      })
-    }
-    
-    // Single guide generation (original behavior)
-    // Check if guide already exists for this destination
+    // Check if guide already exists for this destination/purpose
     const { data: existingGuide } = await supabase
       .from("guides")
       .select("id")
