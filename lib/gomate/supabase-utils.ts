@@ -12,14 +12,13 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
       return false
     }
     
-    // Get or create the user's plan
+    // Get the user's current plan (is_current = true)
     const { data: existingPlan } = await supabase
       .from("relocation_plans")
       .select("id, profile_data")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+      .eq("is_current", true)
+      .maybeSingle()
     
     if (existingPlan) {
       // Update existing plan with merged profile
@@ -43,13 +42,14 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
       
       return true
     } else {
-      // Create new plan
+      // Create new plan and mark as current
       const { error } = await supabase
         .from("relocation_plans")
         .insert({
           user_id: user.id,
           profile_data: profile,
           stage: "collecting",
+          is_current: true,
         })
       
       if (error) {
@@ -77,9 +77,8 @@ export async function loadProfileFromSupabase(): Promise<Profile | null> {
       .from("relocation_plans")
       .select("profile_data")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+      .eq("is_current", true)
+      .maybeSingle()
     
     return plan?.profile_data as Profile || null
   } catch {

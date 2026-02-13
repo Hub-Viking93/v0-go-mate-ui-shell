@@ -157,9 +157,8 @@ export async function GET() {
       .from("relocation_plans")
       .select("research_status, research_completed_at, visa_research, local_requirements_research")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+      .eq("is_current", true)
+      .maybeSingle()
 
     if (!plan) {
       return NextResponse.json({ status: null })

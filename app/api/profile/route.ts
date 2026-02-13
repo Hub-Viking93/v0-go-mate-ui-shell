@@ -13,13 +13,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     
-    // Get the user's most recent plan (use maybeSingle to handle 0 rows gracefully)
+    // Get the user's current plan (is_current = true)
     const { data: plan, error } = await supabase
       .from("relocation_plans")
       .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .eq("is_current", true)
       .maybeSingle()
     
     if (error) {
@@ -35,6 +34,7 @@ export async function GET() {
           user_id: user.id,
           profile_data: {},
           stage: "collecting",
+          is_current: true,
         })
         .select()
         .single()
@@ -70,7 +70,7 @@ export async function PATCH(req: Request) {
       action?: "lock" | "unlock"
     }
     
-    // Get current plan
+    // Get current plan (by specific ID or the active current plan)
     let query = supabase
       .from("relocation_plans")
       .select("*")
@@ -79,10 +79,10 @@ export async function PATCH(req: Request) {
     if (planId) {
       query = query.eq("id", planId)
     } else {
-      query = query.order("created_at", { ascending: false }).limit(1)
+      query = query.eq("is_current", true)
     }
     
-    const { data: currentPlan, error: fetchError } = await query.single()
+    const { data: currentPlan, error: fetchError } = await query.maybeSingle()
     
     if (fetchError || !currentPlan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
