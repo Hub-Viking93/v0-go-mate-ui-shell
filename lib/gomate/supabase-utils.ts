@@ -27,12 +27,35 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
         ...profile,
       }
       
+      // Auto-generate title when destination/purpose are first set
+      const updateData: Record<string, unknown> = {
+        profile_data: mergedProfile,
+        updated_at: new Date().toISOString(),
+      }
+      
+      // Get current plan title to check if it needs auto-generation
+      const { data: fullPlan } = await supabase
+        .from("relocation_plans")
+        .select("title")
+        .eq("id", existingPlan.id)
+        .single()
+      
+      const hasAutoTitle = !fullPlan?.title || fullPlan.title.startsWith("Plan ")
+      const dest = mergedProfile.destination as string | undefined
+      const purp = mergedProfile.purpose as string | undefined
+      
+      if (hasAutoTitle && dest) {
+        if (purp) {
+          const label = purp.charAt(0).toUpperCase() + purp.slice(1)
+          updateData.title = `${label} in ${dest}`
+        } else {
+          updateData.title = `Move to ${dest}`
+        }
+      }
+      
       const { error } = await supabase
         .from("relocation_plans")
-        .update({
-          profile_data: mergedProfile,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", existingPlan.id)
       
       if (error) {

@@ -18,6 +18,7 @@ import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
+import { PlanSwitcher } from "@/components/plan-switcher"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   MapPin, 
@@ -46,6 +47,9 @@ interface RelocationPlan {
   user_id: string
   profile_data: Profile
   stage: string
+  title: string | null
+  status: string
+  is_current: boolean
   locked: boolean
   locked_at: string | null
   created_at: string
@@ -699,6 +703,17 @@ export default function DashboardPage() {
           </div>
         }
       />
+
+      {/* Plan Switcher - shows plan name with rename option, dropdown for Pro+ */}
+      <div className="mb-6">
+        <PlanSwitcher 
+          showRename 
+          onPlanChange={() => {
+            // Reload all dashboard data when plan changes
+            window.location.reload()
+          }}
+        />
+      </div>
 
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
