@@ -19,6 +19,8 @@ import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
 import { PlanSwitcher } from "@/components/plan-switcher"
+import { TierGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   MapPin, 
@@ -440,6 +442,8 @@ function generateDocumentItems(profile: Profile): DocumentItem[] {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { tier, can } = useTier()
+  const goToUpgrade = () => router.push("/pricing")
   const [plan, setPlan] = useState<RelocationPlan | null>(null)
   const [userGuide, setUserGuide] = useState<UserGuide | null>(null)
   const [documentStatuses, setDocumentStatuses] = useState<Record<string, DocumentStatus>>({})
@@ -832,11 +836,13 @@ export default function DashboardPage() {
         {/* Right Column */}
         <div className="space-y-6">
 {/* Document Progress Card */}
-<DocumentProgressCard
-  items={documentItems}
-  statuses={documentStatuses}
-  planId={plan?.id}
+<TierGate tier={tier} feature="documents" onUpgrade={goToUpgrade}>
+  <DocumentProgressCard
+    items={documentItems}
+    statuses={documentStatuses}
+    planId={plan?.id}
   />
+</TierGate>
 
           {/* Your Personal Guide - Show if locked and guide exists */}
           {isLocked && userGuide && (
