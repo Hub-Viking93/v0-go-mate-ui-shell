@@ -1,11 +1,14 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { generateText } from "ai"
-import FirecrawlApp from "@mendable/firecrawl-js"
+import FirecrawlAppImport from "@mendable/firecrawl-js"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
+// Handle CJS/ESM interop
+const FirecrawlApp = (FirecrawlAppImport as any).default || FirecrawlAppImport
+
 // Lazy-initialize Firecrawl (returns null if API key is missing)
-function getFirecrawl(): FirecrawlApp | null {
+function getFirecrawl() {
   const apiKey = process.env.FIRECRAWL_API_KEY
   if (!apiKey) {
     console.warn("[GoMate] FIRECRAWL_API_KEY not set, skipping scraping")
