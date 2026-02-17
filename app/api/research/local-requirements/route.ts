@@ -1,14 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { generateText } from "ai"
-import FirecrawlAppImport from "@mendable/firecrawl-js"
+import FirecrawlApp from "@mendable/firecrawl-js"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
-// Handle CJS/ESM interop
-const FirecrawlApp = (FirecrawlAppImport as any).default || FirecrawlAppImport
-
 // Lazy-initialize Firecrawl (returns null if API key is missing)
-function getFirecrawl() {
+function getFirecrawl(): FirecrawlApp | null {
   const apiKey = process.env.FIRECRAWL_API_KEY
   if (!apiKey) {
     console.warn("[GoMate] FIRECRAWL_API_KEY not set, skipping scraping")
@@ -131,8 +128,11 @@ export async function POST(request: Request) {
 
     // Scrape official sources (only if Firecrawl is available)
     const firecrawl = getFirecrawl()
+    console.log("[v0] firecrawl instance:", firecrawl ? Object.getOwnPropertyNames(Object.getPrototypeOf(firecrawl)) : "null")
+    console.log("[v0] firecrawl type:", typeof firecrawl, firecrawl?.constructor?.name)
+    console.log("[v0] scrapeUrl type:", typeof firecrawl?.scrapeUrl)
     
-    if (firecrawl) {
+    if (firecrawl && typeof firecrawl.scrapeUrl === "function") {
       for (const url of sourcesToScrape.slice(0, 4)) {
         try {
           const scrapeResult = await firecrawl.scrapeUrl(url, {
@@ -160,6 +160,7 @@ export async function POST(request: Request) {
 
       for (const query of searchQueries.slice(0, 4)) {
         try {
+          if (typeof firecrawl.search !== "function") break
           const searchResult = await firecrawl.search(query, { limit: 2 })
           if (searchResult.success && searchResult.data) {
             for (const result of searchResult.data) {
