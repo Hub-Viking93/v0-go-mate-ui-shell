@@ -600,7 +600,6 @@ export default function DocumentsPage() {
         </div>
       </div>
     </div>
-    </div>
     </FullPageGate>
   )
 }
