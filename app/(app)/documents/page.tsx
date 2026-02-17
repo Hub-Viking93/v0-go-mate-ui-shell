@@ -431,9 +431,9 @@ export default function DocumentsPage() {
   const completedCount = items.filter((item) => statuses[item.id]?.completed).length
 
   return (
+    <FullPageGate tier={tier} feature="documents" onUpgrade={() => router.push("/settings")}>
     <div className="min-h-screen bg-background">
-      <FullPageGate tier={tier} feature="documents" onUpgrade={() => router.push("/settings")}>
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -599,6 +599,7 @@ export default function DocumentsPage() {
           </Button>
         </div>
       </div>
+    </div>
     </div>
     </FullPageGate>
   )
