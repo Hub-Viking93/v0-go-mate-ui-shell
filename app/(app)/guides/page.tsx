@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CountryFlag } from "@/components/country-flag"
+import { FullPageGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
 import { 
   ExternalLink, 
   Globe, 
@@ -40,6 +42,7 @@ const countries = [
 
 export default function GuidesPage() {
   const router = useRouter()
+  const { tier } = useTier()
   const [activeTab, setActiveTab] = useState("my-guides")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
@@ -105,6 +108,7 @@ export default function GuidesPage() {
   }
 
   return (
+    <FullPageGate tier={tier} feature="guides" onUpgrade={() => router.push("/settings")}>
     <div className="p-6 md:p-8 lg:p-10">
       <PageHeader
         title="Guides"
@@ -254,5 +258,6 @@ export default function GuidesPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </FullPageGate>
   )
 }
