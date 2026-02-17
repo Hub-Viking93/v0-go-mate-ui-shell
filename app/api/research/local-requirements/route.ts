@@ -1,17 +1,70 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { generateText } from "ai"
-import FirecrawlApp from "@mendable/firecrawl-js"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
-// Lazy-initialize Firecrawl (returns null if API key is missing)
-function getFirecrawl(): FirecrawlApp | null {
-  const apiKey = process.env.FIRECRAWL_API_KEY
-  if (!apiKey) {
-    console.warn("[GoMate] FIRECRAWL_API_KEY not set, skipping scraping")
+const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
+const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
+
+// Scrape a URL using Firecrawl REST API
+async function scrapeUrl(url: string): Promise<string | null> {
+  if (!FIRECRAWL_API_KEY) return null
+  try {
+    const response = await fetch(`${FIRECRAWL_BASE_URL}/scrape`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown"],
+        onlyMainContent: true,
+        waitFor: 3000,
+      }),
+    })
+    if (!response.ok) {
+      console.error(`[GoMate] Firecrawl scrape failed for ${url}:`, response.status)
+      return null
+    }
+    const data = await response.json()
+    return data.data?.markdown || null
+  } catch (error) {
+    console.error(`[GoMate] Firecrawl scrape error for ${url}:`, error)
     return null
   }
-  return new FirecrawlApp({ apiKey })
+}
+
+// Search using Firecrawl REST API
+async function searchFirecrawl(query: string, limit = 2): Promise<string[]> {
+  if (!FIRECRAWL_API_KEY) return []
+  try {
+    const response = await fetch(`${FIRECRAWL_BASE_URL}/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        query,
+        limit,
+        scrapeOptions: {
+          formats: ["markdown"],
+          onlyMainContent: true,
+        },
+      }),
+    })
+    if (!response.ok) {
+      console.error(`[GoMate] Firecrawl search failed for "${query}":`, response.status)
+      return []
+    }
+    const data = await response.json()
+    return (data.data || [])
+      .map((item: { markdown?: string }) => item.markdown || "")
+      .filter(Boolean)
+  } catch (error) {
+    console.error(`[GoMate] Firecrawl search error for "${query}":`, error)
+    return []
+  }
 }
 
 interface LocalRequirement {
@@ -126,51 +179,28 @@ export async function POST(request: Request) {
       if (officialSources.safety) sourcesToScrape.push(officialSources.safety)
     }
 
-    // Scrape official sources (only if Firecrawl is available)
-    const firecrawl = getFirecrawl()
-    
-    if (firecrawl && typeof firecrawl.scrapeUrl === "function") {
-      for (const url of sourcesToScrape.slice(0, 4)) {
-        try {
-          const scrapeResult = await firecrawl.scrapeUrl(url, {
-            formats: ["markdown"],
-          })
-          if (scrapeResult.success && scrapeResult.markdown) {
-            scrapedContent.push(
-              `--- Content from ${url} ---\n${scrapeResult.markdown.slice(0, 8000)}`
-            )
-          }
-        } catch (scrapeError) {
-          console.error(`[GoMate] Failed to scrape ${url}:`, scrapeError)
-        }
+    // Scrape official sources using Firecrawl REST API
+    for (const url of sourcesToScrape.slice(0, 4)) {
+      const content = await scrapeUrl(url)
+      if (content) {
+        scrapedContent.push(`--- Content from ${url} ---\n${content.slice(0, 8000)}`)
       }
+    }
 
-      // Search for specific local requirements
-      const searchQueries = [
-        `${destination} residence registration requirements for foreigners ${new Date().getFullYear()}`,
-        `${destination} tax registration foreign residents`,
-        `${destination} healthcare insurance registration expats`,
-        `${destination} open bank account foreigner requirements`,
-        `${destination} drivers license exchange conversion foreign`,
-        `${destinationCity ? `${destinationCity} ${destination}` : destination} moving checklist expats`,
-      ]
+    // Search for specific local requirements using Firecrawl REST API
+    const searchQueries = [
+      `${destination} residence registration requirements for foreigners ${new Date().getFullYear()}`,
+      `${destination} tax registration foreign residents`,
+      `${destination} healthcare insurance registration expats`,
+      `${destination} open bank account foreigner requirements`,
+      `${destination} drivers license exchange conversion foreign`,
+      `${destinationCity ? `${destinationCity} ${destination}` : destination} moving checklist expats`,
+    ]
 
-      for (const query of searchQueries.slice(0, 4)) {
-        try {
-          if (typeof firecrawl.search !== "function") break
-          const searchResult = await firecrawl.search(query, { limit: 2 })
-          if (searchResult.success && searchResult.data) {
-            for (const result of searchResult.data) {
-              if (result.markdown) {
-                scrapedContent.push(
-                  `--- Search result for "${query}" ---\n${result.markdown.slice(0, 4000)}`
-                )
-              }
-            }
-          }
-        } catch (searchError) {
-          console.error(`[GoMate] Search failed for "${query}":`, searchError)
-        }
+    for (const query of searchQueries.slice(0, 4)) {
+      const results = await searchFirecrawl(query, 2)
+      for (const markdown of results) {
+        scrapedContent.push(`--- Search result for "${query}" ---\n${markdown.slice(0, 4000)}`)
       }
     }
 
@@ -239,12 +269,35 @@ Respond ONLY with valid JSON in this exact structure:
   ]
 }`
 
-    // Call AI to analyze and structure the research
-    const { text } = await generateText({
-      model: "openai/gpt-4o-mini",
-      prompt,
-      temperature: 0.3,
+    // Call OpenAI directly to analyze and structure the research
+    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert relocation consultant. Provide accurate, structured local requirements research. Respond ONLY with valid JSON.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 4000,
+      }),
     })
+
+    if (!aiResponse.ok) {
+      const errBody = await aiResponse.text()
+      console.error("[GoMate] OpenAI API failed:", aiResponse.status, errBody)
+      throw new Error(`OpenAI API failed with status ${aiResponse.status}`)
+    }
+
+    const aiData = await aiResponse.json()
+    const text = aiData.choices?.[0]?.message?.content || ""
 
     // Parse the AI response
     let parsedResearch: Partial<LocalRequirementsResearch>
