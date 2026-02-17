@@ -443,7 +443,7 @@ function generateDocumentItems(profile: Profile): DocumentItem[] {
 export default function DashboardPage() {
   const router = useRouter()
   const { tier, can } = useTier()
-  const goToUpgrade = () => router.push("/pricing")
+  const goToUpgrade = () => router.push("/settings")
   const [plan, setPlan] = useState<RelocationPlan | null>(null)
   const [userGuide, setUserGuide] = useState<UserGuide | null>(null)
   const [documentStatuses, setDocumentStatuses] = useState<Record<string, DocumentStatus>>({})

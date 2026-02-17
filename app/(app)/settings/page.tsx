@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { UpgradeModal } from "@/components/upgrade-modal"
+import { useTier } from "@/hooks/use-tier"
 import {
   User,
   Globe,
@@ -21,7 +23,11 @@ import {
   Flag,
   Plane,
   Mail,
-  Lock
+  Lock,
+  CreditCard,
+  Zap,
+  Crown,
+  Sparkles,
 } from "lucide-react"
 
 export default function SettingsPage() {
@@ -29,6 +35,8 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [pushNotifications, setPushNotifications] = useState(false)
   const [weeklyDigest, setWeeklyDigest] = useState(true)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const { tier, loading: tierLoading, planCount, planLimit, refresh: refreshTier } = useTier()
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-4xl">
@@ -87,6 +95,89 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Subscription Section */}
+      <section className="mb-10">
+        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <CreditCard className="w-5 h-5 text-primary" />
+          Subscription
+        </h2>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          {tierLoading ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-5 w-32 rounded bg-muted" />
+              <div className="h-4 w-48 rounded bg-muted" />
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${
+                  tier === "pro_plus"
+                    ? "bg-amber-500/10"
+                    : tier === "pro_single"
+                    ? "bg-primary/10"
+                    : "bg-secondary"
+                }`}>
+                  {tier === "pro_plus" ? (
+                    <Crown className={`w-5 h-5 text-amber-500`} />
+                  ) : tier === "pro_single" ? (
+                    <Zap className={`w-5 h-5 text-primary`} />
+                  ) : (
+                    <Sparkles className={`w-5 h-5 text-muted-foreground`} />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-foreground">
+                      {tier === "pro_plus"
+                        ? "Pro+"
+                        : tier === "pro_single"
+                        ? "Pro Single"
+                        : "Free"}
+                    </p>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        tier === "pro_plus"
+                          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                          : tier === "pro_single"
+                          ? "bg-primary/10 text-primary border-primary/30"
+                          : ""
+                      }
+                    >
+                      {tier === "free" ? "Free tier" : "Active"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {tier === "free"
+                      ? "Upgrade to unlock visa recommendations, guides, and more."
+                      : tier === "pro_single"
+                      ? `1 relocation plan included. Using ${planCount} of ${planLimit}.`
+                      : `Unlimited plans. Currently using ${planCount}.`}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="rounded-xl bg-transparent shrink-0"
+                onClick={() => setUpgradeModalOpen(true)}
+              >
+                {tier === "free" ? "Upgrade" : "Manage plan"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        currentTier={tier}
+        onUpgradeComplete={() => {
+          refreshTier()
+        }}
+      />
 
       {/* Preferences Section */}
       <section className="mb-10">
