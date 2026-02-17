@@ -128,9 +128,6 @@ export async function POST(request: Request) {
 
     // Scrape official sources (only if Firecrawl is available)
     const firecrawl = getFirecrawl()
-    console.log("[v0] firecrawl instance:", firecrawl ? Object.getOwnPropertyNames(Object.getPrototypeOf(firecrawl)) : "null")
-    console.log("[v0] firecrawl type:", typeof firecrawl, firecrawl?.constructor?.name)
-    console.log("[v0] scrapeUrl type:", typeof firecrawl?.scrapeUrl)
     
     if (firecrawl && typeof firecrawl.scrapeUrl === "function") {
       for (const url of sourcesToScrape.slice(0, 4)) {
