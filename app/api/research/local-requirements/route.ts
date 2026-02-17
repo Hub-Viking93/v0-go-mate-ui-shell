@@ -4,10 +4,15 @@ import { generateText } from "ai"
 import FirecrawlApp from "@mendable/firecrawl-js"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
-// Initialize Firecrawl
-const firecrawl = new FirecrawlApp({
-  apiKey: process.env.FIRECRAWL_API_KEY || "",
-})
+// Lazy-initialize Firecrawl (returns null if API key is missing)
+function getFirecrawl(): FirecrawlApp | null {
+  const apiKey = process.env.FIRECRAWL_API_KEY
+  if (!apiKey) {
+    console.warn("[GoMate] FIRECRAWL_API_KEY not set, skipping scraping")
+    return null
+  }
+  return new FirecrawlApp({ apiKey })
+}
 
 interface LocalRequirement {
   category: string
@@ -121,46 +126,50 @@ export async function POST(request: Request) {
       if (officialSources.safety) sourcesToScrape.push(officialSources.safety)
     }
 
-    // Scrape official sources
-    for (const url of sourcesToScrape.slice(0, 4)) {
-      try {
-        const scrapeResult = await firecrawl.scrapeUrl(url, {
-          formats: ["markdown"],
-        })
-        if (scrapeResult.success && scrapeResult.markdown) {
-          scrapedContent.push(
-            `--- Content from ${url} ---\n${scrapeResult.markdown.slice(0, 8000)}`
-          )
+    // Scrape official sources (only if Firecrawl is available)
+    const firecrawl = getFirecrawl()
+    
+    if (firecrawl) {
+      for (const url of sourcesToScrape.slice(0, 4)) {
+        try {
+          const scrapeResult = await firecrawl.scrapeUrl(url, {
+            formats: ["markdown"],
+          })
+          if (scrapeResult.success && scrapeResult.markdown) {
+            scrapedContent.push(
+              `--- Content from ${url} ---\n${scrapeResult.markdown.slice(0, 8000)}`
+            )
+          }
+        } catch (scrapeError) {
+          console.error(`[GoMate] Failed to scrape ${url}:`, scrapeError)
         }
-      } catch (scrapeError) {
-        console.error(`[GoMate] Failed to scrape ${url}:`, scrapeError)
       }
-    }
 
-    // Search for specific local requirements
-    const searchQueries = [
-      `${destination} residence registration requirements for foreigners ${new Date().getFullYear()}`,
-      `${destination} tax registration foreign residents`,
-      `${destination} healthcare insurance registration expats`,
-      `${destination} open bank account foreigner requirements`,
-      `${destination} drivers license exchange conversion foreign`,
-      `${destinationCity ? `${destinationCity} ${destination}` : destination} moving checklist expats`,
-    ]
+      // Search for specific local requirements
+      const searchQueries = [
+        `${destination} residence registration requirements for foreigners ${new Date().getFullYear()}`,
+        `${destination} tax registration foreign residents`,
+        `${destination} healthcare insurance registration expats`,
+        `${destination} open bank account foreigner requirements`,
+        `${destination} drivers license exchange conversion foreign`,
+        `${destinationCity ? `${destinationCity} ${destination}` : destination} moving checklist expats`,
+      ]
 
-    for (const query of searchQueries.slice(0, 4)) {
-      try {
-        const searchResult = await firecrawl.search(query, { limit: 2 })
-        if (searchResult.success && searchResult.data) {
-          for (const result of searchResult.data) {
-            if (result.markdown) {
-              scrapedContent.push(
-                `--- Search result for "${query}" ---\n${result.markdown.slice(0, 4000)}`
-              )
+      for (const query of searchQueries.slice(0, 4)) {
+        try {
+          const searchResult = await firecrawl.search(query, { limit: 2 })
+          if (searchResult.success && searchResult.data) {
+            for (const result of searchResult.data) {
+              if (result.markdown) {
+                scrapedContent.push(
+                  `--- Search result for "${query}" ---\n${result.markdown.slice(0, 4000)}`
+                )
+              }
             }
           }
+        } catch (searchError) {
+          console.error(`[GoMate] Search failed for "${query}":`, searchError)
         }
-      } catch (searchError) {
-        console.error(`[GoMate] Search failed for "${query}":`, searchError)
       }
     }
 
