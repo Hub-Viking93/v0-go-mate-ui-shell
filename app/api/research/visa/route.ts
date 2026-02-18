@@ -397,12 +397,27 @@ export async function POST(request: Request) {
       }
     }
 
-    // Build final result
-    const researchResult: VisaResearchResult = {
+    // Task 3: Map eligibility values from AI format to component format
+    const eligibilityMap: Record<string, string> = {
+      likely_eligible: "high",
+      possibly_eligible: "medium",
+      unlikely_eligible: "low",
+    }
+
+    // Task 2: Rename recommendedVisas -> visaOptions and map eligibility
+    const visaOptions = recommendedVisas.map((visa) => ({
+      ...visa,
+      eligibility: eligibilityMap[visa.eligibility] || visa.eligibility || "unknown",
+    }))
+
+    // Build final result in the shape the component expects
+    const researchResult = {
       destination: profileData.destination,
-      nationality: profileData.citizenship,
+      citizenship: profileData.citizenship,
       purpose: profileData.purpose || "other",
-      recommendedVisas,
+      visaOptions,
+      summary: `Found ${visaOptions.length} visa option${visaOptions.length !== 1 ? "s" : ""} for ${profileData.citizenship} citizens moving to ${profileData.destination}.`,
+      disclaimer: "Visa requirements change frequently. Always verify information on official government websites before applying.",
       generalRequirements,
       importantNotes,
       officialSources: sourcesList,
@@ -424,7 +439,8 @@ export async function POST(request: Request) {
       console.error("[GoMate] Failed to save research:", updateError)
     }
 
-    return NextResponse.json(researchResult)
+    // Task 1: Wrap in { research: ... } envelope to match component's data.research access
+    return NextResponse.json({ research: researchResult })
   } catch (error) {
     console.error("[GoMate] Visa research error:", error)
     return NextResponse.json(

@@ -467,9 +467,16 @@ export default function DashboardPage() {
         if (planRes.ok) {
           const data = await planRes.json()
           setPlan(data.plan)
-          // Check for cached research data
+          // Check for cached research data and normalize old shapes
           if (data.plan?.visa_research) {
-            setVisaResearch(data.plan.visa_research)
+            const vr = data.plan.visa_research
+            // Normalize old format: recommendedVisas -> visaOptions, eligibility values
+            const eligMap: Record<string, string> = { likely_eligible: "high", possibly_eligible: "medium", unlikely_eligible: "low" }
+            const visaOpts = (vr.visaOptions || vr.recommendedVisas || []).map((v: any) => ({
+              ...v,
+              eligibility: eligMap[v.eligibility] || v.eligibility || "unknown",
+            }))
+            setVisaResearch({ ...vr, visaOptions: visaOpts, citizenship: vr.citizenship || vr.nationality })
           }
           if (data.plan?.local_requirements_research) {
             setLocalRequirements(data.plan.local_requirements_research)

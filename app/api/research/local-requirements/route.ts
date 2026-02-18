@@ -330,20 +330,56 @@ Respond ONLY with valid JSON in this exact structure:
       }
     }
 
+    // Convert categories from keyed object to array format expected by the component
+    // API returns: { registration: [...], taxId: [...] }
+    // Component expects: [{ category: "Registration", items: [...] }, ...]
+    const rawCategories = parsedResearch.categories || {
+      registration: [],
+      taxId: [],
+      healthcare: [],
+      banking: [],
+      driversLicense: [],
+      utilities: [],
+      housing: [],
+      other: [],
+    }
+    
+    const categoryLabelMap: Record<string, string> = {
+      registration: "Registration",
+      taxId: "Tax ID",
+      healthcare: "Healthcare",
+      banking: "Banking",
+      driversLicense: "Driver's License",
+      utilities: "Utilities",
+      housing: "Housing",
+      other: "Other",
+    }
+    
+    const normalizedCategories = Object.entries(rawCategories)
+      .filter(([, items]) => Array.isArray(items) && items.length > 0)
+      .map(([key, items]) => ({
+        category: categoryLabelMap[key] || key.charAt(0).toUpperCase() + key.slice(1),
+        items: (items as any[]).map((item: any) => ({
+          // Task 6: Map name -> title
+          title: item.name || item.title || "Untitled",
+          description: item.description || "",
+          steps: item.steps || [],
+          // Task 5: Map requiredDocuments -> documents
+          documents: item.requiredDocuments || item.documents || [],
+          estimatedTime: item.estimatedTime || "",
+          cost: item.cost || "",
+          officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+          tips: item.tips || [],
+        })),
+      }))
+    
     // Build the complete research object
-    const research: LocalRequirementsResearch = {
+    const research = {
       destination,
-      destinationCity,
-      categories: parsedResearch.categories || {
-        registration: [],
-        taxId: [],
-        healthcare: [],
-        banking: [],
-        driversLicense: [],
-        utilities: [],
-        housing: [],
-        other: [],
-      },
+      city: destinationCity,
+      categories: normalizedCategories,
+      summary: `Local requirements research for ${destination}${destinationCity ? ` (${destinationCity})` : ""}.`,
+      disclaimer: "Requirements may vary based on your visa type and personal circumstances. Always verify with official sources.",
       generalTips: parsedResearch.generalTips || [],
       importantDeadlines: parsedResearch.importantDeadlines || [],
       researchedAt: new Date().toISOString(),
