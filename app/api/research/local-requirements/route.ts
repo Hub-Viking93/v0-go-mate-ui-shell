@@ -2,6 +2,58 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
+// Normalize old DB shape to the component-expected shape
+function normalizeLocalRequirements(raw: any): any {
+  if (!raw) return raw
+  // If categories is already an array, just normalize items
+  if (Array.isArray(raw.categories)) {
+    return {
+      ...raw,
+      categories: raw.categories.map((cat: any) => ({
+        ...cat,
+        category: cat.category || "Other",
+        items: (cat.items || []).map((item: any) => ({
+          title: item.title || item.name || "Untitled",
+          description: item.description || "",
+          steps: item.steps || [],
+          documents: item.documents || item.requiredDocuments || [],
+          estimatedTime: item.estimatedTime || "",
+          cost: item.cost || "",
+          officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+          tips: item.tips || [],
+        })),
+      })),
+    }
+  }
+  // If categories is a keyed object, convert to array
+  if (raw.categories && typeof raw.categories === "object") {
+    const labelMap: Record<string, string> = {
+      registration: "Registration", taxId: "Tax ID", healthcare: "Healthcare",
+      banking: "Banking", driversLicense: "Driver's License", utilities: "Utilities",
+      housing: "Housing", other: "Other",
+    }
+    return {
+      ...raw,
+      categories: Object.entries(raw.categories)
+        .filter(([, items]) => Array.isArray(items) && (items as any[]).length > 0)
+        .map(([key, items]) => ({
+          category: labelMap[key] || key.charAt(0).toUpperCase() + key.slice(1),
+          items: (items as any[]).map((item: any) => ({
+            title: item.title || item.name || "Untitled",
+            description: item.description || "",
+            steps: item.steps || [],
+            documents: item.documents || item.requiredDocuments || [],
+            estimatedTime: item.estimatedTime || "",
+            cost: item.cost || "",
+            officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+            tips: item.tips || [],
+          })),
+        })),
+    }
+  }
+  return raw
+}
+
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 
@@ -142,7 +194,7 @@ export async function POST(request: Request) {
 
       if (researchAge < sevenDaysMs) {
         return NextResponse.json({
-          research: plan.local_requirements_research,
+          research: normalizeLocalRequirements(plan.local_requirements_research),
           cached: true,
           cachedAt: plan.research_completed_at,
         })
@@ -466,7 +518,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      research: plan.local_requirements_research,
+      research: normalizeLocalRequirements(plan.local_requirements_research),
       cachedAt: plan.research_completed_at,
       status: plan.research_status,
     })
