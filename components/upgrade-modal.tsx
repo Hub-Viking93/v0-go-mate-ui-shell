@@ -55,9 +55,13 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
         }),
       })
 
-      if (response.ok) {
+      const data = await response.json()
+      console.log("[v0] Upgrade response:", response.status, data)
+      if (response.ok && data.success) {
         onUpgradeComplete?.()
         onOpenChange(false)
+      } else {
+        console.error("[v0] Upgrade failed:", data)
       }
     } catch (error) {
       console.error("[GoMate] Upgrade error:", error)

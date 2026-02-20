@@ -61,7 +61,6 @@ export function PlanSwitcher({
 
   const currentPlan = plans.find((p) => p.is_current)
   const canSwitch = tier === "pro_plus"
-  const hasMultiplePlans = plans.filter((p) => p.status !== "archived").length > 1
 
   useEffect(() => {
     fetchPlans()
@@ -72,6 +71,7 @@ export function PlanSwitcher({
       const res = await fetch("/api/plans")
       if (!res.ok) return
       const data = await res.json()
+      console.log("[v0] PlanSwitcher data:", { tier: data.tier, planCount: data.plans?.length })
       setPlans(data.plans || [])
       setTier(data.tier || "free")
     } catch {
@@ -157,8 +157,9 @@ export function PlanSwitcher({
 
   const activePlans = plans.filter((p) => p.status !== "archived")
 
-  // Single plan (Free / Pro Single) - just show the title with optional rename
-  if (!canSwitch || activePlans.length <= 1) {
+  // Free / Pro Single users: just show the title with optional rename
+  // Pro+ users always get the dropdown (even with 1 plan, they can create new ones)
+  if (!canSwitch) {
     return (
       <div className={cn("flex items-center gap-2", className)}>
         {isRenaming && showRename ? (
