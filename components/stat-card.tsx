@@ -13,7 +13,7 @@ interface StatCardProps {
 export function StatCard({ title, value, subtitle, icon, trend, className }: StatCardProps) {
   return (
     <div className={cn(
-      "rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-md",
+      "gm-card p-6",
       className
     )}>
       <div className="flex items-start justify-between mb-3">
@@ -21,7 +21,7 @@ export function StatCard({ title, value, subtitle, icon, trend, className }: Sta
         {icon && <div className="text-primary">{icon}</div>}
       </div>
       <div className="space-y-1">
-        <p className="text-2xl font-bold text-foreground">{value}</p>
+        <p className="text-2xl font-semibold text-foreground font-mono tracking-tight">{value}</p>
         {subtitle && (
           <p className={cn(
             "text-sm",
