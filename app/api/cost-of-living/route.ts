@@ -70,8 +70,7 @@ export async function POST(request: Request) {
       .from("relocation_plans")
       .select("id, profile_data")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .eq("is_current", true)
       .maybeSingle()
 
     if (!plan) {

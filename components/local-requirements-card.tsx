@@ -74,7 +74,8 @@ const categoryIcons: Record<string, React.ReactNode> = {
   other: <HelpCircle className="w-4 h-4" />,
 }
 
-function getCategoryIcon(category: string): React.ReactNode {
+function getCategoryIcon(category?: string): React.ReactNode {
+  if (!category) return <ClipboardList className="w-4 h-4" />
   const lowerCategory = category.toLowerCase()
   for (const [key, icon] of Object.entries(categoryIcons)) {
     if (lowerCategory.includes(key)) return icon
@@ -222,9 +223,9 @@ function CategorySection({
       >
         <div className="flex items-center gap-2">
           {getCategoryIcon(category.category)}
-          <span className="font-medium text-foreground">{category.category}</span>
+          <span className="font-medium text-foreground">{category.category || "Other"}</span>
           <Badge variant="outline" className="text-xs">
-            {category.items.length} item{category.items.length !== 1 ? "s" : ""}
+            {(category.items || []).length} item{(category.items || []).length !== 1 ? "s" : ""}
           </Badge>
         </div>
         {expanded ? (
@@ -236,11 +237,11 @@ function CategorySection({
 
       {expanded && (
         <div className="p-4 space-y-3">
-          {category.items.map((item, index) => (
+          {(category.items || []).map((item, index) => (
             <RequirementItemCard
               key={index}
               item={item}
-              categoryName={category.category}
+              categoryName={category.category || "Other"}
             />
           ))}
         </div>
@@ -258,7 +259,19 @@ export function LocalRequirementsCard({
   onResearchComplete,
 }: LocalRequirementsCardProps) {
   const [isResearching, setIsResearching] = useState(false)
-  const [research, setResearch] = useState<LocalRequirementsData | null>(cachedResearch || null)
+  const [research, setResearch] = useState<LocalRequirementsData | null>(() => {
+    if (!cachedResearch) return null
+    // Normalize categories to always be an array
+    const cats = cachedResearch.categories
+    return {
+      ...cachedResearch,
+      categories: Array.isArray(cats)
+        ? cats
+        : cats && typeof cats === "object"
+        ? Object.values(cats)
+        : [],
+    }
+  })
   const [error, setError] = useState<string | null>(null)
 
   const handleResearch = async () => {
@@ -283,8 +296,18 @@ export function LocalRequirementsCard({
       }
 
       const data = await response.json()
-      setResearch(data.research)
-      onResearchComplete?.(data.research)
+      const r = data.research
+      const cats = r?.categories
+      const normalized = {
+        ...r,
+        categories: Array.isArray(cats)
+          ? cats
+          : cats && typeof cats === "object"
+          ? Object.values(cats)
+          : [],
+      }
+      setResearch(normalized)
+      onResearchComplete?.(normalized)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Research failed. Please try again.")
     } finally {
@@ -433,12 +456,12 @@ export function LocalRequirementsCard({
       )}
 
       <div className="space-y-4">
-        {research.categories.map((category, index) => (
+        {(research.categories || []).map((category, index) => (
           <CategorySection key={index} category={category} />
         ))}
       </div>
 
-      {research.categories.length === 0 && (
+      {(!research.categories || research.categories.length === 0) && (
         <div className="text-center py-8 text-muted-foreground">
           <HelpCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No requirements found. Try refreshing the research.</p>

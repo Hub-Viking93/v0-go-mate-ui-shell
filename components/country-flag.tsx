@@ -21,8 +21,12 @@ export function CountryFlag({
   showEmoji = false,
   className = "" 
 }: CountryFlagProps) {
+  if (!country) {
+    return null
+  }
+  
   const flag = getCountryFlag(country)
-  const dimensions = sizeMap[size]
+  const dimensions = sizeMap[size] || sizeMap.md
   
   if (showEmoji || !flag.imageUrl) {
     return (

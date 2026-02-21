@@ -12,14 +12,13 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
       return false
     }
     
-    // Get or create the user's plan
+    // Get the user's current plan (is_current = true)
     const { data: existingPlan } = await supabase
       .from("relocation_plans")
       .select("id, profile_data")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+      .eq("is_current", true)
+      .maybeSingle()
     
     if (existingPlan) {
       // Update existing plan with merged profile
@@ -28,12 +27,35 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
         ...profile,
       }
       
+      // Auto-generate title when destination/purpose are first set
+      const updateData: Record<string, unknown> = {
+        profile_data: mergedProfile,
+        updated_at: new Date().toISOString(),
+      }
+      
+      // Get current plan title to check if it needs auto-generation
+      const { data: fullPlan } = await supabase
+        .from("relocation_plans")
+        .select("title")
+        .eq("id", existingPlan.id)
+        .single()
+      
+      const hasAutoTitle = !fullPlan?.title || fullPlan.title.startsWith("Plan ")
+      const dest = mergedProfile.destination as string | undefined
+      const purp = mergedProfile.purpose as string | undefined
+      
+      if (hasAutoTitle && dest) {
+        if (purp) {
+          const label = purp.charAt(0).toUpperCase() + purp.slice(1)
+          updateData.title = `${label} in ${dest}`
+        } else {
+          updateData.title = `Move to ${dest}`
+        }
+      }
+      
       const { error } = await supabase
         .from("relocation_plans")
-        .update({
-          profile_data: mergedProfile,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", existingPlan.id)
       
       if (error) {
@@ -43,13 +65,14 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
       
       return true
     } else {
-      // Create new plan
+      // Create new plan and mark as current
       const { error } = await supabase
         .from("relocation_plans")
         .insert({
           user_id: user.id,
           profile_data: profile,
           stage: "collecting",
+          is_current: true,
         })
       
       if (error) {
@@ -77,9 +100,8 @@ export async function loadProfileFromSupabase(): Promise<Profile | null> {
       .from("relocation_plans")
       .select("profile_data")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+      .eq("is_current", true)
+      .maybeSingle()
     
     return plan?.profile_data as Profile || null
   } catch {

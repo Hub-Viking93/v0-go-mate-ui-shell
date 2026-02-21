@@ -1,13 +1,123 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { generateText } from "ai"
-import FirecrawlApp from "@mendable/firecrawl-js"
 import { getAllSources } from "@/lib/gomate/official-sources"
 
-// Initialize Firecrawl
-const firecrawl = new FirecrawlApp({
-  apiKey: process.env.FIRECRAWL_API_KEY || "",
-})
+// Normalize old DB shape to the component-expected shape
+function normalizeLocalRequirements(raw: any): any {
+  if (!raw) return raw
+  // If categories is already an array, just normalize items
+  if (Array.isArray(raw.categories)) {
+    return {
+      ...raw,
+      categories: raw.categories.map((cat: any) => ({
+        ...cat,
+        category: cat.category || "Other",
+        items: (cat.items || []).map((item: any) => ({
+          title: item.title || item.name || "Untitled",
+          description: item.description || "",
+          steps: item.steps || [],
+          documents: item.documents || item.requiredDocuments || [],
+          estimatedTime: item.estimatedTime || "",
+          cost: item.cost || "",
+          officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+          tips: item.tips || [],
+        })),
+      })),
+    }
+  }
+  // If categories is a keyed object, convert to array
+  if (raw.categories && typeof raw.categories === "object") {
+    const labelMap: Record<string, string> = {
+      registration: "Registration", taxId: "Tax ID", healthcare: "Healthcare",
+      banking: "Banking", driversLicense: "Driver's License", utilities: "Utilities",
+      housing: "Housing", other: "Other",
+    }
+    return {
+      ...raw,
+      categories: Object.entries(raw.categories)
+        .filter(([, items]) => Array.isArray(items) && (items as any[]).length > 0)
+        .map(([key, items]) => ({
+          category: labelMap[key] || key.charAt(0).toUpperCase() + key.slice(1),
+          items: (items as any[]).map((item: any) => ({
+            title: item.title || item.name || "Untitled",
+            description: item.description || "",
+            steps: item.steps || [],
+            documents: item.documents || item.requiredDocuments || [],
+            estimatedTime: item.estimatedTime || "",
+            cost: item.cost || "",
+            officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+            tips: item.tips || [],
+          })),
+        })),
+    }
+  }
+  return raw
+}
+
+const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
+const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
+
+// Scrape a URL using Firecrawl REST API
+async function scrapeUrl(url: string): Promise<string | null> {
+  if (!FIRECRAWL_API_KEY) return null
+  try {
+    const response = await fetch(`${FIRECRAWL_BASE_URL}/scrape`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown"],
+        onlyMainContent: true,
+        waitFor: 3000,
+      }),
+    })
+    if (!response.ok) {
+      console.error(`[GoMate] Firecrawl scrape failed for ${url}:`, response.status)
+      return null
+    }
+    const data = await response.json()
+    return data.data?.markdown || null
+  } catch (error) {
+    console.error(`[GoMate] Firecrawl scrape error for ${url}:`, error)
+    return null
+  }
+}
+
+// Search using Firecrawl REST API
+async function searchFirecrawl(query: string, limit = 2): Promise<string[]> {
+  if (!FIRECRAWL_API_KEY) return []
+  try {
+    const response = await fetch(`${FIRECRAWL_BASE_URL}/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        query,
+        limit,
+        scrapeOptions: {
+          formats: ["markdown"],
+          onlyMainContent: true,
+        },
+      }),
+    })
+    if (!response.ok) {
+      console.error(`[GoMate] Firecrawl search failed for "${query}":`, response.status)
+      return []
+    }
+    const data = await response.json()
+    return (data.data || [])
+      .map((item: { markdown?: string }) => item.markdown || "")
+      .filter(Boolean)
+  } catch (error) {
+    console.error(`[GoMate] Firecrawl search error for "${query}":`, error)
+    return []
+  }
+}
 
 interface LocalRequirement {
   category: string
@@ -84,7 +194,7 @@ export async function POST(request: Request) {
 
       if (researchAge < sevenDaysMs) {
         return NextResponse.json({
-          research: plan.local_requirements_research,
+          research: normalizeLocalRequirements(plan.local_requirements_research),
           cached: true,
           cachedAt: plan.research_completed_at,
         })
@@ -121,23 +231,15 @@ export async function POST(request: Request) {
       if (officialSources.safety) sourcesToScrape.push(officialSources.safety)
     }
 
-    // Scrape official sources
+    // Scrape official sources using Firecrawl REST API
     for (const url of sourcesToScrape.slice(0, 4)) {
-      try {
-        const scrapeResult = await firecrawl.scrapeUrl(url, {
-          formats: ["markdown"],
-        })
-        if (scrapeResult.success && scrapeResult.markdown) {
-          scrapedContent.push(
-            `--- Content from ${url} ---\n${scrapeResult.markdown.slice(0, 8000)}`
-          )
-        }
-      } catch (scrapeError) {
-        console.error(`[GoMate] Failed to scrape ${url}:`, scrapeError)
+      const content = await scrapeUrl(url)
+      if (content) {
+        scrapedContent.push(`--- Content from ${url} ---\n${content.slice(0, 8000)}`)
       }
     }
 
-    // Search for specific local requirements
+    // Search for specific local requirements using Firecrawl REST API
     const searchQueries = [
       `${destination} residence registration requirements for foreigners ${new Date().getFullYear()}`,
       `${destination} tax registration foreign residents`,
@@ -148,19 +250,9 @@ export async function POST(request: Request) {
     ]
 
     for (const query of searchQueries.slice(0, 4)) {
-      try {
-        const searchResult = await firecrawl.search(query, { limit: 2 })
-        if (searchResult.success && searchResult.data) {
-          for (const result of searchResult.data) {
-            if (result.markdown) {
-              scrapedContent.push(
-                `--- Search result for "${query}" ---\n${result.markdown.slice(0, 4000)}`
-              )
-            }
-          }
-        }
-      } catch (searchError) {
-        console.error(`[GoMate] Search failed for "${query}":`, searchError)
+      const results = await searchFirecrawl(query, 2)
+      for (const markdown of results) {
+        scrapedContent.push(`--- Search result for "${query}" ---\n${markdown.slice(0, 4000)}`)
       }
     }
 
@@ -229,12 +321,35 @@ Respond ONLY with valid JSON in this exact structure:
   ]
 }`
 
-    // Call AI to analyze and structure the research
-    const { text } = await generateText({
-      model: "openai/gpt-4o-mini",
-      prompt,
-      temperature: 0.3,
+    // Call OpenAI directly to analyze and structure the research
+    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert relocation consultant. Provide accurate, structured local requirements research. Respond ONLY with valid JSON.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 4000,
+      }),
     })
+
+    if (!aiResponse.ok) {
+      const errBody = await aiResponse.text()
+      console.error("[GoMate] OpenAI API failed:", aiResponse.status, errBody)
+      throw new Error(`OpenAI API failed with status ${aiResponse.status}`)
+    }
+
+    const aiData = await aiResponse.json()
+    const text = aiData.choices?.[0]?.message?.content || ""
 
     // Parse the AI response
     let parsedResearch: Partial<LocalRequirementsResearch>
@@ -267,20 +382,56 @@ Respond ONLY with valid JSON in this exact structure:
       }
     }
 
+    // Convert categories from keyed object to array format expected by the component
+    // API returns: { registration: [...], taxId: [...] }
+    // Component expects: [{ category: "Registration", items: [...] }, ...]
+    const rawCategories = parsedResearch.categories || {
+      registration: [],
+      taxId: [],
+      healthcare: [],
+      banking: [],
+      driversLicense: [],
+      utilities: [],
+      housing: [],
+      other: [],
+    }
+    
+    const categoryLabelMap: Record<string, string> = {
+      registration: "Registration",
+      taxId: "Tax ID",
+      healthcare: "Healthcare",
+      banking: "Banking",
+      driversLicense: "Driver's License",
+      utilities: "Utilities",
+      housing: "Housing",
+      other: "Other",
+    }
+    
+    const normalizedCategories = Object.entries(rawCategories)
+      .filter(([, items]) => Array.isArray(items) && items.length > 0)
+      .map(([key, items]) => ({
+        category: categoryLabelMap[key] || key.charAt(0).toUpperCase() + key.slice(1),
+        items: (items as any[]).map((item: any) => ({
+          // Task 6: Map name -> title
+          title: item.name || item.title || "Untitled",
+          description: item.description || "",
+          steps: item.steps || [],
+          // Task 5: Map requiredDocuments -> documents
+          documents: item.requiredDocuments || item.documents || [],
+          estimatedTime: item.estimatedTime || "",
+          cost: item.cost || "",
+          officialLink: (item.officialLinks || [])[0] || item.officialLink || "",
+          tips: item.tips || [],
+        })),
+      }))
+    
     // Build the complete research object
-    const research: LocalRequirementsResearch = {
+    const research = {
       destination,
-      destinationCity,
-      categories: parsedResearch.categories || {
-        registration: [],
-        taxId: [],
-        healthcare: [],
-        banking: [],
-        driversLicense: [],
-        utilities: [],
-        housing: [],
-        other: [],
-      },
+      city: destinationCity,
+      categories: normalizedCategories,
+      summary: `Local requirements research for ${destination}${destinationCity ? ` (${destinationCity})` : ""}.`,
+      disclaimer: "Requirements may vary based on your visa type and personal circumstances. Always verify with official sources.",
       generalTips: parsedResearch.generalTips || [],
       importantDeadlines: parsedResearch.importantDeadlines || [],
       researchedAt: new Date().toISOString(),
@@ -367,7 +518,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      research: plan.local_requirements_research,
+      research: normalizeLocalRequirements(plan.local_requirements_research),
       cachedAt: plan.research_completed_at,
       status: plan.research_status,
     })

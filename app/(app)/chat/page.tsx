@@ -25,6 +25,8 @@ import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileSummaryCard } from "@/components/profile-summary-card"
 import { BudgetCard } from "@/components/budget-card"
+import { TierGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
 import { ExternalLink } from "lucide-react"
 import type { OfficialSource } from "@/lib/gomate/official-sources"
 
@@ -38,6 +40,7 @@ function ChatPageContent() {
   const searchParams = useSearchParams()
   const fieldParam = searchParams.get("field")
   const labelParam = searchParams.get("label")
+  const { tier } = useTier()
   
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
@@ -576,28 +579,30 @@ function ChatPageContent() {
 
         {/* Budget Card - show when profile is complete and we have budget data */}
         {(interviewState === "complete" || planLocked) && budgetData && savingsData && profile.destination && (
-          <BudgetCard 
-            budget={budgetData} 
-            savings={savingsData} 
-            destination={profile.destination}
-            currentSavings={parseFloat(profile.savings_available || "0") || 0}
-            onUpdateSavings={async (amount) => {
-              // Update local profile state
-              const updatedProfile = { ...profile, savings_available: amount.toString() }
-              setProfile(updatedProfile)
-              
-              // Persist to backend
-              try {
-                await fetch("/api/profile", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
-                })
-              } catch (error) {
-                console.error("[GoMate] Error saving savings:", error)
-              }
-            }}
-          />
+          <TierGate tier={tier} feature="budget_planner" onUpgrade={() => window.location.href = "/settings"}>
+            <BudgetCard 
+              budget={budgetData} 
+              savings={savingsData} 
+              destination={profile.destination}
+              currentSavings={parseFloat(profile.savings_available || "0") || 0}
+              onUpdateSavings={async (amount) => {
+                // Update local profile state
+                const updatedProfile = { ...profile, savings_available: amount.toString() }
+                setProfile(updatedProfile)
+                
+                // Persist to backend
+                try {
+                  await fetch("/api/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
+                  })
+                } catch (error) {
+                  console.error("[GoMate] Error saving savings:", error)
+                }
+              }}
+            />
+          </TierGate>
         )}
 
         {/* Review confirmation buttons */}

@@ -9,6 +9,23 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { getAllSources, getSourceUrl } from "@/lib/gomate/official-sources"
 
+// Normalize old DB visa research shape to component-expected shape
+function normalizeVisaResearch(raw: any): any {
+  if (!raw) return raw
+  const eligMap: Record<string, string> = {
+    likely_eligible: "high", possibly_eligible: "medium", unlikely_eligible: "low",
+  }
+  const visaOptions = (raw.visaOptions || raw.recommendedVisas || []).map((v: any) => ({
+    ...v,
+    eligibility: eligMap[v.eligibility] || v.eligibility || "unknown",
+  }))
+  return {
+    ...raw,
+    visaOptions,
+    citizenship: raw.citizenship || raw.nationality,
+  }
+}
+
 // Firecrawl configuration
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
@@ -397,12 +414,27 @@ export async function POST(request: Request) {
       }
     }
 
-    // Build final result
-    const researchResult: VisaResearchResult = {
+    // Task 3: Map eligibility values from AI format to component format
+    const eligibilityMap: Record<string, string> = {
+      likely_eligible: "high",
+      possibly_eligible: "medium",
+      unlikely_eligible: "low",
+    }
+
+    // Task 2: Rename recommendedVisas -> visaOptions and map eligibility
+    const visaOptions = recommendedVisas.map((visa) => ({
+      ...visa,
+      eligibility: eligibilityMap[visa.eligibility] || visa.eligibility || "unknown",
+    }))
+
+    // Build final result in the shape the component expects
+    const researchResult = {
       destination: profileData.destination,
-      nationality: profileData.citizenship,
+      citizenship: profileData.citizenship,
       purpose: profileData.purpose || "other",
-      recommendedVisas,
+      visaOptions,
+      summary: `Found ${visaOptions.length} visa option${visaOptions.length !== 1 ? "s" : ""} for ${profileData.citizenship} citizens moving to ${profileData.destination}.`,
+      disclaimer: "Visa requirements change frequently. Always verify information on official government websites before applying.",
       generalRequirements,
       importantNotes,
       officialSources: sourcesList,
@@ -424,7 +456,8 @@ export async function POST(request: Request) {
       console.error("[GoMate] Failed to save research:", updateError)
     }
 
-    return NextResponse.json(researchResult)
+    // Task 1: Wrap in { research: ... } envelope to match component's data.research access
+    return NextResponse.json({ research: researchResult })
   } catch (error) {
     console.error("[GoMate] Visa research error:", error)
     return NextResponse.json(
@@ -467,7 +500,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      visaResearch: plan.visa_research,
+      research: normalizeVisaResearch(plan.visa_research),
+      visaResearch: normalizeVisaResearch(plan.visa_research),
       status: plan.research_status,
       completedAt: plan.research_completed_at,
     })

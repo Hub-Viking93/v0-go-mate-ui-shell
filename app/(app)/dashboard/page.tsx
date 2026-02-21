@@ -18,6 +18,9 @@ import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
+import { PlanSwitcher } from "@/components/plan-switcher"
+import { TierGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   MapPin, 
@@ -46,6 +49,9 @@ interface RelocationPlan {
   user_id: string
   profile_data: Profile
   stage: string
+  title: string | null
+  status: string
+  is_current: boolean
   locked: boolean
   locked_at: string | null
   created_at: string
@@ -436,6 +442,8 @@ function generateDocumentItems(profile: Profile): DocumentItem[] {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { tier, can } = useTier()
+  const goToUpgrade = () => router.push("/settings")
   const [plan, setPlan] = useState<RelocationPlan | null>(null)
   const [userGuide, setUserGuide] = useState<UserGuide | null>(null)
   const [documentStatuses, setDocumentStatuses] = useState<Record<string, DocumentStatus>>({})
@@ -459,9 +467,16 @@ export default function DashboardPage() {
         if (planRes.ok) {
           const data = await planRes.json()
           setPlan(data.plan)
-          // Check for cached research data
+          // Check for cached research data and normalize old shapes
           if (data.plan?.visa_research) {
-            setVisaResearch(data.plan.visa_research)
+            const vr = data.plan.visa_research
+            // Normalize old format: recommendedVisas -> visaOptions, eligibility values
+            const eligMap: Record<string, string> = { likely_eligible: "high", possibly_eligible: "medium", unlikely_eligible: "low" }
+            const visaOpts = (vr.visaOptions || vr.recommendedVisas || []).map((v: any) => ({
+              ...v,
+              eligibility: eligMap[v.eligibility] || v.eligibility || "unknown",
+            }))
+            setVisaResearch({ ...vr, visaOptions: visaOpts, citizenship: vr.citizenship || vr.nationality })
           }
           if (data.plan?.local_requirements_research) {
             setLocalRequirements(data.plan.local_requirements_research)
@@ -700,6 +715,17 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Plan Switcher - shows plan name with rename option, dropdown for Pro+ */}
+      <div className="mb-6">
+        <PlanSwitcher 
+          showRename 
+          onPlanChange={() => {
+            // Reload all dashboard data when plan changes
+            window.location.reload()
+          }}
+        />
+      </div>
+
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
         <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
@@ -817,38 +843,42 @@ export default function DashboardPage() {
         {/* Right Column */}
         <div className="space-y-6">
 {/* Document Progress Card */}
-<DocumentProgressCard
-  items={documentItems}
-  statuses={documentStatuses}
-  planId={plan?.id}
+<TierGate tier={tier} feature="documents" onUpgrade={goToUpgrade}>
+  <DocumentProgressCard
+    items={documentItems}
+    statuses={documentStatuses}
+    planId={plan?.id}
   />
+</TierGate>
 
           {/* Your Personal Guide - Show if locked and guide exists */}
           {isLocked && userGuide && (
-            <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-foreground">Your Personal Guide</h2>
+            <TierGate tier={tier} feature="guides" onUpgrade={goToUpgrade}>
+              <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    <h2 className="text-lg font-semibold text-foreground">Your Personal Guide</h2>
+                  </div>
+                  <Badge className="bg-primary/20 text-primary border-0">Generated</Badge>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-0">Generated</Badge>
-              </div>
-              <div className="flex items-center gap-3 mb-4">
-                <CountryFlag country={userGuide.destination} size="md" />
-                <div>
-                  <h3 className="font-medium text-foreground">{userGuide.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Complete guide for your {userGuide.purpose} journey
-                  </p>
+                <div className="flex items-center gap-3 mb-4">
+                  <CountryFlag country={userGuide.destination} size="md" />
+                  <div>
+                    <h3 className="font-medium text-foreground">{userGuide.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Complete guide for your {userGuide.purpose} journey
+                    </p>
+                  </div>
                 </div>
+                <Button asChild className="w-full gap-2">
+                  <Link href={`/guides/${userGuide.id}`}>
+                    View Your Guide
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </Button>
               </div>
-              <Button asChild className="w-full gap-2">
-                <Link href={`/guides/${userGuide.id}`}>
-                  View Your Guide
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
-            </div>
+            </TierGate>
           )}
 
           {/* Suggested Guide - Only show destination country */}
@@ -890,96 +920,106 @@ export default function DashboardPage() {
 
       {/* AI Visa Research Section */}
       {hasDestination && hasCitizenship && (
-        <div className="mb-8">
-          <VisaResearchCard
-            planId={plan?.id}
-            destination={targetCountry}
-            citizenship={citizenship}
-            purpose={profile.purpose}
-            cachedResearch={visaResearch}
-            researchStatus={researchStatus}
-            onResearchComplete={(data) => {
-              setVisaResearch(data)
-              setResearchStatus("completed")
-            }}
-          />
-        </div>
+        <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
+          <div className="mb-8">
+            <VisaResearchCard
+              planId={plan?.id}
+              destination={targetCountry}
+              citizenship={citizenship}
+              purpose={profile.purpose}
+              cachedResearch={visaResearch}
+              researchStatus={researchStatus}
+              onResearchComplete={(data) => {
+                setVisaResearch(data)
+                setResearchStatus("completed")
+              }}
+            />
+          </div>
+        </TierGate>
       )}
 
       {/* Static Visa Routes Section (fallback when no AI research) */}
       {hasDestination && hasCitizenship && !visaResearch && (
-        <div className="mb-8">
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <FileText className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Common Visa Options</h2>
-              <Badge variant="outline" className="text-xs">Static data</Badge>
+        <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
+          <div className="mb-8">
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <FileText className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Common Visa Options</h2>
+                <Badge variant="outline" className="text-xs">Static data</Badge>
+              </div>
+              <VisaRoutesCard 
+                visaData={visaData}
+                selectedRouteIndex={selectedVisaRoute}
+                onSelectRoute={setSelectedVisaRoute}
+              />
             </div>
-            <VisaRoutesCard 
-              visaData={visaData}
-              selectedRouteIndex={selectedVisaRoute}
-              onSelectRoute={setSelectedVisaRoute}
-            />
           </div>
-        </div>
+        </TierGate>
       )}
 
       {/* Local Requirements Section */}
       {hasDestination && (
-        <div className="mb-8">
-          <LocalRequirementsCard
-            planId={plan?.id}
-            destination={targetCountry}
-            city={profile.target_city}
-            cachedResearch={localRequirements}
-            researchStatus={researchStatus}
-            onResearchComplete={(data) => {
-              setLocalRequirements(data)
-            }}
-          />
-        </div>
+        <TierGate tier={tier} feature="local_requirements" onUpgrade={goToUpgrade}>
+          <div className="mb-8">
+            <LocalRequirementsCard
+              planId={plan?.id}
+              destination={targetCountry}
+              city={profile.target_city}
+              cachedResearch={localRequirements}
+              researchStatus={researchStatus}
+              onResearchComplete={(data) => {
+                setLocalRequirements(data)
+              }}
+            />
+          </div>
+        </TierGate>
       )}
 
       {/* Budget & Cost of Living Section */}
       {hasDestination && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <BudgetPlanCard
-            budget={budgetData}
-            targetCity={profile.target_city || profile.destination || "Berlin"}
-            targetCountry={targetCountry}
-            currentSavings={parseFloat(profile.savings_available || "0") || 0}
-            onUpdateSavings={async (amount) => {
-              // Update local state
-              if (plan) {
-                const updatedProfile = { ...profile, savings_available: amount.toString() }
-                setPlan({ ...plan, profile_data: updatedProfile })
-              }
-              
-              // Persist to backend
-              try {
-                await fetch("/api/profile", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
-                })
-              } catch (error) {
-                console.error("[GoMate] Error saving savings:", error)
-              }
-            }}
-          />
+          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
+            <BudgetPlanCard
+              budget={budgetData}
+              targetCity={profile.target_city || profile.destination || "Berlin"}
+              targetCountry={targetCountry}
+              currentSavings={parseFloat(profile.savings_available || "0") || 0}
+              onUpdateSavings={async (amount) => {
+                // Update local state
+                if (plan) {
+                  const updatedProfile = { ...profile, savings_available: amount.toString() }
+                  setPlan({ ...plan, profile_data: updatedProfile })
+                }
+                
+                // Persist to backend
+                try {
+                  await fetch("/api/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
+                  })
+                } catch (error) {
+                  console.error("[GoMate] Error saving savings:", error)
+                }
+              }}
+            />
+          </TierGate>
           
           {/* Cost of Living from Numbeo */}
-          <CostOfLivingCard
-            country={targetCountry || profile.destination || ""}
-            city={profile.target_city || undefined}
-            compareFromCity={profile.current_location || undefined}
-            compareFromCountry={profile.citizenship || undefined}
-            householdSize={
-              profile.moving_alone === "yes" ? "single" :
-              profile.partner_coming === "yes" && !profile.children_count ? "couple" :
-              profile.children_count ? "family4" : "single"
-            }
-          />
+          <TierGate tier={tier} feature="cost_of_living" onUpgrade={goToUpgrade}>
+            <CostOfLivingCard
+              country={targetCountry || profile.destination || ""}
+              city={profile.target_city || undefined}
+              compareFromCity={profile.current_location || undefined}
+              compareFromCountry={profile.citizenship || undefined}
+              householdSize={
+                profile.moving_alone === "yes" ? "single" :
+                profile.partner_coming === "yes" && !profile.children_count ? "couple" :
+                profile.children_count ? "family4" : "single"
+              }
+            />
+          </TierGate>
         </div>
       )}
 

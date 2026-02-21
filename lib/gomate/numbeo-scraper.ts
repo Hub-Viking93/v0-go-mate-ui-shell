@@ -339,12 +339,12 @@ async function scrapeNumbeo(url: string): Promise<string | null> {
   const apiKey = process.env.FIRECRAWL_API_KEY
   
   if (!apiKey) {
-    console.log("[GoMate] Firecrawl API key not configured, will use fallback data")
     return null
   }
 
   try {
-    console.log("[GoMate] Attempting to scrape:", url)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
     
     const response = await fetch(`${FIRECRAWL_BASE_URL}/scrape`, {
       method: "POST",
@@ -356,33 +356,21 @@ async function scrapeNumbeo(url: string): Promise<string | null> {
         url,
         formats: ["markdown"],
         onlyMainContent: true,
-        waitFor: 3000, // Wait for dynamic content
-        timeout: 30000, // 30 second timeout
+        waitFor: 3000,
       }),
+      signal: controller.signal,
     })
+    
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
-      // Handle specific error codes gracefully
-      if (response.status === 402) {
-        console.log("[GoMate] Firecrawl credits exhausted, using fallback data")
-      } else {
-        console.error("[GoMate] Firecrawl scrape failed:", response.status)
-      }
       return null
     }
 
     const data = await response.json()
-    const markdown = data.data?.markdown || null
-    
-    if (markdown) {
-      console.log("[GoMate] Successfully scraped content, length:", markdown.length)
-    } else {
-      console.log("[GoMate] Scrape returned no markdown content")
-    }
-    
-    return markdown
-  } catch (error) {
-    console.error("[GoMate] Firecrawl scrape error:", error)
+    return data.data?.markdown || null
+  } catch {
+    // Silently return null on any error (network failure, timeout, etc.)
     return null
   }
 }
@@ -720,27 +708,29 @@ export async function getCostOfLivingFromNumbeo(
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   
   if (firecrawlKey) {
-    let content: string | null = null
-    let targetCity = city || "Major cities"
+    try {
+      let content: string | null = null
+      let targetCity = city || "Major cities"
 
-    if (city) {
-      const cityUrl = getNumbeoUrl(city, country)
-      console.log("[GoMate] Scraping Numbeo city URL:", cityUrl)
-      content = await scrapeNumbeo(cityUrl)
-    }
+      if (city) {
+        const cityUrl = getNumbeoUrl(city, country)
+        content = await scrapeNumbeo(cityUrl)
+      }
 
-    if (!content) {
-      const countryUrl = getNumbeoCountryUrl(country)
-      console.log("[GoMate] Scraping Numbeo country URL:", countryUrl)
-      content = await scrapeNumbeo(countryUrl)
-      targetCity = "National average"
-    }
+      if (!content) {
+        const countryUrl = getNumbeoCountryUrl(country)
+        content = await scrapeNumbeo(countryUrl)
+        targetCity = "National average"
+      }
 
-    // If scraping worked, parse and cache
-    if (content) {
-      const parsedData = parseNumbeoContent(content, targetCity, country) as NumbeoData
-      colCache.set(cacheKey, { data: parsedData, timestamp: Date.now() })
-      return parsedData
+      // If scraping worked, parse and cache
+      if (content) {
+        const parsedData = parseNumbeoContent(content, targetCity, country) as NumbeoData
+        colCache.set(cacheKey, { data: parsedData, timestamp: Date.now() })
+        return parsedData
+      }
+    } catch (scrapeError) {
+      console.log("[GoMate] Numbeo scraping failed, falling back to generic data:", scrapeError instanceof Error ? scrapeError.message : scrapeError)
     }
   }
 

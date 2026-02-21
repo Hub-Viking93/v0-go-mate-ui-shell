@@ -14,13 +14,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Get user's plan with checklist
+  // Get user's current plan with checklist
   const { data: plan, error } = await supabase
     .from("relocation_plans")
     .select("id, checklist_items, profile_data, visa_research")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("is_current", true)
     .maybeSingle()
 
   if (error) {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
   if (planId) {
     query = query.eq("id", planId)
   } else {
-    query = query.order("created_at", { ascending: false }).limit(1)
+    query = query.eq("is_current", true)
   }
 
   const { data: plan, error: planError } = await query.maybeSingle()

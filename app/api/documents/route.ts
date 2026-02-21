@@ -19,8 +19,7 @@ export async function GET() {
     .from("relocation_plans")
     .select("id, document_statuses, checklist_items")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("is_current", true)
     .maybeSingle()
 
   if (error) {
@@ -55,8 +54,7 @@ export async function PATCH(request: Request) {
     .from("relocation_plans")
     .select("id, document_statuses")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("is_current", true)
     .maybeSingle()
 
   if (fetchError || !plan) {

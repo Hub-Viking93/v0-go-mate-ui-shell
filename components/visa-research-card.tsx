@@ -238,7 +238,11 @@ export function VisaResearchCard({
   onResearchComplete,
 }: VisaResearchCardProps) {
   const [isResearching, setIsResearching] = useState(false)
-  const [research, setResearch] = useState<VisaResearchData | null>(cachedResearch || null)
+  const [research, setResearch] = useState<VisaResearchData | null>(
+    cachedResearch
+      ? { ...cachedResearch, visaOptions: cachedResearch.visaOptions || [] }
+      : null
+  )
   const [error, setError] = useState<string | null>(null)
 
   const handleResearch = async () => {
@@ -408,12 +412,12 @@ export function VisaResearchCard({
       )}
 
       <div className="space-y-3">
-        {research.visaOptions.map((option, index) => (
+        {(research.visaOptions || []).map((option, index) => (
           <VisaOptionCard key={index} option={option} index={index} />
         ))}
       </div>
 
-      {research.visaOptions.length === 0 && (
+      {(!research.visaOptions || research.visaOptions.length === 0) && (
         <div className="text-center py-8 text-muted-foreground">
           <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No visa options found. Try refreshing the research.</p>

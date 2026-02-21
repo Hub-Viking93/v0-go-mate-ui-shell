@@ -25,6 +25,9 @@ import {
   AlertCircle
 } from "lucide-react"
 import type { FlightResult } from "@/lib/gomate/flight-search"
+import { FullPageGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
+import { useRouter } from "next/navigation"
 
 interface SearchResults {
   allFlights: FlightResult[]
@@ -43,6 +46,8 @@ const sourceColors: Record<string, string> = {
 }
 
 export default function BookingPage() {
+  const router = useRouter()
+  const { tier } = useTier()
   const [searchMode, setSearchMode] = useState<"flights" | "hotels">("flights")
   const [hasSearched, setHasSearched] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -135,6 +140,7 @@ export default function BookingPage() {
   }
 
   return (
+    <FullPageGate tier={tier} feature="booking" onUpgrade={() => router.push("/settings")}>
     <div className="p-6 md:p-8 lg:p-10">
       <PageHeader
         title="Book Travel"
@@ -441,5 +447,6 @@ export default function BookingPage() {
         onOpenChange={setDrawerOpen}
       />
     </div>
+    </FullPageGate>
   )
 }

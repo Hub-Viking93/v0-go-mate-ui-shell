@@ -13,6 +13,9 @@ import {
 } from "@/components/interactive-document-checklist"
 import type { Profile } from "@/lib/gomate/profile-schema"
 import type { GeneratedChecklist } from "@/lib/gomate/checklist-generator"
+import { FullPageGate } from "@/components/tier-gate"
+import { useTier } from "@/hooks/use-tier"
+import { useRouter } from "next/navigation"
 
 // Generate document checklist based on profile
 function generateDocumentChecklist(profile: Profile): DocumentItem[] {
@@ -263,6 +266,8 @@ function generateDocumentChecklist(profile: Profile): DocumentItem[] {
 }
 
 export default function DocumentsPage() {
+  const router = useRouter()
+  const { tier } = useTier()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [researching, setResearching] = useState(false)
@@ -426,6 +431,7 @@ export default function DocumentsPage() {
   const completedCount = items.filter((item) => statuses[item.id]?.completed).length
 
   return (
+    <FullPageGate tier={tier} feature="documents" onUpgrade={() => router.push("/settings")}>
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
@@ -594,5 +600,6 @@ export default function DocumentsPage() {
         </div>
       </div>
     </div>
+    </FullPageGate>
   )
 }

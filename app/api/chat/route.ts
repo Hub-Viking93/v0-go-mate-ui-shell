@@ -94,9 +94,8 @@ export async function POST(req: Request) {
           .from("relocation_plans")
           .select("locked, profile_data")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single()
+          .eq("is_current", true)
+          .maybeSingle()
         
         if (plan?.locked) {
           planLocked = true
