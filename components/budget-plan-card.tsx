@@ -103,7 +103,7 @@ export function BudgetPlanCard({
 
   if (!budget) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="gm-card-static p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <PiggyBank className="w-5 h-5 text-primary" />
           Budget Plan
@@ -116,7 +116,7 @@ export function BudgetPlanCard({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6">
+    <div className="gm-card-static p-6">
       {/* Header with status badge */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -142,7 +142,7 @@ export function BudgetPlanCard({
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-xs text-muted-foreground">Savings Goal</p>
-            <p className="text-2xl font-bold text-foreground">
+            <p className="text-2xl font-semibold text-foreground font-mono tracking-tight">
               {budget.currency} {totalGoal.toLocaleString()}
             </p>
           </div>

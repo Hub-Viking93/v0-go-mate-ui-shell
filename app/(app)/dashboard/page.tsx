@@ -753,7 +753,7 @@ export default function DashboardPage() {
 
       {/* Countdown Timer - Prominent at top */}
       {hasDestination && (
-        <div className="mb-8">
+        <div className="mb-8 gm-animate-in gm-delay-1">
           {hasCitizenship && (
             <div className="flex items-center gap-4 mb-4">
               <VisaStatusBadge 
@@ -767,7 +767,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 gm-animate-in gm-delay-2">
         <StatCard
           title="Destination"
           value={
@@ -803,7 +803,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 gm-animate-in gm-delay-3">
         {/* Profile Summary */}
         <div className="lg:col-span-2">
           <ProfileDetailsCard 
@@ -854,7 +854,7 @@ export default function DashboardPage() {
           {/* Your Personal Guide - Show if locked and guide exists */}
           {isLocked && userGuide && (
             <TierGate tier={tier} feature="guides" onUpgrade={goToUpgrade}>
-              <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-6">
+              <div className="gm-card p-6 border-primary/20">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
@@ -882,7 +882,7 @@ export default function DashboardPage() {
           )}
 
           {/* Suggested Guide - Only show destination country */}
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="gm-card-static p-6">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold text-foreground">Suggested Guide</h2>
@@ -921,7 +921,7 @@ export default function DashboardPage() {
       {/* AI Visa Research Section */}
       {hasDestination && hasCitizenship && (
         <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
-          <div className="mb-8">
+          <div className="mb-8 gm-animate-in gm-delay-4">
             <VisaResearchCard
               planId={plan?.id}
               destination={targetCountry}
@@ -942,7 +942,7 @@ export default function DashboardPage() {
       {hasDestination && hasCitizenship && !visaResearch && (
         <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
           <div className="mb-8">
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="gm-card-static p-6">
               <div className="flex items-center gap-2 mb-6">
                 <FileText className="w-5 h-5 text-primary" />
                 <h2 className="text-lg font-semibold text-foreground">Common Visa Options</h2>
@@ -961,7 +961,7 @@ export default function DashboardPage() {
       {/* Local Requirements Section */}
       {hasDestination && (
         <TierGate tier={tier} feature="local_requirements" onUpgrade={goToUpgrade}>
-          <div className="mb-8">
+          <div className="mb-8 gm-animate-in gm-delay-5">
             <LocalRequirementsCard
               planId={plan?.id}
               destination={targetCountry}
@@ -1023,21 +1023,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* CTA Card */}
-      <InfoCard
-        title={progressPercent < 100 ? "Continue building your profile" : "Ready to continue planning?"}
-        description={progressPercent < 100 
-          ? `Your profile is ${progressPercent}% complete. Chat with GoMate to fill in the remaining details.`
-          : "Chat with GoMate to get personalized guidance for your next steps."
-        }
-        variant="highlight"
-        icon={<MessageSquare className="w-5 h-5" />}
-        action={
-          <Button asChild className="rounded-xl">
-            <Link href="/chat">Open chat</Link>
-          </Button>
-        }
-      />
+      {/* Floating AI Chat Button (Task 10) */}
+      <Link
+        href="/chat"
+        className="fixed bottom-24 right-6 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#1EA550] transition-all duration-200 group"
+      >
+        <MessageSquare className="w-5 h-5" />
+        <span className="text-sm font-medium hidden sm:inline">Ask GoMate</span>
+      </Link>
     </div>
   )
 }

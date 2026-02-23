@@ -22,10 +22,9 @@ export function InfoCard({
 }: InfoCardProps) {
   return (
     <div className={cn(
-      "rounded-2xl border p-6 transition-shadow hover:shadow-md",
-      variant === "default" && "border-border bg-card",
-      variant === "highlight" && "border-primary/20 bg-primary/5",
-      variant === "warning" && "border-amber-500/20 bg-amber-50",
+      "gm-card p-6",
+      variant === "highlight" && "!border-primary/20 bg-primary/5",
+      variant === "warning" && "!border-amber-500/20 bg-amber-50 dark:bg-amber-950/20",
       className
     )}>
       <div className="flex items-start gap-4">
