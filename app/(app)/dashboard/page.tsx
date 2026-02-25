@@ -20,6 +20,8 @@ import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
 import { PlanSwitcher } from "@/components/plan-switcher"
 import { TierGate } from "@/components/tier-gate"
+import { ArrivalBanner, SettlingInDashboardCard } from "@/components/arrival-banner"
+import { ComplianceAlerts } from "@/components/compliance-alerts"
 import { useTier } from "@/hooks/use-tier"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
@@ -726,6 +728,9 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* Compliance Alerts (post-arrival) */}
+      <ComplianceAlerts planStage={plan?.stage} className="gm-animate-in gm-delay-1" />
+
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
         <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
@@ -1021,6 +1026,24 @@ export default function DashboardPage() {
             />
           </TierGate>
         </div>
+      )}
+
+      {/* Post-Relocation: Arrival Transition or Settling-In link */}
+      {plan && hasDestination && (
+        <TierGate tier={tier} feature="post_relocation" onUpgrade={goToUpgrade}>
+          {plan.stage === "complete" && (
+            <ArrivalBanner
+              stage={plan.stage}
+              tier={tier}
+              destination={profile.destination || "your destination"}
+              onArrived={() => {
+                // Refresh dashboard data
+                window.location.reload()
+              }}
+            />
+          )}
+          {plan.stage === "arrived" && <SettlingInDashboardCard />}
+        </TierGate>
       )}
 
     </div>
