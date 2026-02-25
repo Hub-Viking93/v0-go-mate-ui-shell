@@ -15,7 +15,7 @@ interface PlanReviewCardProps {
 export function PlanReviewCard({ summary, items, onProceed, onCancel, className }: PlanReviewCardProps) {
   return (
     <div className={cn(
-      "rounded-2xl border border-border bg-card p-6",
+      "gm-card-static p-6",
       className
     )}>
       <h4 className="font-semibold text-foreground mb-2">Plan Review</h4>

@@ -6,14 +6,17 @@ import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  BookOpen, 
-  Plane, 
+import {
+  Home,
+  MessageCircle,
+  MessageSquare,
+  FileText,
+  BookOpen,
   Settings,
+  Plane,
   Globe,
-  LogOut
+  LogOut,
+  Menu,
 } from "lucide-react"
 
 const navigation = [
@@ -141,6 +144,17 @@ export function AppShell({ children }: AppShellProps) {
           {children}
         </div>
       </main>
+
+      {/* Floating AI Chat Button - visible on all pages except /chat */}
+      {!pathname.startsWith("/chat") && (
+        <Link
+          href="/chat"
+          className="fixed bottom-24 right-6 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#1EA550] transition-all duration-200"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-sm font-medium hidden sm:inline">Ask GoMate</span>
+        </Link>
+      )}
 
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border">

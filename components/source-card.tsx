@@ -15,7 +15,7 @@ export function SourceCard({ title, description, url, className }: SourceCardPro
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "group flex items-start gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all",
+        "group flex items-start gap-3 p-4 gm-card",
         className
       )}
     >

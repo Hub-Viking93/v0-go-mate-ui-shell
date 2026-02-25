@@ -339,7 +339,7 @@ export function LocalRequirementsCard({
   // Show research prompt if no cached research
   if (!research) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="gm-card-static p-6">
         <div className="flex items-center gap-2 mb-4">
           <ClipboardList className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">Local Requirements</h2>
@@ -393,7 +393,7 @@ export function LocalRequirementsCard({
 
   // Show research results
   return (
-    <div className="rounded-2xl border border-border bg-card p-6">
+    <div className="gm-card-static p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-primary" />

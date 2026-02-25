@@ -1023,14 +1023,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Floating AI Chat Button (Task 10) */}
-      <Link
-        href="/chat"
-        className="fixed bottom-24 right-6 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#1EA550] transition-all duration-200 group"
-      >
-        <MessageSquare className="w-5 h-5" />
-        <span className="text-sm font-medium hidden sm:inline">Ask GoMate</span>
-      </Link>
     </div>
   )
 }

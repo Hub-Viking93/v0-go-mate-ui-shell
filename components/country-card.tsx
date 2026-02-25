@@ -22,7 +22,7 @@ export function CountryCard({ name, slug, tags, imageUrl, className, external = 
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
       className={cn(
-        "group block rounded-2xl border border-border bg-card overflow-hidden transition-all hover:shadow-lg hover:border-primary/30",
+        "group block gm-card overflow-hidden",
         className
       )}
     >

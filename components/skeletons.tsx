@@ -12,7 +12,7 @@ export function Skeleton({ className }: SkeletonProps) {
 
 export function CardSkeleton() {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+    <div className="gm-card-static p-6 space-y-4">
       <Skeleton className="h-4 w-1/3" />
       <Skeleton className="h-8 w-2/3" />
       <Skeleton className="h-4 w-full" />
@@ -34,7 +34,7 @@ export function ChatMessageSkeleton() {
 
 export function CountryCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+    <div className="gm-card-static overflow-hidden">
       <Skeleton className="h-40 w-full rounded-none" />
       <div className="p-4 space-y-3">
         <Skeleton className="h-5 w-1/2" />
@@ -49,7 +49,7 @@ export function CountryCardSkeleton() {
 
 export function ResultCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+    <div className="gm-card-static p-5 space-y-4">
       <div className="flex justify-between items-start">
         <div className="space-y-2 flex-1">
           <Skeleton className="h-5 w-2/3" />
