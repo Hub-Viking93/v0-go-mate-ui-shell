@@ -555,3 +555,115 @@ ${selectedSuggestions.map(s => `- ${s}`).join("\n")}
 
 Or just ask me anything about relocating to ${city}!`
 }
+
+// ── Post-Arrival System Prompt ──────────────────────────────────────
+export function buildPostArrivalSystemPrompt(profile: {
+  destination?: string
+  nationality?: string
+  occupation?: string
+  arrivalDate?: string
+}, settlingTasks: Array<{
+  title: string
+  category: string
+  status: string
+  deadline_days?: number | null
+  is_legal_requirement?: boolean
+}>) {
+  const city = profile.destination || "your destination"
+  const nationality = profile.nationality || "unspecified"
+  const occupation = profile.occupation || "unspecified"
+  const arrival = profile.arrivalDate || "recently"
+
+  const tasksByCategory: Record<string, typeof settlingTasks> = {}
+  for (const t of settlingTasks) {
+    if (!tasksByCategory[t.category]) tasksByCategory[t.category] = []
+    tasksByCategory[t.category].push(t)
+  }
+
+  const taskSummary = Object.entries(tasksByCategory).map(([cat, tasks]) => {
+    const done = tasks.filter(t => t.status === "completed").length
+    const urgent = tasks.filter(t => t.is_legal_requirement && t.status !== "completed")
+    let line = `  ${cat}: ${done}/${tasks.length} complete`
+    if (urgent.length > 0) {
+      line += ` (${urgent.length} legal requirement${urgent.length > 1 ? "s" : ""} pending)`
+    }
+    return line
+  }).join("\n")
+
+  // Build individual task list for the AI
+  const pendingTasks = settlingTasks
+    .filter(t => t.status !== "completed" && t.status !== "skipped")
+    .map(t => {
+      let line = `  - "${t.title}" [${t.category}]`
+      if (t.is_legal_requirement) line += " (LEGAL REQUIREMENT)"
+      if (t.deadline_days) line += ` — deadline: ${t.deadline_days} days after arrival`
+      return line
+    }).join("\n")
+
+  const completedTasks = settlingTasks
+    .filter(t => t.status === "completed")
+    .map(t => `  - "${t.title}"`)
+    .join("\n")
+
+  return `You are GoMate, a post-arrival relocation assistant. The user has arrived in ${city} (arrived: ${arrival}).
+
+## User Profile
+- Nationality: ${nationality}
+- Occupation: ${occupation}
+- Destination: ${city}
+
+## Settling-In Progress Summary
+${taskSummary || "  No tasks generated yet."}
+
+## Pending Tasks
+${pendingTasks || "  All tasks complete!"}
+
+## Completed Tasks
+${completedTasks || "  None yet."}
+
+## Your Role
+You are now a **settling-in coach**. Your job is to:
+1. Help the user navigate their first weeks in ${city}
+2. Answer practical questions about daily life, bureaucracy, local norms
+3. Guide them through their settling-in tasks in priority order
+4. Flag urgent legal deadlines and compliance requirements
+5. Provide emotional support — moving abroad is stressful
+
+## Task Completion Protocol
+When the user tells you they have completed a task (e.g. "I registered at the town hall" or "Done with the bank account"), you MUST:
+1. Congratulate them briefly
+2. Include the marker \`[TASK_DONE:exact task title]\` at the END of your message (on its own line)
+3. The task title must match EXACTLY one of the pending tasks listed above
+4. Only emit this marker when the user explicitly confirms completion — never assume
+
+Example: If the user says "I just opened my bank account!", and the task "Open a local bank account" is in the pending list, respond with congratulations and end with:
+[TASK_DONE:Open a local bank account]
+
+## Rules
+- Be practical and specific to ${city}, not generic
+- If the user asks about a task on their list, reference its status and deadline
+- Prioritize legal requirements and time-sensitive tasks
+- For cultural questions, be nuanced and avoid stereotypes
+- Always cite official sources when discussing legal/regulatory matters
+- Keep responses concise but warm — they're busy settling in`
+}
+
+export function buildPostArrivalWelcome(name: string, destination: string, pendingCount: number, urgentCount: number) {
+  const lines = [`Welcome to ${destination}, ${name}! I'm here to help you settle in.`]
+
+  if (urgentCount > 0) {
+    lines.push(`\nYou have **${urgentCount} time-sensitive task${urgentCount > 1 ? "s" : ""}** that should be prioritized. Would you like to go through them?`)
+  } else if (pendingCount > 0) {
+    lines.push(`\nYou have **${pendingCount} task${pendingCount > 1 ? "s" : ""}** remaining on your settling-in checklist. Want me to walk you through the next steps?`)
+  } else {
+    lines.push(`\nLooks like you've completed all your settling-in tasks — great work! Let me know if anything new comes up.`)
+  }
+
+  lines.push(`\nI can help with:
+- Walking through your settling-in tasks step by step
+- Explaining local bureaucracy and procedures
+- Answering questions about daily life in ${destination}
+- Flagging upcoming deadlines`)
+
+  return lines.join("\n")
+}

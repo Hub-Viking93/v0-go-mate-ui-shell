@@ -27,6 +27,7 @@ import {
   type SettlingInTask,
 } from "@/components/settling-in-task-card"
 import { SETTLING_CATEGORIES } from "@/lib/gomate/settling-in-generator"
+import { ComplianceTimeline } from "@/components/compliance-timeline"
 import { cn } from "@/lib/utils"
 
 interface SettlingStats {
@@ -261,6 +262,15 @@ export default function SettlingInPage() {
           </div>
           <Progress value={stats.progressPercent} className="h-2" />
         </div>
+      )}
+
+      {/* Compliance Timeline */}
+      {!loading && generated && arrivalDate && tasks.length > 0 && (
+        <ComplianceTimeline
+          tasks={tasks}
+          arrivalDate={arrivalDate}
+          className="gm-animate-in gm-delay-2"
+        />
       )}
 
       {/* Task categories */}

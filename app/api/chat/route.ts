@@ -14,7 +14,7 @@ import {
   getFilledFields,
   getProgressInfo,
 } from "@/lib/gomate/state-machine"
-import { buildSystemPrompt } from "@/lib/gomate/system-prompt"
+import { buildSystemPrompt, buildPostArrivalSystemPrompt, buildPostArrivalWelcome } from "@/lib/gomate/system-prompt"
 import { getRelevantSources } from "@/lib/gomate/source-linker"
 import { getOfficialSourcesArray } from "@/lib/gomate/official-sources"
 import { getVisaStatus } from "@/lib/gomate/visa-checker"
@@ -86,22 +86,29 @@ export async function POST(req: Request) {
     
     // Check if the plan is locked (completed) - if so, skip extraction
     let planLocked = false
+    let planStage: string | null = null
+    let planId: string | null = null
+    let arrivalDate: string | null = null
     try {
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: plan } = await supabase
           .from("relocation_plans")
-          .select("locked, profile_data")
+          .select("id, locked, profile_data, stage, arrival_date")
           .eq("user_id", user.id)
           .eq("is_current", true)
           .maybeSingle()
         
-        if (plan?.locked) {
-          planLocked = true
-          // Use the locked profile data
-          if (plan.profile_data) {
-            profile = { ...EMPTY_PROFILE, ...plan.profile_data }
+        if (plan) {
+          planId = plan.id
+          planStage = plan.stage
+          arrivalDate = plan.arrival_date
+          if (plan.locked) {
+            planLocked = true
+            if (plan.profile_data) {
+              profile = { ...EMPTY_PROFILE, ...plan.profile_data }
+            }
           }
         }
       }
@@ -140,7 +147,37 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt based on state
-    const systemPrompt = buildSystemPrompt(profile, pendingFieldKey, interviewState)
+    let systemPrompt: string
+
+    if (planStage === "arrived" && planId) {
+      // Post-arrival mode: use settling-in context
+      let settlingTasks: Array<{
+        title: string; category: string; status: string;
+        deadline_days?: number | null; is_legal_requirement?: boolean;
+      }> = []
+      try {
+        const supabase = await createClient()
+        const { data: tasks } = await supabase
+          .from("settling_in_tasks")
+          .select("title, category, status, deadline_days, is_legal_requirement")
+          .eq("plan_id", planId)
+          .order("sort_order")
+        if (tasks) settlingTasks = tasks
+      } catch {
+        // Continue without tasks
+      }
+      systemPrompt = buildPostArrivalSystemPrompt(
+        {
+          destination: profile.destination,
+          nationality: profile.nationality,
+          occupation: profile.occupation,
+          arrivalDate: arrivalDate || undefined,
+        },
+        settlingTasks
+      )
+    } else {
+      systemPrompt = buildSystemPrompt(profile, pendingFieldKey, interviewState)
+    }
 
     // Use fetch directly for streaming to avoid OpenAI SDK compatibility issues
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {

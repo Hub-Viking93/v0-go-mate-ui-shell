@@ -21,6 +21,7 @@ import { CostOfLivingCard } from "@/components/cost-of-living-card"
 import { PlanSwitcher } from "@/components/plan-switcher"
 import { TierGate } from "@/components/tier-gate"
 import { ArrivalBanner, SettlingInDashboardCard } from "@/components/arrival-banner"
+import { ComplianceAlerts } from "@/components/compliance-alerts"
 import { useTier } from "@/hooks/use-tier"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
@@ -726,6 +727,9 @@ export default function DashboardPage() {
           }}
         />
       </div>
+
+      {/* Compliance Alerts (post-arrival) */}
+      <ComplianceAlerts planStage={plan?.stage} className="gm-animate-in gm-delay-1" />
 
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
