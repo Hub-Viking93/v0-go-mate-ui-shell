@@ -8,10 +8,12 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   Home,
+  LayoutDashboard,
   MessageCircle,
   MessageSquare,
   FileText,
   BookOpen,
+  ListChecks,
   Settings,
   Plane,
   Globe,
@@ -22,6 +24,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Settling In", href: "/settling-in", icon: ListChecks },
   { name: "Guides", href: "/guides", icon: BookOpen },
   { name: "Booking", href: "/booking", icon: Plane },
   { name: "Settings", href: "/settings", icon: Settings },
