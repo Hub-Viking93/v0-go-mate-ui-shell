@@ -6,14 +6,17 @@ import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  BookOpen, 
-  Plane, 
+import {
+  Home,
+  MessageCircle,
+  MessageSquare,
+  FileText,
+  BookOpen,
   Settings,
+  Plane,
   Globe,
-  LogOut
+  LogOut,
+  Menu,
 } from "lucide-react"
 
 const navigation = [
@@ -41,18 +44,18 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex grow flex-col gap-y-6 overflow-y-auto bg-sidebar px-6 py-8">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col">
+        <div className="flex grow flex-col gap-y-6 overflow-y-auto bg-transparent border-r border-border px-5 py-8">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
               <img 
                 src="/images/gomate-logo.png" 
                 alt="GoMate" 
-                className="w-6 h-6"
+                className="w-5 h-5"
               />
             </div>
-            <span className="text-xl font-bold text-sidebar-foreground">GoMate</span>
+            <span className="text-lg font-semibold text-foreground">GoMate</span>
           </Link>
 
           {/* Navigation */}
@@ -65,10 +68,10 @@ export function AppShell({ children }: AppShellProps) {
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
                         isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
                       )}
                     >
                       <item.icon className="w-5 h-5" />
@@ -86,34 +89,34 @@ export function AppShell({ children }: AppShellProps) {
               href="https://gomaterelocate.com/country-guides" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="block rounded-2xl bg-sidebar-accent/30 p-4 hover:bg-sidebar-accent/50 transition-colors group"
+              className="block rounded-2xl bg-accent p-3.5 hover:bg-accent/80 transition-colors group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-sidebar-primary" />
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-sidebar-foreground group-hover:text-sidebar-primary transition-colors">Country Guides</p>
-                  <p className="text-xs text-sidebar-foreground/60">gomaterelocate.com/country-guides</p>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Country Guides</p>
+                  <p className="text-xs text-muted-foreground">gomaterelocate.com</p>
                 </div>
               </div>
             </a>
             <Button
               variant="ghost"
               onClick={handleSignOut}
-              className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+              className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
               Sign out
             </Button>
             <div className="text-center">
-              <p className="text-xs text-sidebar-foreground/40">
+              <p className="text-xs text-muted-foreground/60">
                 Built by{" "}
                 <a 
                   href="https://www.gomaterelocate.com" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-sidebar-foreground/60 hover:text-sidebar-primary transition-colors"
+                  className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   GoMate
                 </a>
@@ -136,11 +139,22 @@ export function AppShell({ children }: AppShellProps) {
       </header>
 
       {/* Main Content */}
-      <main className="lg:pl-72">
+      <main className="lg:pl-60">
         <div className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-20 lg:pb-0">
           {children}
         </div>
       </main>
+
+      {/* Floating AI Chat Button - visible on all pages except /chat */}
+      {!pathname.startsWith("/chat") && (
+        <Link
+          href="/chat"
+          className="fixed bottom-24 right-6 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#1EA550] transition-all duration-200"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-sm font-medium hidden sm:inline">Ask GoMate</span>
+        </Link>
+      )}
 
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border">

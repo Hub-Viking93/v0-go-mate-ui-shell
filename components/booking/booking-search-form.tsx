@@ -67,7 +67,7 @@ export function BookingSearchForm({ onSearch, isSearching }: BookingSearchFormPr
   const today = new Date().toISOString().split("T")[0]
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-6">
+    <form onSubmit={handleSubmit} className="gm-card-static p-6">
       {/* Trip Type & Class */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex gap-2">

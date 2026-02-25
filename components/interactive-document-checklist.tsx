@@ -163,7 +163,7 @@ export function InteractiveDocumentChecklist({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+    <div className="gm-card-static overflow-hidden">
       {/* Header */}
       <button
         onClick={() => collapsible && setExpanded(!expanded)}
@@ -211,7 +211,7 @@ export function InteractiveDocumentChecklist({
                 className={cn("transition-all duration-500", getProgressColor())}
               />
             </svg>
-            <span className={cn("absolute inset-0 flex items-center justify-center text-xs font-bold", getProgressColor())}>
+            <span className={cn("absolute inset-0 flex items-center justify-center text-xs font-bold font-mono", getProgressColor())}>
               {progress}%
             </span>
           </div>
@@ -279,18 +279,22 @@ export function InteractiveDocumentChecklist({
                 </button>
 
                 {isExpanded && (
-                  <div className="divide-y divide-border">
-                    {categoryItems.map((item) => {
+                  <div className="relative">
+                    {/* Vertical connector line */}
+                    <div className="absolute left-[35px] top-0 bottom-0 w-0.5 bg-border" />
+                    {categoryItems.map((item, itemIdx) => {
                       const isCompleted = statuses[item.id]?.completed || false
                       const isLoading = loadingItems.has(item.id)
                       const config = priorityConfig[item.priority]
+                      const isLast = itemIdx === categoryItems.length - 1
 
                       return (
                         <div
                           key={item.id}
                           className={cn(
-                            "p-4 flex items-start gap-4 transition-colors",
-                            isCompleted && "bg-muted/20"
+                            "relative p-4 flex items-start gap-4 transition-all duration-200 border-b border-border",
+                            isCompleted && "bg-muted/10",
+                            isLast && "border-b-0"
                           )}
                         >
                           {/* Checkbox */}
@@ -298,10 +302,10 @@ export function InteractiveDocumentChecklist({
                             onClick={() => handleToggle(item.id, isCompleted)}
                             disabled={isLoading || !onStatusChange}
                             className={cn(
-                              "mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                              "relative z-10 mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
                               isCompleted
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "border-muted-foreground/30 hover:border-primary/50",
+                                ? "bg-primary border-primary text-primary-foreground gm-success-glow"
+                                : "border-muted-foreground/30 hover:border-primary/50 bg-background",
                               isLoading && "opacity-50"
                             )}
                           >
@@ -409,15 +413,15 @@ export function InteractiveDocumentChecklist({
           {/* Summary Stats */}
           <div className="grid grid-cols-3 gap-3 pt-2">
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-bold text-foreground">{completedCount}</p>
+              <p className="text-2xl font-semibold text-foreground font-mono">{completedCount}</p>
               <p className="text-xs text-muted-foreground">Completed</p>
             </div>
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-bold text-foreground">{totalCount - completedCount}</p>
+              <p className="text-2xl font-semibold text-foreground font-mono">{totalCount - completedCount}</p>
               <p className="text-xs text-muted-foreground">Remaining</p>
             </div>
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-2xl font-semibold text-foreground font-mono">
                 {items.filter((i) => i.priority === "critical" && !statuses[i.id]?.completed).length}
               </p>
               <p className="text-xs text-muted-foreground">Critical</p>

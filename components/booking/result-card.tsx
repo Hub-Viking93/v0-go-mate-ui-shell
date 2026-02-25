@@ -28,7 +28,7 @@ export function ResultCard({ result, onSelect, className }: ResultCardProps) {
 
   return (
     <div className={cn(
-      "rounded-2xl border border-border bg-card p-5 transition-all hover:shadow-md hover:border-primary/30",
+      "gm-card p-5",
       className
     )}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -72,7 +72,7 @@ export function ResultCard({ result, onSelect, className }: ResultCardProps) {
         </div>
         
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <p className="text-2xl font-bold text-foreground">{result.price}</p>
+          <p className="text-2xl font-semibold text-foreground font-mono tracking-tight">{result.price}</p>
           <Button onClick={() => onSelect?.(result)} className="rounded-xl">
             Select
           </Button>

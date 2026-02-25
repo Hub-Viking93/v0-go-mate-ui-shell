@@ -84,13 +84,13 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="p-3 rounded-lg bg-secondary/30">
             <p className="text-xs text-muted-foreground mb-1">Minimum</p>
-            <p className="text-lg font-bold text-foreground">
+            <p className="text-lg font-semibold text-foreground font-mono tracking-tight">
               ${budget.minimum.toLocaleString()}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
             <p className="text-xs text-muted-foreground mb-1">Comfortable</p>
-            <p className="text-lg font-bold text-primary">
+            <p className="text-lg font-semibold text-primary font-mono tracking-tight">
               ${budget.comfortable.toLocaleString()}
             </p>
           </div>
@@ -109,7 +109,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
                 </span>
                 <span className="capitalize">{key}</span>
               </div>
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-foreground font-mono">
                 ${value.toLocaleString()}
               </span>
             </div>
@@ -135,7 +135,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               {savingsIcons.emergencyFund}
               <span>Emergency fund (3 mo)</span>
             </div>
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground font-mono">
               ${savings.emergencyFund.toLocaleString()}
             </span>
           </div>
@@ -144,7 +144,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               {savingsIcons.movingCosts}
               <span>Moving costs</span>
             </div>
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground font-mono">
               ${savings.movingCosts.toLocaleString()}
             </span>
           </div>
@@ -153,7 +153,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               {savingsIcons.initialSetup}
               <span>Initial setup</span>
             </div>
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground font-mono">
               ${savings.initialSetup.toLocaleString()}
             </span>
           </div>
@@ -162,7 +162,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               {savingsIcons.visaFees}
               <span>Visa fees</span>
             </div>
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground font-mono">
               ${savings.visaFees.toLocaleString()}
             </span>
           </div>
@@ -219,7 +219,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
           {/* Progress bar */}
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Progress to goal</span>
-            <span className={savingsProgress >= 100 ? "text-green-600 font-medium" : "text-muted-foreground"}>
+            <span className={`font-mono ${savingsProgress >= 100 ? "text-green-600 font-medium" : "text-muted-foreground"}`}>
               {savingsProgress}%
             </span>
           </div>

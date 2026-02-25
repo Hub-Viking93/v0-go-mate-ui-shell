@@ -91,14 +91,14 @@ export function CountdownTimer({ targetDate, targetCountry }: CountdownTimerProp
   }
 
   return (
-    <div className={`rounded-xl border p-4 ${config.bgClass}`}>
+    <div className={`gm-card p-4 ${config.bgClass}`}>
       <div className="flex items-center gap-3">
         <div className={`p-2.5 rounded-full ${config.bgClass}`}>
           <Icon className={`w-5 h-5 ${config.textClass}`} />
         </div>
         <div className="flex-1">
           <div className="flex items-baseline gap-2">
-            <span className={`text-2xl font-bold ${config.textClass}`}>
+            <span className={`text-2xl font-semibold font-mono tracking-tight ${config.textClass}`}>
               {getCountdownDisplay()}
             </span>
             <span className={`text-xs font-medium ${config.textClass} opacity-75`}>
@@ -109,8 +109,8 @@ export function CountdownTimer({ targetDate, targetCountry }: CountdownTimerProp
             {getSubtext()}
             {targetCountry && daysUntil >= 0 && <span> to {targetCountry}</span>}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Target: {format(target, "MMMM d, yyyy")}
+          <p className="text-xs text-muted-foreground/60 mt-1 font-mono">
+            {format(target, "MMMM d, yyyy")}
           </p>
         </div>
       </div>

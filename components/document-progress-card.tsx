@@ -68,7 +68,7 @@ export function DocumentProgressCard({ items, statuses, planId }: DocumentProgre
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6">
+    <div className="gm-card-static p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <FileCheck className="w-5 h-5 text-primary" />
@@ -86,7 +86,7 @@ export function DocumentProgressCard({ items, statuses, planId }: DocumentProgre
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className={`text-sm font-medium ${getStatusColor()}`}>{getStatusMessage()}</span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground font-mono">
             {completedCount}/{totalCount}
           </span>
         </div>
