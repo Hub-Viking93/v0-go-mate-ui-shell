@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(pnpm install:*)",
+      "Bash(node_modules/.bin/tsc:*)",
+      "Bash(curl:*)",
+      "Bash(wc:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(echo:*)",
+      "Bash(npx tsx:*)",
+      "Bash(source:*)",
+      "Bash(lsof:*)",
+      "Bash(gh auth:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
