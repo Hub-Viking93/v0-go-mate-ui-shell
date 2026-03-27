@@ -9,9 +9,13 @@ import {
   Loader2,
   CalendarDays,
   PartyPopper,
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 interface ArrivalBannerProps {
   stage: string
@@ -110,27 +114,64 @@ export function ArrivalBanner({ stage, tier, destination, onArrived }: ArrivalBa
 /**
  * Shown on the dashboard after the user has transitioned to 'arrived'
  */
-export function SettlingInDashboardCard() {
+interface SettlingInDashboardCardProps {
+  summary?: {
+    headline: string
+    detail: string
+    actionLabel: string
+    progressPercent: number
+    completed: number
+    total: number
+    overdue: number
+    available: number
+  }
+}
+
+export function SettlingInDashboardCard({ summary }: SettlingInDashboardCardProps) {
+  const headline = summary?.headline || "Settling-In Checklist"
+  const detail = summary?.detail || "Track your post-arrival tasks and deadlines"
+  const actionLabel = summary?.actionLabel || "Open"
+  const progressPercent = summary?.progressPercent ?? 0
+  const completed = summary?.completed ?? 0
+  const total = summary?.total ?? 0
+  const overdue = summary?.overdue ?? 0
+  const available = summary?.available ?? 0
+
   return (
     <div className="gm-card p-6 gm-animate-in gm-delay-2 mb-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <ListChecks className="w-5 h-5 text-primary" />
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-foreground">
-              Settling-In Checklist
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Track your post-arrival tasks and deadlines
-            </p>
+          <div className="space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-foreground">{headline}</h3>
+              <p className="text-xs text-muted-foreground">{detail}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {completed}/{total} complete
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <Clock3 className="w-3.5 h-3.5" />
+                {available} active
+              </Badge>
+              {overdue > 0 && (
+                <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {overdue} overdue
+                </Badge>
+              )}
+              <Badge variant="secondary">{progressPercent}% progress</Badge>
+            </div>
           </div>
         </div>
         <Button variant="outline" size="sm" asChild>
           <a href="/settling-in">
             <ArrowRight className="w-4 h-4 mr-1" />
-            Open
+            {actionLabel}
           </a>
         </Button>
       </div>

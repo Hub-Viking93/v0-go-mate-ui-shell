@@ -26,12 +26,18 @@ import {
   Info,
 } from "lucide-react"
 import type { NumbeoData } from "@/lib/gomate/numbeo-scraper"
+import { COUNTRY_TO_CURRENCY, CURRENCY_SYMBOLS, getCurrencyFromCountry, getCurrencySymbol } from "@/lib/gomate/currency"
+
+function getCurrencyFromCitizenship(citizenship: string | undefined): string | null {
+  return getCurrencyFromCountry(citizenship)
+}
 
 interface CostOfLivingCardProps {
   country: string
   city?: string
   compareFromCity?: string
   compareFromCountry?: string
+  citizenship?: string
   householdSize?: "single" | "couple" | "family4"
   onDataLoaded?: (data: NumbeoData) => void
 }
@@ -49,6 +55,7 @@ export function CostOfLivingCard({
   city,
   compareFromCity,
   compareFromCountry,
+  citizenship,
   householdSize = "single",
   onDataLoaded,
 }: CostOfLivingCardProps) {
@@ -61,6 +68,43 @@ export function CostOfLivingCard({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedTab, setSelectedTab] = useState("overview")
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+
+  // Determine home currency from citizenship
+  const homeCurrency = getCurrencyFromCitizenship(citizenship)
+  const dataCurrency = data?.currency || "EUR"
+  const needsConversion = homeCurrency && homeCurrency !== dataCurrency
+  const homeSymbol = homeCurrency ? (CURRENCY_SYMBOLS[homeCurrency] || homeCurrency) : null
+  const localSymbol = CURRENCY_SYMBOLS[dataCurrency] || dataCurrency
+
+  // Format a value with optional home currency conversion
+  const formatPrice = (value: number, showConversion = true): string => {
+    const localFormatted = `${localSymbol}${value.toLocaleString()}`
+    if (showConversion && needsConversion && exchangeRate) {
+      const converted = Math.round(value * exchangeRate)
+      return `${localFormatted} (~${homeSymbol}${converted.toLocaleString()})`
+    }
+    return localFormatted
+  }
+
+  // Fetch exchange rate when we have both currencies
+  useEffect(() => {
+    if (!needsConversion || !homeCurrency || !dataCurrency) return
+    const controller = new AbortController()
+    fetch(`https://api.frankfurter.app/latest?from=${dataCurrency}&to=${homeCurrency}`, {
+      signal: controller.signal,
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(result => {
+        if (result?.rates?.[homeCurrency]) {
+          setExchangeRate(result.rates[homeCurrency])
+        }
+      })
+      .catch(() => {
+        // Exchange rate fetch failed — display local currency only
+      })
+    return () => controller.abort()
+  }, [dataCurrency, homeCurrency, needsConversion])
 
   const fetchData = async () => {
     setLoading(true)
@@ -243,14 +287,14 @@ if (!data) {
           <div className="p-4 rounded-xl bg-background/80 border border-border">
             <p className="text-xs text-muted-foreground mb-1">Minimum Budget</p>
             <p className="text-2xl font-bold text-foreground">
-              ${budget.minimum.toLocaleString()}
+              {formatPrice(budget.minimum)}
               <span className="text-sm font-normal text-muted-foreground">/mo</span>
             </p>
           </div>
           <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
             <p className="text-xs text-primary mb-1">Comfortable Budget</p>
             <p className="text-2xl font-bold text-primary">
-              ${budget.comfortable.toLocaleString()}
+              {formatPrice(budget.comfortable)}
               <span className="text-sm font-normal text-primary/70">/mo</span>
             </p>
           </div>
@@ -314,7 +358,7 @@ if (!data) {
                   <span className="text-xs font-medium text-muted-foreground">{cat.label}</span>
                 </div>
                 <p className="text-lg font-semibold text-foreground">
-                  ${cat.total.toLocaleString()}
+                  {formatPrice(cat.total, false)}
                 </p>
               </div>
             ))}
@@ -344,7 +388,7 @@ if (!data) {
                   <div key={item.name} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
                     <span className="text-sm text-muted-foreground">{item.name}</span>
                     <span className="text-sm font-medium text-foreground">
-                      ${item.value.toLocaleString()}{item.unit || ""}
+                      {formatPrice(item.value, false)}{item.unit || ""}
                     </span>
                   </div>
                 ))}

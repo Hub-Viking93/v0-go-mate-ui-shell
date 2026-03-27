@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { BookingSearchForm, type FlightSearchData } from "@/components/booking/booking-search-form"
 import { ResultCard, type BookingResult } from "@/components/booking/result-card"
 import { DetailsDrawer } from "@/components/booking/details-drawer"
@@ -12,8 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import { Card } from "@/components/ui/card"
-import { 
+import {
   Plane, 
   Building, 
   Search, 
@@ -78,7 +76,8 @@ export default function BookingPage() {
           returnDate: data.returnDate,
           travelers: data.travelers,
           cabinClass: data.cabinClass,
-          useMock: true, // Use mock data for demo
+          // TODO v2: flight search uses Firecrawl scraping which is inherently fragile;
+          // the API falls back to mock data when FIRECRAWL_API_KEY is not set
         }),
       })
       
@@ -142,30 +141,42 @@ export default function BookingPage() {
   return (
     <FullPageGate tier={tier} feature="booking" onUpgrade={() => router.push("/settings")}>
     <div className="p-6 md:p-8 lg:p-10">
-      <PageHeader
-        title="Book Travel"
-        description="Search and compare flights from Skyscanner, Google Flights, Momondo, Kayak, and Kiwi."
-      />
-
-      {/* Mode Toggle */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant={searchMode === "flights" ? "default" : "outline"}
-          onClick={() => setSearchMode("flights")}
-          className="gap-2 rounded-xl"
-        >
-          <Plane className="w-4 h-4" />
-          Flights
-        </Button>
-        <Button
-          variant={searchMode === "hotels" ? "default" : "outline"}
-          onClick={() => setSearchMode("hotels")}
-          className="gap-2 rounded-xl"
-          disabled
-        >
-          <Building className="w-4 h-4" />
-          Hotels (Coming Soon)
-        </Button>
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+              <Plane className="w-7 h-7 text-[#5EE89C]" />
+              Book Travel
+            </h1>
+            <p className="text-white/60 mt-1.5 text-sm md:text-base">
+              Search and compare flights from Skyscanner, Google Flights, Momondo, Kayak, and Kiwi.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant={searchMode === "flights" ? "default" : "outline"}
+              onClick={() => setSearchMode("flights")}
+              className={searchMode === "flights"
+                ? "gap-2 rounded-xl bg-white text-[#1B3A2D] hover:bg-white/90"
+                : "gap-2 rounded-xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+              }
+            >
+              <Plane className="w-4 h-4" />
+              Flights
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setSearchMode("hotels")}
+              className="gap-2 rounded-xl bg-white/10 border-white/20 text-white/50 cursor-not-allowed"
+              disabled
+            >
+              <Building className="w-4 h-4" />
+              Hotels (Coming Soon)
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Search Form */}
@@ -186,45 +197,51 @@ export default function BookingPage() {
           {searchResults && !isLoading && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               {searchResults.cheapest && (
-                <Card className="p-4 border-2 border-green-500/30 bg-green-500/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Trophy className="w-5 h-5 text-green-600" />
-                    <span className="font-semibold text-green-600">Cheapest</span>
+                <div className="gm-card p-5 bg-gradient-to-br from-emerald-500/8 to-emerald-600/4 border-emerald-500/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                      <Trophy className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="font-semibold text-emerald-600">Cheapest</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">${searchResults.cheapest.price}</p>
-                  <p className="text-sm text-muted-foreground">{searchResults.cheapest.airline}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-2xl font-bold text-foreground font-mono">${searchResults.cheapest.price}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{searchResults.cheapest.airline}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {searchResults.cheapest.duration} · {searchResults.cheapest.stops === 0 ? "Nonstop" : `${searchResults.cheapest.stops} stop`}
                   </p>
-                </Card>
+                </div>
               )}
-              
+
               {searchResults.fastest && (
-                <Card className="p-4 border-2 border-blue-500/30 bg-blue-500/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5 text-blue-600" />
+                <div className="gm-card p-5 bg-gradient-to-br from-blue-500/8 to-blue-600/4 border-blue-500/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                    </div>
                     <span className="font-semibold text-blue-600">Fastest</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{searchResults.fastest.duration}</p>
-                  <p className="text-sm text-muted-foreground">{searchResults.fastest.airline}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-2xl font-bold text-foreground font-mono">{searchResults.fastest.duration}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{searchResults.fastest.airline}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     ${searchResults.fastest.price} · {searchResults.fastest.stops === 0 ? "Nonstop" : `${searchResults.fastest.stops} stop`}
                   </p>
-                </Card>
+                </div>
               )}
-              
+
               {searchResults.bestValue && (
-                <Card className="p-4 border-2 border-purple-500/30 bg-purple-500/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
+                <div className="gm-card p-5 bg-gradient-to-br from-purple-500/8 to-purple-600/4 border-purple-500/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                    </div>
                     <span className="font-semibold text-purple-600">Best Value</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">${searchResults.bestValue.price}</p>
-                  <p className="text-sm text-muted-foreground">{searchResults.bestValue.airline}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-2xl font-bold text-foreground font-mono">${searchResults.bestValue.price}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{searchResults.bestValue.airline}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {searchResults.bestValue.duration} · {searchResults.bestValue.stops === 0 ? "Nonstop" : `${searchResults.bestValue.stops} stop`}
                   </p>
-                </Card>
+                </div>
               )}
             </div>
           )}

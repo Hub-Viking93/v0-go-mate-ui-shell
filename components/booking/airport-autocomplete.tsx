@@ -38,6 +38,7 @@ export function AirportAutocomplete({
         setIsLoading(true)
         try {
           const res = await fetch("/api/airports?limit=8")
+          if (!res.ok) { setSuggestions([]); setIsLoading(false); return }
           const data = await res.json()
           setSuggestions(data.airports || [])
         } catch (error) {
@@ -51,6 +52,7 @@ export function AirportAutocomplete({
       setIsLoading(true)
       try {
         const res = await fetch(`/api/airports?q=${encodeURIComponent(query)}&limit=8`)
+        if (!res.ok) { setSuggestions([]); setIsLoading(false); return }
         const data = await res.json()
         setSuggestions(data.airports || [])
       } catch (error) {

@@ -11,6 +11,8 @@ import { getCostOfLivingData, calculateMonthlyBudget, calculateSavingsTarget } f
 import { generateVisaRecommendation } from "./profile-summary"
 import { getOfficialSourcesArray } from "./official-sources"
 import { getVisaStatus } from "./visa-checker"
+import { getCurrencyFromCountry, getCurrencySymbol } from "./currency"
+import { enrichGuide } from "./guide-enrichment"
 
 // Guide section types
 export interface GuideOverview {
@@ -32,6 +34,7 @@ export interface VisaSection {
   tips: string[]
   warnings: string[]
   officialLink?: string
+  detailedProcess?: string
 }
 
 export interface BudgetSection {
@@ -49,6 +52,7 @@ export interface BudgetSection {
     timeline: string
   }
   costComparison?: string
+  savingStrategy?: string
   tips: string[]
 }
 
@@ -60,6 +64,8 @@ export interface HousingSection {
   depositInfo: string
   tips: string[]
   warnings: string[]
+  neighborhoodGuide?: string
+  rentalProcess?: string
 }
 
 export interface BankingSection {
@@ -68,6 +74,7 @@ export interface BankingSection {
   requirements: string[]
   digitalBanks: { name: string; features: string[] }[]
   tips: string[]
+  accountOpeningGuide?: string
 }
 
 export interface HealthcareSection {
@@ -78,6 +85,8 @@ export interface HealthcareSection {
   emergencyInfo: string
   recommendedProviders: string[]
   tips: string[]
+  registrationGuide?: string
+  insuranceAdvice?: string
 }
 
 export interface CultureSection {
@@ -87,6 +96,9 @@ export interface CultureSection {
   workCulture: string[]
   doAndDonts: { dos: string[]; donts: string[] }
   localTips: string[]
+  deepDive?: string
+  workplaceCulture?: string
+  socialIntegration?: string
 }
 
 export interface JobsSection {
@@ -97,6 +109,8 @@ export interface JobsSection {
   salaryExpectations: string
   workPermitInfo: string
   networkingTips: string[]
+  marketOverview?: string
+  searchStrategy?: string
 }
 
 export interface EducationSection {
@@ -107,6 +121,8 @@ export interface EducationSection {
   tuitionInfo: string
   scholarships: string[]
   tips: string[]
+  systemOverview?: string
+  applicationStrategy?: string
 }
 
 export interface NightlifeSection {
@@ -165,6 +181,7 @@ export interface FoodSection {
 
 export interface TimelineSection {
   totalMonths: number
+  overview?: string
   phases: {
     name: string
     duration: string
@@ -186,6 +203,7 @@ export interface Guide {
   destination: string
   destinationCity?: string
   purpose: string
+  currency: string
   overview: GuideOverview
   visa: VisaSection
   budget: BudgetSection
@@ -619,36 +637,42 @@ const DEFAULT_COUNTRY_DATA = {
 /**
  * Generate a comprehensive relocation guide from profile data
  */
-export function generateGuide(profile: Profile): Guide {
+export async function generateGuide(profile: Profile): Promise<Guide> {
   const destination = profile.destination || "Unknown"
   const countryData = COUNTRY_DATA[destination] || DEFAULT_COUNTRY_DATA
   const purpose = profile.purpose || "other"
   const city = profile.target_city
-  
+
   // Get cost of living and budget data
   const costOfLiving = getCostOfLivingData(destination, city)
   const budgetData = costOfLiving ? calculateMonthlyBudget(profile, costOfLiving) : null
   const savingsData = budgetData ? calculateSavingsTarget(profile, budgetData.comfortable) : null
-  
+
   // Get visa recommendation
   const visaRec = generateVisaRecommendation(profile)
-  
+
   // Get official sources
   const officialSources = getOfficialSourcesArray(destination)
-  
+
   // Check visa-free status
   const visaStatus = profile.citizenship ? getVisaStatus(profile.citizenship, destination) : null
-  
+
   // Build the guide
+  // Resolve the destination's currency code
+  const guideCurrency = countryData.currency !== "Local currency"
+    ? countryData.currency
+    : getCurrencyFromCountry(destination) || "EUR"
+
   const guide: Guide = {
     title: `Your ${destination} Relocation Guide`,
     destination,
     destinationCity: city,
     purpose,
+    currency: guideCurrency,
     overview: generateOverview(profile, countryData, visaStatus),
     visa: generateVisaSection(profile, visaRec, visaStatus),
     budget: generateBudgetSection(profile, costOfLiving, budgetData, savingsData),
-    housing: generateHousingSection(profile, countryData, costOfLiving),
+    housing: generateHousingSection(profile, countryData, costOfLiving, guideCurrency),
     banking: generateBankingSection(profile, countryData),
     healthcare: generateHealthcareSection(profile, countryData),
     culture: generateCultureSection(profile, countryData),
@@ -659,7 +683,7 @@ export function generateGuide(profile: Profile): Guide {
     createdAt: new Date().toISOString(),
     status: "complete",
   }
-  
+
   // Add purpose-specific sections
   if (purpose === "work" || purpose === "digital_nomad") {
     guide.jobs = generateJobsSection(profile, countryData)
@@ -667,8 +691,10 @@ export function generateGuide(profile: Profile): Guide {
   if (purpose === "study") {
     guide.education = generateEducationSection(profile, countryData)
   }
-  
-  return guide
+
+  // Enrich with LLM-generated deep content (falls back to skeleton on failure)
+  const enrichedGuide = await enrichGuide(profile, guide)
+  return enrichedGuide
 }
 
 function generateOverview(
@@ -736,12 +762,17 @@ function generateVisaSection(
   }
   
   return {
-    recommendedVisa: visaRec.recommendedVisa,
-    visaType: visaRec.category,
-    eligibility: visaRec.eligibility,
-    processingTime: visaRec.processingTime,
-    estimatedCost: visaRec.estimatedCost,
-    requirements: visaRec.requirements,
+    recommendedVisa: visaRec?.primaryVisa || "Visa required — consult embassy",
+    visaType: visaRec?.primaryVisa || "Standard visa",
+    eligibility: visaRec?.visaFreeStatus?.reason || "Check eligibility with the consulate",
+    processingTime: visaRec?.processingTime || "4-12 weeks (varies)",
+    estimatedCost: "Varies — check official embassy site",
+    requirements: visaRec?.requirements || [
+      "Valid passport",
+      "Completed application form",
+      "Passport-sized photos",
+      "Proof of financial means",
+    ],
     applicationSteps: [
       "Gather all required documents",
       "Complete the visa application form",
@@ -750,7 +781,10 @@ function generateVisaSection(
       "Wait for processing",
       "Collect visa and prepare for travel",
     ],
-    tips: visaRec.tips,
+    tips: visaRec?.tips || [
+      "Apply well in advance of your planned travel date",
+      "Keep copies of all documents",
+    ],
     warnings: [
       "Start your application well in advance",
       "Ensure all documents are translated if required",
@@ -807,21 +841,23 @@ function generateBudgetSection(
 function generateHousingSection(
   profile: Profile,
   countryData: typeof DEFAULT_COUNTRY_DATA,
-  costOfLiving: ReturnType<typeof getCostOfLivingData>
+  costOfLiving: ReturnType<typeof getCostOfLivingData>,
+  currencyCode: string
 ): HousingSection {
   const destination = profile.destination || ""
-  
+  const sym = getCurrencySymbol(currencyCode)
+
   return {
     overview: `Finding housing in ${destination} can be competitive, especially in major cities. Start your search early and be prepared to act quickly when you find a suitable place.`,
     averageRent: {
-      studio: costOfLiving?.monthlyRent1Bed 
-        ? `€${Math.round(costOfLiving.monthlyRent1Bed.city * 0.8)}/month`
+      studio: costOfLiving?.monthlyRent1Bed
+        ? `${sym}${Math.round(costOfLiving.monthlyRent1Bed.city * 0.8)}/month`
         : "Varies",
       oneBed: costOfLiving?.monthlyRent1Bed
-        ? `€${costOfLiving.monthlyRent1Bed.city}/month (city center)`
+        ? `${sym}${costOfLiving.monthlyRent1Bed.city}/month (city center)`
         : "Varies",
       twoBed: costOfLiving?.monthlyRent3Bed
-        ? `€${Math.round(costOfLiving.monthlyRent3Bed.city * 0.7)}/month`
+        ? `${sym}${Math.round(costOfLiving.monthlyRent3Bed.city * 0.7)}/month`
         : "Varies",
     },
     popularAreas: [],
@@ -1170,8 +1206,8 @@ function generateUsefulTips(
 /**
  * Generate guide from profile - convenience wrapper that returns DB format
  */
-export function generateGuideFromProfile(profile: Profile) {
-  const guide = generateGuide(profile)
+export async function generateGuideFromProfile(profile: Profile) {
+  const guide = await generateGuide(profile)
   return {
     title: guide.title,
     destination: guide.destination,
@@ -1206,6 +1242,7 @@ export function guideToDbFormat(guide: Guide, userId: string, planId?: string) {
     destination: guide.destination,
     destination_city: guide.destinationCity,
     purpose: guide.purpose,
+    currency: guide.currency,
     overview: guide.overview,
     visa_section: guide.visa,
     budget_section: guide.budget,

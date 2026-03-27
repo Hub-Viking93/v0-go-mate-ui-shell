@@ -68,6 +68,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to update plan" }, { status: 500 })
   }
 
+  // Recompute deadline_at for all tasks anchored to arrival_date
+  const { data: tasks } = await supabase
+    .from("settling_in_tasks")
+    .select("id, deadline_days, deadline_anchor")
+    .eq("plan_id", plan.id)
+    .not("deadline_days", "is", null)
+
+  if (tasks && tasks.length > 0) {
+    const arrival = new Date(arrivalDate)
+    for (const t of tasks) {
+      if (t.deadline_anchor === "arrival_date" || !t.deadline_anchor) {
+        const dl = new Date(arrival)
+        dl.setDate(dl.getDate() + t.deadline_days)
+        await supabase
+          .from("settling_in_tasks")
+          .update({ deadline_at: dl.toISOString(), updated_at: new Date().toISOString() })
+          .eq("id", t.id)
+      }
+    }
+  }
+
   return NextResponse.json({
     success: true,
     arrivalDate,

@@ -1,66 +1,81 @@
-# Backend Acceptance — Phase 1 (P0 Security Fixes)
+# Backend Acceptance — Phase 1: Dashboard State And Progress Authority
 
-**Date:** 2026-03-01
-**Status:** PASSED
+**Executed:** 2026-03-14
+**Phase:** 1 — Dashboard State And Progress Authority
+**Master gaps:** `B1-008`, `B1-009`, `B1-010`
+**Primary files:** `lib/gomate/dashboard-state.ts`, `app/api/progress/route.ts`
+**Verification mode:** Real localhost runtime verification against `http://localhost:3000` with the configured Supabase-backed test account, plus scoped TypeScript verification on Phase 1-touched files.
 
----
+## 1. Contract Verification
 
-## 4.1 Contract Verification
-
-All 4 changes specified in `docs/build-protocol.md` § Phase 1 are implemented:
-
-| File | Change | Verified |
+| Requirement | Verification | Status |
 |---|---|---|
-| `app/api/subscription/route.ts` | POST handler removed; GET handler intact; unused imports removed | ✅ |
-| `app/api/profile/route.ts` | `generateGuideFromProfile` → `generateGuide` + `guideToDbFormat`; import updated | ✅ |
-| `app/auth/callback/route.ts` | `ALLOWED_REDIRECTS` allowlist; `rawNext` → validated `next` | ✅ |
-| `lib/supabase/middleware.ts` | Catch block redirects to `/auth/error` instead of `return supabaseResponse` | ✅ |
+| One shared dashboard-state derivation contract exists | `lib/gomate/dashboard-state.ts` defines the canonical dashboard state table and shared mapping | PASS |
+| Progress API returns authority inputs needed by the dashboard | `GET /api/progress` returns `plan_id`, `stage`, `lifecycle`, `readiness`, `interview_progress`, and `post_arrival_progress` | PASS |
+| Interview progress exposes confirmation-aware readiness | `lib/gomate/progress.ts` returns `confirmed`, `confirmedPercentage`, and `readyToLock` | PASS |
+| Arrived-mode summary can consume real execution stats | `GET /api/settling-in` returns `generated` plus task stats used by the dashboard summary surface | PASS |
 
-No files outside the spec were modified.
+## 2. Functional Verification
 
-TypeScript compilation: `tsc --noEmit` produces zero errors in Phase 1 files.
+Authenticated localhost flow executed on `2026-03-14`:
 
----
+| Flow | Expected behavior | Live result | Status |
+|---|---|---|---|
+| New empty current plan | dashboard authority resolves `start_profile` | `POST /api/plans` succeeded; `GET /api/profile` + `GET /api/progress` produced `start_profile` | PASS |
+| Partial profile with 5 confirmed fields | dashboard authority resolves `collecting_profile` instead of welcome/start heuristics | live profile patch succeeded; shared helper resolved `collecting_profile`; progress returned `confirmed=5`, `confirmedPercentage=42`, `readyToLock=false` | PASS |
+| Full work profile | dashboard authority resolves `ready_to_lock` | live profile patch succeeded; progress returned `confirmed=17/17`, `readyToLock=true`; shared helper resolved `ready_to_lock` | PASS |
+| Lock current plan | dashboard authority resolves `locked_pre_arrival` | live lock succeeded; shared helper resolved `locked_pre_arrival` | PASS |
+| Pre-arrival settling-in fetch | no false arrived summary | `GET /api/settling-in` returned `200` with `stage=\"complete\"`, `tasks=[]` | PASS |
+| Arrival transition before task generation | dashboard authority resolves `arrived_setup` | `POST /api/settling-in/arrive` succeeded; `GET /api/settling-in` returned `generated=false`; shared helper resolved `arrived_setup` | PASS |
+| Arrived after settling-in generation | dashboard authority resolves execution state from real task stats | `POST /api/settling-in/generate` succeeded; `GET /api/settling-in` returned `stats={ total:10, available:4, overdue:0 }`; shared helper resolved `arrived_active` | PASS |
 
-## 4.2 Functional Verification
+## 3. Failure Verification
 
-Tested via `curl` against `localhost:3000`:
+| Scenario | Expected behavior | Live result | Status |
+|---|---|---|---|
+| Unauthenticated progress request | `401 Unauthorized` | unauthenticated `GET /api/progress` returned `401` | PASS |
+| Missing optimistic-concurrency version on profile write | safe failure, no silent write | authenticated `PATCH /api/profile` without `expectedVersion` returned `409` | PASS |
+| Locked plan edit attempt | profile mutation blocked | authenticated locked-plan edit returned `403` | PASS |
 
-| Test | Method | Expected | Actual | Status |
-|---|---|---|---|---|
-| POST /api/subscription with upgrade payload | POST | 405 | 405 | ✅ |
-| GET /api/subscription (no auth) | GET | 401 | 401 (route alive, auth required) | ✅ |
-| PATCH /api/subscription | PATCH | 405 | 405 | ✅ |
-| DELETE /api/subscription | DELETE | 405 | 405 | ✅ |
-| PUT /api/subscription | PUT | 405 | 405 | ✅ |
-| /auth/callback?next=//evil.com | GET | Does NOT redirect to evil.com | Redirects to /auth/error (no valid code) | ✅ |
-| /auth/callback?next=/dashboard (valid) | GET | Falls through to error without valid code | Redirects to /auth/error | ✅ |
-| /auth/error?message=... | GET | 200 | 200 | ✅ |
-| Guide insert: `guideToDbFormat` maps to `visa_section`, `budget_section`, etc. | Code review | Individual column names | Confirmed at guide-generator.ts:1201-1224 | ✅ |
-| Profile route uses same pattern as working `guides/route.ts` | Code review | `generateGuide` + `guideToDbFormat` | Confirmed at profile/route.ts:122-125 | ✅ |
+## 4. Bugs Documented During Backend Acceptance
 
----
+See `bug-phase-1.md`.
 
-## 4.3 Failure Verification
+No Phase 1-scoped runtime bug was discovered during this backend pass. The only remaining open item logged during verification is the repo-wide TypeScript baseline outside Phase 1 scope.
 
-| Test | Input | Expected | Actual | Status |
-|---|---|---|---|---|
-| POST /api/subscription with valid upgrade payload | `{"action":"upgrade","tier":"pro_plus","billing_cycle":"monthly"}` | 405 (handler removed) | 405 | ✅ |
-| Auth callback with `next=//evil.com` | Malicious redirect | Falls to /dashboard (allowlist), then error (no code) | /auth/error | ✅ |
-| Auth callback with `next=javascript:alert(1)` | XSS attempt | Falls to /dashboard (allowlist) | /auth/error | ✅ |
-| Auth callback with `next=https://evil.com` | External URL | Falls to /dashboard (allowlist) | /auth/error | ✅ |
-| No UI code calls POST /api/subscription | Grep search | No matches | No matches | ✅ |
+## 5. TypeScript Verification
 
----
+Scoped verification passed for the Phase 1-touched files:
 
-## Bugs Discovered
+- `app/(app)/dashboard/page.tsx`
+- `components/arrival-banner.tsx`
+- `components/stat-card.tsx`
+- `lib/gomate/dashboard-state.ts`
+- `lib/gomate/progress.ts`
+- `app/api/progress/route.ts`
 
-None.
+Command used:
 
----
+```bash
+pnpm tsc --noEmit --pretty false 2>&1 | rg 'app/\(app\)/dashboard/page\.tsx|components/arrival-banner\.tsx|components/stat-card\.tsx|lib/gomate/dashboard-state\.ts|lib/gomate/progress\.ts|app/api/progress/route\.ts'
+```
 
-## Declaration
+Result:
 
-**Backend Accepted**
+- no Phase 1 file matched a TypeScript error
+- repo-wide `pnpm tsc --noEmit` remains red on unrelated baseline files outside Phase 1
 
-All contract verification, functional verification, and failure verification stages passed. No bugs discovered. Backend is stable and accepted.
+## 6. Backend Acceptance Outcome
+
+Backend Acceptance Gate is passed for Phase 1 scope.
+
+Verified backend/state-authority outcome:
+
+- canonical dashboard-state derivation works across empty, partial, ready, locked, arrived-setup, and arrived-active flows
+- progress data now exposes confirmation-aware readiness instead of forcing the dashboard to infer it locally
+- arrived-mode summary is backed by real settling-in task stats, not a placeholder link only
+
+Phase 1 is still awaiting:
+
+- User Acceptance Gate execution from `PHASE_1_USER_TEST.md`
+- final phase-completion decision in `docs/phase-status.md`

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { getUserTier, canCreatePlan } from "@/lib/gomate/tier"
+import { attachDerivedPlanState, switchCurrentPlan } from "@/lib/gomate/core-state"
 
 // GET - List all user plans
 export async function GET() {
@@ -16,7 +17,7 @@ export async function GET() {
 
     const { data: plans, error } = await supabase
       .from("relocation_plans")
-      .select("id, title, status, is_current, stage, profile_data, created_at, updated_at")
+      .select("id, title, status, is_current, stage, locked, profile_data, created_at, updated_at")
       .eq("user_id", user.id)
       .order("is_current", { ascending: false })
       .order("created_at", { ascending: false })
@@ -30,17 +31,21 @@ export async function GET() {
     const tier = await getUserTier(user.id)
 
     return NextResponse.json({
-      plans: (plans || []).map((p) => ({
+      plans: (plans || []).map((p) => {
+        const derived = attachDerivedPlanState(p)
+        return {
         id: p.id,
         title: p.title || generateTitleFromProfile(p.profile_data),
         status: p.status,
         is_current: p.is_current,
-        stage: p.stage,
+        stage: derived.stage,
+        lifecycle: derived.lifecycle,
         destination: p.profile_data?.destination || null,
         purpose: p.profile_data?.purpose || null,
         created_at: p.created_at,
         updated_at: p.updated_at,
-      })),
+        }
+      }),
       tier,
     })
   } catch (error) {
@@ -79,12 +84,6 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}))
     const { title } = body
 
-    // Clear is_current from all existing plans
-    await supabase
-      .from("relocation_plans")
-      .update({ is_current: false })
-      .eq("user_id", user.id)
-
     // Create new plan
     const { data: newPlan, error } = await supabase
       .from("relocation_plans")
@@ -94,7 +93,7 @@ export async function POST(req: Request) {
         stage: "collecting",
         title: title || `Plan ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`,
         status: "active",
-        is_current: true,
+        is_current: false,
       })
       .select()
       .single()
@@ -104,7 +103,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create plan" }, { status: 500 })
     }
 
-    return NextResponse.json({ plan: newPlan })
+    const switchResult = await switchCurrentPlan(supabase, user.id, newPlan.id)
+
+    if (!switchResult.ok) {
+      console.error("[GoMate] Error switching current plan:", switchResult.error)
+      return NextResponse.json({ error: "Failed to activate new plan" }, { status: 500 })
+    }
+
+    const { data: currentPlan, error: refetchError } = await supabase
+      .from("relocation_plans")
+      .select("*")
+      .eq("id", newPlan.id)
+      .eq("user_id", user.id)
+      .single()
+
+    if (refetchError || !currentPlan) {
+      return NextResponse.json({ error: "Failed to load new plan" }, { status: 500 })
+    }
+
+    return NextResponse.json({ plan: attachDerivedPlanState(currentPlan) })
   } catch (error) {
     console.error("[GoMate] Error in POST /api/plans:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -132,7 +149,7 @@ export async function PATCH(req: Request) {
     // Verify plan belongs to user
     const { data: plan } = await supabase
       .from("relocation_plans")
-      .select("id")
+      .select("id, plan_version")
       .eq("id", planId)
       .eq("user_id", user.id)
       .single()
@@ -142,12 +159,9 @@ export async function PATCH(req: Request) {
     }
 
     if (action === "switch") {
-      const { error } = await supabase.rpc("switch_current_plan", {
-        p_user_id: user.id,
-        p_plan_id: planId,
-      })
+      const switchResult = await switchCurrentPlan(supabase, user.id, planId)
 
-      if (error) {
+      if (!switchResult.ok) {
         return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 })
       }
 
@@ -158,7 +172,7 @@ export async function PATCH(req: Request) {
         .eq("user_id", user.id)
         .single()
 
-      return NextResponse.json({ plan: switched })
+      return NextResponse.json({ plan: switched ? attachDerivedPlanState(switched) : switched })
     }
 
     if (action === "rename" && title) {
@@ -174,15 +188,17 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: "Failed to rename plan" }, { status: 500 })
       }
 
-      return NextResponse.json({ plan: renamed })
+      return NextResponse.json({ plan: attachDerivedPlanState(renamed) })
     }
 
     if (action === "archive") {
+      const archiveVersion = ((plan.plan_version as number) || 1) + 1
       const { data: archived, error } = await supabase
         .from("relocation_plans")
         .update({
           status: "archived",
           is_current: false,
+          plan_version: archiveVersion,
           updated_at: new Date().toISOString(),
         })
         .eq("id", planId)
@@ -194,7 +210,7 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: "Failed to archive plan" }, { status: 500 })
       }
 
-      return NextResponse.json({ plan: archived })
+      return NextResponse.json({ plan: attachDerivedPlanState(archived) })
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 })

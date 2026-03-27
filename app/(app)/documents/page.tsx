@@ -570,8 +570,10 @@ export default function DocumentsPage() {
                     </Button>
                   </div>
                 )}
-                {aiChecklist.summary && !isStale && (
-                  <p className="mt-2 text-sm text-muted-foreground">{aiChecklist.summary}</p>
+                {aiChecklist.isFallback && !isStale && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                    This is a general checklist. Refresh to get personalized requirements based on your visa research.
+                  </p>
                 )}
               </div>
             )

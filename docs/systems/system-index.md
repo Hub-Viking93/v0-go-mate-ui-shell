@@ -10,8 +10,10 @@ For the full gap register (55+ gap codes, source file cross-reference, correctio
 
 1. Find the system you want to work on.
 2. Read its system doc (linked below) for full context on what exists, what's broken, and what gaps are documented.
-3. Check `docs/audit.md` to see the system's current classification (WORKING / PARTIAL / BROKEN / MISSING).
-4. Check `docs/build-protocol.md` to confirm the change is in scope for the current phase.
+3. Read `docs/audits/document-authority.md` to understand which document layer is authoritative for your question.
+4. Read `docs/audits/backend-audit.md` for current system behavior and `docs/audits/definitions-vs-system-audit.md` for the current gap register.
+5. Treat `docs/audit.md` as the original baseline classification, not the current universal authority.
+6. Check the relevant phase or audit-driven scope document before making changes.
 
 ---
 
@@ -66,7 +68,7 @@ For the full gap register (55+ gap codes, source file cross-reference, correctio
 
 ---
 
-## Systems by Classification (from `docs/audit.md`)
+## Systems by Historical Baseline Classification (from `docs/audit.md`)
 
 ### WORKING (3)
 - 1.1 Profile Schema
@@ -128,6 +130,9 @@ These are referenced in `master-index.md` section 9. Their target-state content 
 | Document | Purpose |
 |---|---|
 | `docs/systems/master-index.md` | Full gap register (55+ codes), source file map, correction register, implementation priority |
-| `docs/audit.md` | System classification table + V1 invariants |
+| `docs/audits/document-authority.md` | Governance authority model for definitions, systems, audits, phases, and final acceptance |
+| `docs/audits/backend-audit.md` | Current system behavior |
+| `docs/audits/definitions-vs-system-audit.md` | Current target-vs-reality gap register |
+| `docs/audit.md` | Original baseline classification table + original v1 invariants |
 | `docs/glossary.md` | Term definitions |
 | `docs/build-protocol.md` | Phase specifications |

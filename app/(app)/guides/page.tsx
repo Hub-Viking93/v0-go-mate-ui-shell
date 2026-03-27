@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -110,14 +109,23 @@ export default function GuidesPage() {
   return (
     <FullPageGate tier={tier} feature="guides" onUpgrade={() => router.push("/settings")}>
     <div className="p-6 md:p-8 lg:p-10">
-      <PageHeader
-        title="Guides"
-        description="Your personalized relocation guides and country information."
-        action={
-          <Button 
-            onClick={handleGenerateGuide} 
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+              <BookOpen className="w-7 h-7 text-[#5EE89C]" />
+              Guides
+            </h1>
+            <p className="text-white/60 mt-1.5 text-sm md:text-base">
+              Your personalized relocation guides and country information.
+            </p>
+          </div>
+          <Button
+            onClick={handleGenerateGuide}
             disabled={generatingGuide}
-            className="gap-2"
+            className="gap-2 rounded-xl bg-white text-[#1B3A2D] hover:bg-white/90 shrink-0"
           >
             {generatingGuide ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -126,8 +134,8 @@ export default function GuidesPage() {
             )}
             {generatingGuide ? "Generating..." : "Generate Guide"}
           </Button>
-        }
-      />
+        </div>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -157,64 +165,71 @@ export default function GuidesPage() {
               ))}
             </div>
           ) : userGuides.length === 0 ? (
-            <Card className="p-12 text-center">
-              <div className="max-w-md mx-auto">
-                <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-6">
+            <div className="gm-card-static overflow-hidden">
+              <div className="h-32 bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] relative">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.2),transparent_60%)]" />
+              </div>
+              <div className="p-12 text-center -mt-8">
+                <div className="w-16 h-16 rounded-2xl bg-white dark:bg-card shadow-lg flex items-center justify-center mx-auto mb-6 border border-border">
                   <FileText className="w-8 h-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">
                   No guides yet
                 </h3>
-                <p className="text-muted-foreground mb-6">
-                  Complete your profile in the chat to generate a personalized relocation guide 
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Complete your profile in the chat to generate a personalized relocation guide
                   with visa recommendations, budget planning, housing tips, and more.
                 </p>
-                <Button onClick={() => router.push("/chat")} className="gap-2">
+                <Button onClick={() => router.push("/chat")} className="gap-2 rounded-xl shadow-lg shadow-primary/20">
                   <Sparkles className="w-4 h-4" />
                   Start Planning
                 </Button>
               </div>
-            </Card>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {userGuides.map((guide) => (
-                <Card 
-                  key={guide.id} 
-                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer group"
+                <div
+                  key={guide.id}
+                  className="gm-card overflow-hidden cursor-pointer group"
                   onClick={() => router.push(`/guides/${guide.id}`)}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
+                  {/* Top gradient strip */}
+                  <div className="h-24 bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] relative">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.2),transparent_60%)]" />
+                    <div className="absolute bottom-3 left-4">
                       <CountryFlag country={guide.destination} size="md" />
-                      <div>
-                        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                          {guide.destination}
-                        </h3>
-                        {guide.destination_city && (
-                          <p className="text-sm text-muted-foreground">{guide.destination_city}</p>
-                        )}
+                    </div>
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-white/15 text-white border-white/20 backdrop-blur-sm text-xs">
+                        {purposeLabels[guide.purpose] || guide.purpose}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-lg">
+                      {guide.destination}
+                    </h3>
+                    {guide.destination_city && (
+                      <p className="text-sm text-muted-foreground">{guide.destination_city}</p>
+                    )}
+
+                    <p className="text-sm text-muted-foreground mt-3 mb-4 line-clamp-2">
+                      {guide.title}
+                    </p>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(guide.updated_at).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                        View guide
+                        <ArrowRight className="w-4 h-4" />
                       </div>
                     </div>
-                    <Badge variant="outline">
-                      {purposeLabels[guide.purpose] || guide.purpose}
-                    </Badge>
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {guide.title}
-                  </p>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(guide.updated_at).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                      View guide
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </Card>
+                </div>
               ))}
             </div>
           )}

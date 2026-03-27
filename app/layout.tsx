@@ -10,7 +10,7 @@ const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-je
 export const metadata: Metadata = {
   title: 'GoMate - Your Relocation Assistant',
   description: 'Plan your international move with confidence. GoMate helps you navigate visas, housing, and settling into your new home.',
-  generator: 'v0.app',
+  generator: 'GoMate',
   icons: {
     icon: [
       {

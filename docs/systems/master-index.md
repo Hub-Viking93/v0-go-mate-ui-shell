@@ -4,6 +4,7 @@
 **Status:** Reality-first synthesis
 **Scope:** All 31 system documents in `/docs/systems/`
 **Last audited:** 2026-02-25
+**Last gap update:** 2026-03-03 (Phases 6–11 gap closures)
 
 ---
 
@@ -32,15 +33,15 @@ This document is the single entry point into the GoMate system documentation lib
 | 2.1 | Chat Engine | `chat-engine.md` | Reality-first | Raw fetch (not SDK); dead `computeNextState()` call |
 | 2.2 | System Prompt Architecture | `system-prompt.md` | Reality-first | `confirmed` handler missing; 5-destination context limit |
 | 2.3 | Visa Logic | `visa-logic.md` | Reality-first | Three parallel visa lookup systems; 9–19 ghost fields |
-| 3.1 | Research Orchestration | `research-orchestration.md` | Reality-first | Self-HTTP pattern; partial success = "completed" |
+| 3.1 | Research Orchestration | `research-orchestration.md` | Reality-first | ~~Self-HTTP pattern~~ (fixed Phase 2); partial success = "completed" |
 | 3.2 | Cost of Living | `cost-of-living.md` | Reality-first | Two parallel cost systems; live path effectively disabled |
-| 3.3 | Source Fetch Layer | `source-fetch-layer.md` | Reality-first + Placeholder | 5 independent scrapeUrl(); in-memory cache non-functional |
+| 3.3 | Source Fetch Layer | `source-fetch-layer.md` | Reality-first + Placeholder | 5 independent scrapeUrl(); ~~in-memory cache non-functional~~ (fixed Phase 7) |
 | 3.4 | Extraction Layer | `extraction-layer.md` | Reality-first + Placeholder | No shared extraction protocol; regex JSON parsing everywhere |
 | 3.5 | Country / Destination Data | `country-destination-data.md` | Reality-first | airports.txt never loaded; "use client" on server module |
 | 4.1 / 8 | Guide Generation + PDF Export | `guide-generation.md` | Reality-first | Guide generator not AI-powered; PDF renderer receives incompatible data |
 | 4.2 | Plans System | `plans-system.md` | Reality-first | Non-atomic plan switch; archived plans count against limit |
 | 4.3 | Subscription System | `subscription-system.md` | Reality-first | No server-side feature gating; any user can self-upgrade free |
-| 4.4 | Flight Search | `flight-search.md` | Reality-first | Math.random() for stop count; Google Flights URL hardcoded |
+| 4.4 | Flight Search | `flight-search.md` | Reality-first | Heuristic stop parsing; Google Flights URL hardcoded |
 | 4.5 | Checklist Generation | `checklist-generation.md` | Reality-first | `checklist_progress` table has no API; items column confusion |
 | 5.1 | Job System | `job-system.md` | **Placeholder — does not exist** | Entire system missing |
 | 5.2 | Observability | `observability.md` | **Placeholder — does not exist** | Entire system missing |
@@ -49,14 +50,14 @@ This document is the single entry point into the GoMate system documentation lib
 | 6.1 | Auth and Sessions | `auth-sessions.md` | Reality-first | No password reset; open redirect in callback |
 | 6.2 | End-to-End Flow | `end-to-end-flow.md` | Reality-first | No chat history; wrong guide insert schema; race condition |
 | 7.1 | Frontend / UI Layer | `frontend-ui-layer.md` | Reality-first | Settings non-functional; booking always mock; 3 checklist generators |
-| 9.1 | Post-Arrival Stage & Arrival | `post-arrival-stage.md` | Reality-first | Stage enum divergence; no stage check in settling-in routes; arrival endpoint at wrong path |
-| 9.2 | Settling-In Persistence | `settling-in-persistence.md` | Reality-first | Undocumented migration (steps, documents_needed, cost columns); task_key never populated; unlocked field dead |
-| 9.3 | Settling-In Checklist Engine | `settling-in-engine.md` | Reality-first | No stage check at generation; no auto-trigger after arrival; no country_baselines table; no generation run table |
-| 9.4 | Task Graph & Dependency | `task-graph.md` | Reality-first | No DAG cycle detection; task_key not used; skipped tasks do not unblock dependents |
-| 9.5 | Why-It-Matters Enrichment | `why-it-matters.md` | Reality-first | No rate limiting; no hedging in prompt; no audit events |
-| 10.1 | Post-Arrival Chat Mode | `post-arrival-chat-mode.md` | Reality-first | No token limit on task injection; auth failure silently falls to pre-arrival mode |
-| 10.2 | Task Completion via Chat | `task-completion-via-chat.md` | Reality-first | Marker uses title (V1 intentional design per CLAUDE.md — not a defect); no plan stage check in PATCH (Phase 2 fix); no completion audit event |
-| 10.3 | Compliance Timeline & Alerting | `compliance-timeline.md` | Reality-first | Dismissal not persisted; deadline computed client-side; no dismissal table |
+| 9.1 | Post-Arrival Stage & Arrival | `post-arrival-stage.md` | Reality-first | Stage enum divergence; settling-in gates remain inconsistent; arrival endpoint at wrong path |
+| 9.2 | Settling-In Persistence | `settling-in-persistence.md` | Reality-first | Stale schema fields (`unlocked`, `cost_estimate`, `how_to`, `tips`); task identity still split across UUID/title/task_key |
+| 9.3 | Settling-In Checklist Engine | `settling-in-engine.md` | Reality-first | No auto-trigger after arrival; no country_baselines table; no generation run table |
+| 9.4 | Task Graph & Dependency | `task-graph.md` | Reality-first | DAG validation exists, but identity remains split and skipped tasks do not unblock dependents |
+| 9.5 | Why-It-Matters Enrichment | `why-it-matters.md` | Reality-first | Per-plan cap exists; no hedging in prompt; no audit events; no arrival-stage gate |
+| 10.1 | Post-Arrival Chat Mode | `post-arrival-chat-mode.md` | Reality-first | ~~No token limit on task injection~~ (fixed Phase 7); auth failure silently falls to pre-arrival mode |
+| 10.2 | Task Completion via Chat | `task-completion-via-chat.md` | Reality-first | Marker uses title (V1 intentional design per CLAUDE.md — not a defect); no completion audit event |
+| 10.3 | Compliance Timeline & Alerting | `compliance-timeline.md` | Reality-first | Alerts use localStorage dismissal; timeline still computes deadline state client-side; no dismissal table |
 
 ---
 
@@ -145,14 +146,14 @@ Phase 1 documents use table-based gap analysis rather than `G-1.x-X` codes. Key 
 | G-3.2-A | Two parallel cost-of-living systems (`numbeo-scraper.ts` and `web-research.ts`) with different data shapes | P2 |
 | G-3.2-B | `number_of_children` field name mismatch between cost system and profile schema | P2 |
 | G-3.2-C | `FALLBACK_DATA` currency labels ("$") are misleading for non-USD destinations | P3 |
-| G-3.2-D | No data staleness contract — cached Numbeo data has no TTL | P2 |
+| G-3.2-D | ~~No data staleness contract — cached Numbeo data has no TTL~~ **— PARTIALLY FIXED in Phase 9.** Research freshness tracking added; dashboard shows staleness when >7 days old. | P3 |
 | G-3.2-E | Live Firecrawl path is effectively disabled for known destinations (cache always hits) | P2 |
 | G-3.2-F | `fetchLiveCostOfLiving()` in `web-research.ts` is defined but never called | P2 |
 | G-3.2-G | Savings target computation uses hardcoded flat moving cost regardless of destination | P3 |
 | G-3.3-A | Five independent `scrapeUrl()` functions with no shared abstraction | P2 |
 | G-3.3-B | Two different Firecrawl integration methods (raw fetch + SDK) in the same codebase | P2 |
 | G-3.3-C | No explicit timeout on most Firecrawl calls — only `numbeo-scraper.ts` (15s) and `flight-search.ts` (30s) have timeouts | P1 |
-| G-3.3-D | In-memory cache object (`cache = {}`) is non-functional in serverless environments | P1 |
+| G-3.3-D | ~~In-memory cache object (`cache = {}`) is non-functional in serverless environments~~ **— FIXED in Phase 7.** `dataCache` Map removed from `web-research.ts`. | FIXED |
 | G-3.3-E | No Firecrawl rate limiting or credit tracking | P2 |
 | G-3.3-F | `web-research.ts` ignores `official-sources.ts` registry — builds URLs independently | P2 |
 | G-3.4-A | No shared extraction protocol — each of 4 extraction sites uses its own prompt, model, and parser | P2 |
@@ -177,7 +178,7 @@ Phase 1 documents use table-based gap analysis rather than `G-1.x-X` codes. Key 
 | G-4.1-B | `COUNTRY_DATA` covers only 6 of 50+ supported relocation destinations | P1 |
 | G-4.1-C | Five guide sections (banking, culture, jobs, education, healthcare for some destinations) are defined but never generated | P2 |
 | G-4.1-D | `guide_type` column added in migration 007 but always set to `"main"` — never differentiated | P3 |
-| G-4.1-E | No guide versioning or invalidation — regenerating a guide silently overwrites the previous | P2 |
+| G-4.1-E | ~~No guide versioning or invalidation — regenerating a guide silently overwrites the previous~~ **— PARTIALLY FIXED in Phase 9.** `guide_version`, `plan_version_at_generation`, and staleness fields exist, but regeneration still mutates guide rows instead of preserving immutable version history. | P2 |
 | G-4.1-F | Budget section uses dead-code cost data (`estimatedCosts` in `getCountryData()`) — never populated at runtime | P2 |
 | G-4.1-G | PDF renderer receives incompatible guide data — four fields render as `undefined` in every downloaded PDF (insurance, Do's/Don'ts, timeline tasks, checklist items) | **P0** |
 | G-4.1-H | Three independent guide type definitions in three files, no shared source — structural drift is what caused G-4.1-G | P1 |
@@ -195,7 +196,7 @@ Phase 1 documents use table-based gap analysis rather than `G-1.x-X` codes. Key 
 | G-4.3-E | No subscription auto-creation trigger — users who sign up may have no subscription row | P1 |
 | G-4.3-F | `price_sek` column comment says "oere/cents" but stores whole Swedish kronor | P3 |
 | G-4.4-A | Google Flights URL is hardcoded and non-dynamic — returns same URL regardless of route | P2 |
-| G-4.4-B | Stop count uses `Math.random()` — non-deterministic field in production flight results | P2 |
+| G-4.4-B | Stop count fallback is still heuristic (`i % 2`) when provider text does not expose stops — deterministic now, but still not reliable | P2 |
 | G-4.4-C | Airport resolution limited to 30 airports — most of the world unreachable | P1 |
 | G-4.4-D | No direct flight API integration — all results from web scraping, inherently stale | P2 |
 | G-4.4-E | Real parsed flights lack airline, departure time, and flight number fields | P2 |
@@ -238,7 +239,7 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 | G-6.1-F | Profile trigger failure is silent — if `on_auth_user_created` fails, user has no profile row | P1 |
 | G-6.2-A | No chat history persistence — all conversation state is client-only `useState` | P1 |
 | G-6.2-B | Profile completeness defined in two places — `plan-factory.ts` (15 fields) and `profile-schema.ts` (`getRequiredFields()`) — not guaranteed to stay in sync | P1 |
-| G-6.2-C | Research results stored in undocumented columns (`visa_research`, `local_requirements_research`) not present in any migration | P1 |
+| G-6.2-C | ~~Research results stored in undocumented columns (`visa_research`, `local_requirements_research`) not present in any migration~~ **— PARTIALLY FIXED in Phase 6.** Migration 016 adds `research_status` and `research_completed_at`. Note: `visa_research` and `local_requirements_research` columns were already present via undocumented migration; 016 covers the research tracking columns. | P3 |
 | G-6.2-D | Guide insert in lock handler uses `sections` key — column does not exist in `guides` table schema | P0 |
 | G-6.2-E | Plan creation race condition in `GET /api/profile` — if two requests arrive simultaneously both may try to create a plan | P1 |
 | G-6.2-F | Research trigger is not called server-side on lock — client is responsible for firing research after plan lock | P1 |
@@ -253,18 +254,18 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 | G-9.1-C | Arrival endpoint at `/api/settling-in/arrive` not `/api/plan/arrive` as contract specifies | P3 |
 | G-9.1-D | No Idempotency-Key header; duplicate POST silently overwrites `arrival_date` | P2 |
 | G-9.1-E | Arrival transition is a single UPDATE; no events, no job enqueue, no transaction | P2 |
-| G-9.1-F | Settling-in routes do not verify `plan.stage === 'arrived'`; pre-arrival users can interact with settling-in endpoints | P1 |
+| G-9.1-F | Settling-in stage gates are inconsistent: generate/PATCH enforce `arrived`, GET soft-gates, why-it-matters has no stage gate | P1 |
 | G-9.1-G | No shared `isPostArrivalEnabled(plan)` helper; each system checks stage independently and inconsistently | P2 |
 | G-9.1-H | No arrival date validation (future date, max age) | P3 |
 | G-9.1-I | Checklist generation not auto-triggered after arrival; entirely manual | P2 |
 | G-9.2-A | Migration does not include `steps`, `documents_needed`, `cost` columns; at least one undocumented migration exists | P1 |
-| G-9.2-B | `task_key` has unique constraint but is never populated during generation | P2 |
+| G-9.2-B | `task_key` is populated, but runtime identity still splits across UUIDs, task_key, and titles | P2 |
 | G-9.2-C | `unlocked` boolean defined in schema; never read or written by application code | P2 |
 | G-9.2-D | `settling_in_generation_runs` table not implemented | P2 |
 | G-9.2-E | `settling_in_task_events` audit log not implemented | P2 |
 | G-9.2-F | Completion transaction is two separate DB round-trips; no transaction; no event emission | P2 |
 | G-9.2-G | `deadline_source` column exists; never populated | P3 |
-| G-9.3-A | Generate endpoint does not verify `plan.stage === 'arrived'`; pre-arrival generation possible | P1 |
+| G-9.3-A | ~~Generate endpoint does not verify `plan.stage === 'arrived'`; pre-arrival generation possible~~ **— FIXED in Phase 2.** Route now returns 400 unless the current plan is `arrived`. | FIXED |
 | G-9.3-B | Checklist generation not auto-triggered after arrival | P2 |
 | G-9.3-C | `country_baselines` table does not exist; hardcoded TypeScript fallback only | P2 |
 | G-9.3-D | Idempotency uses boolean flag only; no `job_key` or generation run table | P2 |
@@ -273,15 +274,15 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 | G-9.3-G | AI response parsed with regex instead of structured output mode | P2 |
 | G-9.3-H | No merge of baseline + web + AI tasks — single direct path | P2 |
 | G-9.3-I | Generation insert and `post_relocation_generated` update are two separate non-transactional queries | P2 |
-| G-9.3-J | `arrival_date` not passed to generator; deadlines are relative only | P2 |
+| G-9.3-J | ~~`arrival_date` not passed to generator; deadlines are relative only~~ **— FIXED in Phase 6.** Generator stores `deadline_at` (absolute) computed from `arrival_date + deadline_days`. | FIXED |
 | G-9.3-K | Model `anthropic/claude-sonnet-4-20250514` via `@ai-sdk/openai` appears to use OpenRouter; API key management undocumented | P2 |
-| G-9.4-A | No DAG cycle detection anywhere; cycles cause permanent task deadlock | P1 |
+| G-9.4-A | Generation path validates DAGs and strips dependencies on cycle, but no broader dependency integrity layer exists | P2 |
 | G-9.4-B | `task_key` not used as stable dependency identifier; chat protocol uses title strings | P2 |
 | G-9.4-C | Cross-plan UUID references not prevented; cause silent permanent lock | P2 |
 | G-9.4-D | Self-referencing tasks not prevented | P2 |
 | G-9.4-E | Skipped tasks do not unblock dependents — dependency chains permanently blocked | P2 |
 | G-9.4-G | `unlocked` boolean column is dead schema | P3 |
-| G-9.5-A | No per-user rate limiting on why-it-matters enrichment | P2 |
+| G-9.5-A | Why-it-matters uses a per-plan cap, not the contract's per-user daily rate limit | P2 |
 | G-9.5-B | Prompt does not enforce hedging language against legal claims | P2 |
 | G-9.5-C | No audit events on enrichment generation or cache-hit | P2 |
 | G-9.5-D | Concurrent requests both make LLM calls and both write (double spend) | P3 |
@@ -292,7 +293,7 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 
 | Code | Description | Severity |
 |---|---|---|
-| G-10.1-A | No token limit on task injection; all tasks injected regardless of list length | P2 |
+| G-10.1-A | ~~No token limit on task injection; all tasks injected regardless of list length~~ **— FIXED in Phase 7.** Post-arrival system prompt caps task injection to ~2000 tokens with priority ordering (overdue → deadline → legal). | FIXED |
 | G-10.1-B | No observability events on post-arrival mode selection | P2 |
 | G-10.1-D | Missing-tasks state provides no prompt to generate checklist | P2 |
 | G-10.1-E | Prompt does not prohibit AI from inventing tasks not on checklist | P2 |
@@ -301,12 +302,12 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 | G-10.1-H | `nationality` field name mismatch (profile uses `citizenship`) | P3 |
 | G-10.2-A | `[TASK_DONE:]` marker uses title string, not UUID as contract specifies | **V1 design decision** — intentional per CLAUDE.md. Title format is v1 canonical. UUID migration is V2+ only. Not a defect to fix in v1. |
 | G-10.2-B | No explicit trigger phrase list in prompt | P2 |
-| G-10.2-C | PATCH endpoint does not verify `plan.stage === 'arrived'`; task completion possible pre-arrival | P1 |
+| G-10.2-C | ~~PATCH endpoint does not verify `plan.stage === 'arrived'`; task completion possible pre-arrival~~ **— FIXED in Phase 2.** PATCH now verifies the owning plan is `arrived`. | FIXED |
 | G-10.2-D | `processedRef` per-component only; resets on navigation | P3 |
 | G-10.2-F | Silent failure on network error in fire-and-forget — badge shown, task may not update | P2 |
 | G-10.3-A | `compliance_alert_dismissals` server-side table not implemented | P2 |
-| G-10.3-B | `localStorage` not used for dismissal persistence; component state only | P2 |
-| G-10.3-C | Deadline fields computed client-side; timezone accuracy depends on device clock | P2 |
+| G-10.3-B | Alert dismissal uses localStorage only; no server-side dismissal persistence exists | P2 |
+| G-10.3-C | Deadline computation is only partially server-side: alerts/task cards use API urgency, but `ComplianceTimeline` still computes status client-side | P2 |
 | G-10.3-D | No observability events on alert generation | P2 |
 | G-10.3-E | Legal tasks not sorted first in compliance timeline | P3 |
 | G-10.3-F | Toast fires on every component mount | P3 |
@@ -319,7 +320,7 @@ Phases 5.1, 5.2, 5.3 are placeholder documents for systems that do not exist. Th
 | G-7.1-B | Three independent document checklist generators (dashboard, documents page, backend service) produce divergent results | P1 |
 | G-7.1-C | `checklist_progress` table permanently bypassed — completion tracking uses `document_statuses` JSONB instead | P1 |
 | G-7.1-D | `document_statuses` column used by documents page has no SQL migration | P1 |
-| G-7.1-E | Booking page always uses `useMock: true` — real Firecrawl flight search is never invoked from the UI | P1 |
+| G-7.1-E | ~~Booking page always uses `useMock: true` — real Firecrawl flight search is never invoked from the UI~~ **— CORRECTED.** UI now calls `/api/flights` without forcing mock mode; runtime behavior depends on Firecrawl availability and API fallback. | CORRECTION |
 | G-7.1-F | Client-side data duplication — dashboard has own `VISA_DATABASE` (4 countries) and own `generateBudgetFromProfile()` separate from server implementations | P2 |
 | G-7.1-G | Feature matrix (`TIER_FEATURES`) duplicated in `tier-gate.tsx` (client) and `lib/gomate/tier.ts` (server) | P2 |
 | G-7.1-H | `BottomNav` component is dead code — never imported; `AppShell` renders its own mobile nav inline | P3 |
@@ -343,7 +344,7 @@ These are data corruption, security, or total feature failures. Must be fixed be
 | G-5.4-A | Reliability | No retry logic — every external call is single-attempt with silent failure |
 | G-6.2-D | End-to-End Flow | Guide insert in lock handler uses wrong schema key — guide never saves |
 
-### P1 — High (36 gaps)
+### P1 — High (34 open gaps, 2 fixed in Phases 6–7)
 
 Incorrect behaviour, silent failures, or security gaps that affect users or data integrity.
 
@@ -359,7 +360,7 @@ See gap register above for full list. Key P1 gaps to call out:
 | G-3.1-A | Research | Self-HTTP call pattern is fragile |
 | G-3.1-D | Research | Partial research success treated as completed |
 | G-3.3-C | Source Fetch | No timeout on most external calls |
-| G-3.3-D | Source Fetch | In-memory cache non-functional in serverless |
+| G-3.3-D | Source Fetch | ~~In-memory cache non-functional in serverless~~ **FIXED Phase 7** |
 | G-4.1-A | Guide Generation | Guide generator is not AI-powered |
 | G-4.1-B | Guide Generation | COUNTRY_DATA covers only 6 of 50+ destinations |
 | G-4.2-A | Plans | Plan switch is non-atomic |
@@ -372,20 +373,18 @@ See gap register above for full list. Key P1 gaps to call out:
 | G-6.1-D | Auth | Middleware error silently allows all requests |
 | G-6.2-A | End-to-End | No chat history persistence |
 | G-6.2-B | End-to-End | Profile completeness defined in two places |
-| G-6.2-C | End-to-End | Research results in undocumented DB columns |
+| G-6.2-C | End-to-End | ~~Research results in undocumented DB columns~~ **Partially fixed Phase 6** |
 | G-6.2-E | End-to-End | Plan creation race condition |
 | G-6.2-F | End-to-End | Research trigger not called server-side on lock |
 | G-7.1-A | Frontend | Settings profile form non-functional |
 | G-7.1-B | Frontend | Three independent checklist generators |
 | G-7.1-C | Frontend | `checklist_progress` table permanently bypassed |
 | G-7.1-D | Frontend | `document_statuses` column has no migration |
-| G-7.1-E | Frontend | Booking always uses mock data |
-| G-9.1-F | Post-Arrival Stage | Settling-in API routes do not verify `plan.stage === 'arrived'` |
+| G-7.1-E | Frontend | Booking runtime depends on `/api/flights` environment and fallback path, not forced mock mode |
+| G-9.1-F | Post-Arrival Stage | Settling-in stage gates remain inconsistent across GET/generate/PATCH/why-it-matters |
 | G-9.2-A | Settling-In Persistence | Schema documentation incomplete; undocumented migration for `steps`, `documents_needed`, `cost` |
-| G-9.3-A | Settling-In Engine | Generate endpoint does not verify plan is in `arrived` stage |
-| G-9.4-A | Task Graph | No DAG cycle detection; cycles cause permanent task deadlock |
+| G-9.4-A | Task Graph | Generation path validates DAGs, but broader dependency integrity remains incomplete |
 | G-10.1-G | Post-Arrival Chat | Auth failure silently falls to pre-arrival mode |
-| G-10.2-C | Task Completion via Chat | PATCH endpoint does not verify `plan.stage === 'arrived'` |
 
 ---
 
@@ -423,7 +422,8 @@ Which system document covers each primary source file.
 | `app/(app)/booking/page.tsx` | 7.1 Frontend / UI Layer |
 | `app/(app)/guides/[id]/page.tsx` | 4.1 Guide Generation (Phase 8 addendum) |
 | `app/(app)/settling-in/page.tsx` | 9.3 Settling-In Engine + 9.4 Task Graph + 10.3 Compliance Timeline |
-| `app/api/settling-in/arrive/route.ts` | 9.1 Post-Arrival Stage |
+| `app/api/progress/route.ts` | Phase 6: progress API (interview + post-arrival progress) |
+| `app/api/settling-in/arrive/route.ts` | 9.1 Post-Arrival Stage + Phase 8 (deadline recomputation) |
 | `app/api/settling-in/generate/route.ts` | 9.3 Settling-In Engine |
 | `app/api/settling-in/route.ts` | 9.2 Settling-In Persistence + 9.4 Task Graph + 10.3 Compliance Timeline |
 | `app/api/settling-in/[id]/route.ts` | 9.2 Settling-In Persistence + 9.4 Task Graph + 10.2 Task Completion via Chat |
@@ -453,6 +453,7 @@ Which system document covers each primary source file.
 | `lib/gomate/official-sources.ts` | 3.5 Country / Destination Data |
 | `lib/gomate/source-linker.ts` | 3.3 Source Fetch Layer |
 | `lib/gomate/supabase-utils.ts` | 1.3 Persistence Layer |
+| `lib/gomate/progress.ts` | Phase 6: server-side progress computation (interview + post-arrival) |
 | `lib/gomate/settling-in-generator.ts` | 9.3 Settling-In Engine + 9.4 Task Graph |
 | `lib/gomate/system-prompt.ts` (post-arrival functions) | 10.1 Post-Arrival Chat Mode + 10.2 Task Completion via Chat |
 | `lib/supabase/client.ts` | 1.3 Persistence Layer + 6.1 Auth and Sessions |
@@ -474,6 +475,14 @@ Which system document covers each primary source file.
 | `scripts/008_create_subscriptions.sql` | 1.3 Persistence Layer + 4.3 Subscription System |
 | `scripts/009_add_plan_metadata.sql` | 1.3 Persistence Layer + 4.2 Plans System + 9.1 Post-Arrival Stage |
 | `scripts/010_settling_in_checklist.sql` | 9.1 Post-Arrival Stage + 9.2 Settling-In Persistence + 9.4 Task Graph |
+| `scripts/011_add_settling_task_columns.sql` | Phase 0: settling_in_tasks additional columns |
+| `scripts/012_add_research_columns.sql` | Phase 0: relocation_plans research columns |
+| `scripts/013_add_document_statuses.sql` | Phase 0: relocation_plans document_statuses |
+| `scripts/016_add_research_status_columns.sql` | Phase 6: research_status + research_completed_at on relocation_plans |
+| `scripts/017_add_deadline_at_and_overdue.sql` | Phase 6: deadline_at + deadline_anchor on settling_in_tasks; OVERDUE status |
+| `scripts/018_add_plan_version.sql` | Phase 7: plan_version on relocation_plans |
+| `scripts/019_add_guide_staleness.sql` | Phase 9: guide versioning + staleness columns on guides; research_freshness_days on relocation_plans |
+| `scripts/020_add_onboarding_completed.sql` | Phase 10: onboarding_completed on relocation_plans |
 
 ### Components
 
@@ -549,7 +558,7 @@ Ordered by impact and dependencies. Groups can often be parallelised within a gr
 9. **G-7.1-C** — Decide: adopt `document_statuses` as canonical or migrate to `checklist_progress` table
 10. **G-4.2-A** — Make plan switching atomic (use a transaction or stored procedure)
 11. **G-4.2-D** — Exclude archived plans from plan count
-12. **G-3.3-D** — Replace in-memory cache with Supabase-backed caching for Numbeo data
+12. ~~**G-3.3-D** — Replace in-memory cache with Supabase-backed caching for Numbeo data~~ **FIXED Phase 7** — in-memory cache removed
 
 ### Group 3 — Reliability and Observability
 
@@ -557,7 +566,7 @@ Ordered by impact and dependencies. Groups can often be parallelised within a gr
 14. **G-5.4-C + G-3.3-C** — Add `AbortController` timeouts to all Firecrawl and OpenAI calls
 15. **G-5.4-D** — Map external API error status codes to appropriate HTTP responses (429, 503, 504)
 16. **G-5.4-B** — Implement per-service circuit breaker for Firecrawl and OpenAI
-17. Implement Job System (Phase 5.1 target) — replace self-HTTP pattern in research trigger
+17. Implement Job System (Phase 5.1 target) — replace synchronous inline research orchestration with queued execution
 
 ### Group 4 — Core Feature Gaps
 
@@ -594,6 +603,13 @@ The following files were created during the documentation audit that produced th
 | `docs/phases/phase-4-reliability-minimum.md` | Phase 4 implementation guide: `fetchWithRetry()` utility, timeout audit |
 | `docs/phases/phase-5-ui-integrity.md` | Phase 5 implementation guide: compliance alert persistence, settings wiring, booking decision |
 | `docs/systems/system-index.md` | Quick-reference navigation hub: all 31 system docs with status and file paths |
+| `docs/phases/phase-6-task-lifecycle.md` | Phase 6 build doc: OVERDUE detection, deadline anchoring, progress API, research schema repair |
+| `docs/phases/phase-7-generation-quality.md` | Phase 7 build doc: plan_version counter, token budget cap, in-memory cache removal |
+| `docs/phases/phase-8-deadline-intelligence.md` | Phase 8 build doc: deadline recomputation on arrival_date change, T-7/T-1 urgency indicators |
+| `docs/phases/phase-9-guide-research-freshness.md` | Phase 9 build doc: guide versioning, staleness marking, research freshness TTL |
+| `docs/phases/phase-10-chat-safety-onboarding.md` | Phase 10 build doc: confirmation flow for critical fields, onboarding_completed flag |
+| `docs/phases/phase-11-task-enrichment.md` | Phase 11 build doc: block reason surfacing, why-it-matters maxTokens verification |
+| `docs/definitions/` | 24 canonical system definitions with V1 Scope Blocks documenting target vs current gaps |
 
 ---
 

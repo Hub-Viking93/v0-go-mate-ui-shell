@@ -1,6 +1,13 @@
 import FirecrawlApp from "@mendable/firecrawl-js"
-import { generateText } from "ai"
+import { generateObject } from "ai"
+import { createOpenAI } from "@ai-sdk/openai"
+import { z } from "zod"
 import { getSourceUrl, getAllSources } from "./official-sources"
+
+const openrouter = createOpenAI({
+  baseURL: process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 // Types
 export interface ChecklistItem {
@@ -16,6 +23,8 @@ export interface ChecklistItem {
   cost?: string
   tips?: string[]
   visaSpecific?: boolean
+  /** B2-011: Per-item source URL for traceability */
+  sourceUrl?: string
 }
 
 export interface ChecklistGeneratorInput {
@@ -38,7 +47,45 @@ export interface GeneratedChecklist {
   destination: string
   generatedAt: string
   researchSources: string[]
+  /** B2-007: Whether this checklist used the default fallback instead of AI-researched items */
+  isFallback: boolean
+  /** B2-007: What inputs were actually available when generating */
+  generatorInputs: {
+    hadVisaResearch: boolean
+    hadFirecrawlResearch: boolean
+    visaName: string | null
+  }
 }
+
+// B2-008: Canonical document ID generation — shared identity contract
+export function canonicalDocumentId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 64)
+}
+
+// B2-010: Zod schema for structured output — replaces regex JSON extraction
+const checklistItemSchema = z.object({
+  id: z.string().describe("Unique snake_case identifier for this document"),
+  document: z.string().describe("Name of the document"),
+  description: z.string().describe("Brief description of what this document is"),
+  priority: z.enum(["critical", "high", "medium", "low"]),
+  required: z.boolean(),
+  category: z.enum(["identity", "visa", "financial", "medical", "education", "housing", "travel", "legal", "other"]),
+  whereToGet: z.string().optional().describe("Where/how to obtain this document"),
+  officialLink: z.string().optional().describe("Direct URL to official source for this document"),
+  estimatedTime: z.string().optional().describe("How long it takes to obtain, e.g. '1-2 weeks'"),
+  cost: z.string().optional().describe("Approximate cost if applicable, e.g. '~50 EUR'"),
+  tips: z.array(z.string()).optional().describe("1-2 helpful tips"),
+  visaSpecific: z.boolean().optional().describe("True if specific to the visa type"),
+  sourceUrl: z.string().optional().describe("URL of the source that mentions this requirement"),
+})
+
+const checklistOutputSchema = z.object({
+  items: z.array(checklistItemSchema),
+})
 
 // Initialize Firecrawl
 function getFirecrawl(): FirecrawlApp | null {
@@ -172,7 +219,7 @@ ${sourceLinks}
 **Research Content:**
 ${allContent.slice(0, 15000)}
 
-Generate a JSON array of document checklist items. Each item should have:
+Generate a list of document checklist items. Each item should have:
 - id: unique snake_case identifier
 - document: name of the document
 - description: brief description of what this document is
@@ -185,6 +232,7 @@ Generate a JSON array of document checklist items. Each item should have:
 - cost: approximate cost if applicable (e.g., "~50 EUR")
 - tips: array of 1-2 helpful tips
 - visaSpecific: true if this is specific to the visa type, false if general
+- sourceUrl: URL from the research content that mentions this requirement (if identifiable)
 
 **Important:**
 1. Include ALL documents required for the specific visa type mentioned
@@ -193,42 +241,34 @@ Generate a JSON array of document checklist items. Each item should have:
 4. Include post-arrival registration documents
 5. Prioritize critical documents that could delay the application
 6. Include financial proof requirements with specific amounts if known
-7. Be specific about document requirements (apostille, translations, etc.)
-
-Return ONLY a valid JSON array, no other text.`
+7. Be specific about document requirements (apostille, translations, etc.)`
 
   try {
-    const result = await generateText({
-      model: "anthropic/claude-sonnet-4-20250514",
+    // B2-010: Use generateObject with Zod schema instead of regex JSON extraction
+    const result = await generateObject({
+      model: openrouter("anthropic/claude-sonnet-4"),
       prompt,
-      maxTokens: 4000,
+      schema: checklistOutputSchema,
+      maxOutputTokens: 4000,
     })
 
-    // Parse the JSON response
-    const jsonMatch = result.text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) {
-      console.error("[ChecklistGenerator] No JSON array found in response")
-      return getDefaultChecklist(input)
-    }
+    const items = result.object.items
 
-    const items = JSON.parse(jsonMatch[0]) as ChecklistItem[]
-
-    // Validate and sanitize items
+    // B2-008: Normalize document IDs to canonical form for shared identity
     return items.map((item, index) => ({
-      id: item.id || `doc_${index}`,
+      id: canonicalDocumentId(item.id || item.document || `doc_${index}`),
       document: item.document || "Unknown Document",
       description: item.description || "",
-      priority: ["critical", "high", "medium", "low"].includes(item.priority)
-        ? item.priority
-        : "medium",
-      required: typeof item.required === "boolean" ? item.required : false,
+      priority: item.priority,
+      required: item.required,
       category: item.category || "other",
       whereToGet: item.whereToGet,
       officialLink: item.officialLink,
       estimatedTime: item.estimatedTime,
       cost: item.cost,
-      tips: Array.isArray(item.tips) ? item.tips : [],
-      visaSpecific: typeof item.visaSpecific === "boolean" ? item.visaSpecific : false,
+      tips: item.tips || [],
+      visaSpecific: item.visaSpecific ?? false,
+      sourceUrl: item.sourceUrl,
     }))
   } catch (error) {
     console.error("[ChecklistGenerator] AI generation failed:", error)
@@ -368,15 +408,23 @@ export async function generatePersonalizedChecklist(
     scrapedSources.forEach((s) => researchSources.push(s.url))
   }
 
-  // Generate checklist with AI (or use defaults if no research available)
+  // B2-007: Track whether we used fallback or AI-researched content
   let items: ChecklistItem[]
+  let isFallback = false
 
   if (researchContent.length > 0 || scrapedSources.length > 0) {
     items = await generateChecklistWithAI(input, researchContent, scrapedSources)
   } else {
     console.log("[ChecklistGenerator] No research content, using default checklist")
     items = getDefaultChecklist(input)
+    isFallback = true
   }
+
+  // B2-008: Ensure all items have canonical document IDs
+  items = items.map(item => ({
+    ...item,
+    id: canonicalDocumentId(item.id || item.document),
+  }))
 
   // Sort by priority
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
@@ -388,6 +436,12 @@ export async function generatePersonalizedChecklist(
     destination: input.destination,
     generatedAt: new Date().toISOString(),
     researchSources,
+    isFallback,
+    generatorInputs: {
+      hadVisaResearch: !!input.visaType || !!input.visaName,
+      hadFirecrawlResearch: researchContent.length > 0 || scrapedSources.length > 0,
+      visaName: input.visaName || null,
+    },
   }
 }
 

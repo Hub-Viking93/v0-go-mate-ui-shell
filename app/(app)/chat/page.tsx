@@ -21,6 +21,7 @@ import { OPENING_MESSAGE, getSmartOpeningMessage } from "@/lib/gomate/system-pro
 import { isProfileComplete } from "@/lib/gomate/state-machine"
 import { Confetti } from "@/components/confetti"
 import { ChatMessageContent } from "@/components/chat/chat-message-content"
+import { GoMateAvatar } from "@/components/gomate-avatar"
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileSummaryCard } from "@/components/profile-summary-card"
@@ -59,7 +60,9 @@ function ChatPageContent() {
   const [officialSources, setOfficialSources] = useState<OfficialSource[]>([])
   const [visaStatus, setVisaStatus] = useState<{ visaFree: boolean; reason: string; badge: string } | null>(null)
   const [planLocked, setPlanLocked] = useState(false)
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false)
   const [planId, setPlanId] = useState<string | null>(null)
+  const [planVersion, setPlanVersion] = useState<number | null>(null)
   const [researchTriggered, setResearchTriggered] = useState(false)
   const [profileSummary, setProfileSummary] = useState<string | null>(null)
   const [visaRecommendation, setVisaRecommendation] = useState<string | null>(null)
@@ -67,6 +70,7 @@ function ChatPageContent() {
   const [savingsData, setSavingsData] = useState<{ emergencyFund: number; movingCosts: number; initialSetup: number; visaFees: number; total: number; timeline: string } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [confettiShown, setConfettiShown] = useState(false)
+  const [profileLoaded, setProfileLoaded] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -89,11 +93,20 @@ function ChatPageContent() {
           if (data.plan?.id) {
             setPlanId(data.plan.id)
           }
+
+          if (typeof data.plan?.plan_version === "number") {
+            setPlanVersion(data.plan.plan_version)
+          }
           
           // Check if plan is locked
           if (data.plan?.locked) {
             setPlanLocked(true)
             setInterviewState("complete")
+          }
+
+          // Track if onboarding was already completed (plan shown previously)
+          if (data.plan?.onboarding_completed) {
+            setOnboardingCompleted(true)
           }
           
           if (data.plan?.profile_data) {
@@ -122,31 +135,32 @@ function ChatPageContent() {
         }
       } catch (error) {
         console.error("[GoMate] Error loading profile:", error)
+      } finally {
+        setProfileLoaded(true)
       }
     }
     loadExistingProfile()
   }, [])
 
-  // Add opening message on mount - smart opening for returning users with complete profiles
+  // Add opening message after profile has loaded - smart opening for returning users with complete profiles
   useEffect(() => {
-    if (messages.length === 0) {
-      // Check if profile is complete to show smart suggestions instead
-      const profileComplete = isProfileComplete(profile)
-      const hasName = !!profile.name
-      
-      const openingContent = profileComplete && hasName
-        ? getSmartOpeningMessage(profile)
-        : OPENING_MESSAGE
-      
-      setMessages([
-        {
-          id: "opening",
-          role: "assistant",
-          content: openingContent,
-        },
-      ])
-    }
-  }, [messages.length, profile])
+    if (!profileLoaded || messages.length > 0) return
+
+    const profileComplete = isProfileComplete(profile)
+    const hasName = !!profile.name
+
+    const openingContent = profileComplete && hasName
+      ? getSmartOpeningMessage(profile)
+      : OPENING_MESSAGE
+
+    setMessages([
+      {
+        id: "opening",
+        role: "assistant",
+        content: openingContent,
+      },
+    ])
+  }, [profileLoaded])
 
   // Handle field parameter from URL - prompt AI to ask about specific field
   useEffect(() => {
@@ -304,6 +318,9 @@ function ChatPageContent() {
                 if (parsed.metadata.planLocked !== undefined) {
                   setPlanLocked(parsed.metadata.planLocked)
                 }
+                if (parsed.metadata.onboardingCompleted !== undefined) {
+                  setOnboardingCompleted(parsed.metadata.onboardingCompleted)
+                }
                 if (parsed.metadata.profileSummary) {
                   setProfileSummary(parsed.metadata.profileSummary)
                 }
@@ -398,11 +415,11 @@ function ChatPageContent() {
       <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
       
       {/* Header with progress */}
-      <div className="flex-shrink-0 p-4 border-b border-border bg-card/50">
+      <div className="flex-shrink-0 p-4 border-b border-border bg-gradient-to-r from-[#1B3A2D]/[0.03] to-transparent">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Sparkles className="w-5 h-5 text-primary" />
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[#1B3A2D] to-[#2D6A4F] shadow-sm">
+              <Sparkles className="w-5 h-5 text-[#5EE89C]" />
             </div>
             <div>
               <h1 className="font-semibold text-foreground flex items-center gap-2">
@@ -425,8 +442,8 @@ function ChatPageContent() {
                 {!planLocked && interviewState === "review" && "Review your profile"}
                 {!planLocked && interviewState === "complete" && "Your personalized plan"}
                 {visaStatus && profile.citizenship && profile.destination && (
-                  <VisaStatusBadge 
-                    citizenship={profile.citizenship} 
+                  <VisaStatusBadge
+                    citizenship={profile.citizenship}
                     destination={profile.destination}
                     size="sm"
                   />
@@ -436,7 +453,10 @@ function ChatPageContent() {
           </div>
           <Badge
             variant={interviewState === "complete" ? "default" : "secondary"}
-            className="flex items-center gap-1.5"
+            className={cn(
+              "flex items-center gap-1.5",
+              interviewState === "complete" && "bg-gradient-to-r from-emerald-500 to-emerald-600 border-0"
+            )}
           >
             {interviewState === "complete" ? (
               <>
@@ -476,6 +496,9 @@ function ChatPageContent() {
               message.role === "user" ? "justify-end" : "justify-start"
             )}
           >
+            {message.role === "assistant" && (
+              <GoMateAvatar size="sm" className="mt-1 mr-2.5" />
+            )}
             <div
               className={cn(
                 "max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3",
@@ -501,6 +524,7 @@ function ChatPageContent() {
         {/* Streaming message */}
         {isLoading && streamingContent && (
           <div className="flex justify-start">
+            <GoMateAvatar size="sm" className="mt-1 mr-2.5" />
             <div className="max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 bg-card border border-border">
               <ChatMessageContent content={streamingContent} isStreaming={true} />
             </div>
@@ -510,6 +534,7 @@ function ChatPageContent() {
         {/* Typing indicator */}
         {isLoading && !streamingContent && (
           <div className="flex justify-start">
+            <GoMateAvatar size="sm" className="mt-1 mr-2.5" />
             <div className="bg-card border border-border rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
@@ -545,8 +570,8 @@ function ChatPageContent() {
           </Card>
         )}
 
-        {/* Official sources panel - only show after profile is complete or confirmed */}
-        {officialSources.length > 0 && (interviewState === "complete" || confirmed || planLocked) && (
+        {/* Official sources panel - only show after profile is complete or confirmed, but not after onboarding is done */}
+        {officialSources.length > 0 && !onboardingCompleted && (interviewState === "complete" || confirmed || planLocked) && (
           <Card className="p-4 bg-card/80 border-border">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <ExternalLink className="w-4 h-4 text-primary" />
@@ -572,13 +597,13 @@ function ChatPageContent() {
           </Card>
         )}
 
-        {/* Profile Summary Card - show when review or complete */}
-        {(interviewState === "review" || interviewState === "complete" || planLocked) && profile.destination && (
+        {/* Profile Summary Card - show when review or complete, but not after onboarding is done */}
+        {!onboardingCompleted && (interviewState === "review" || interviewState === "complete" || planLocked) && profile.destination && (
           <ProfileSummaryCard profile={profile} />
         )}
 
-        {/* Budget Card - show when profile is complete and we have budget data */}
-        {(interviewState === "complete" || planLocked) && budgetData && savingsData && profile.destination && (
+        {/* Budget Card - show when profile is complete and we have budget data, but not after onboarding is done */}
+        {!onboardingCompleted && (interviewState === "complete" || planLocked) && budgetData && savingsData && profile.destination && (
           <TierGate tier={tier} feature="budget_planner" onUpgrade={() => window.location.href = "/settings"}>
             <BudgetCard 
               budget={budgetData} 
@@ -586,18 +611,37 @@ function ChatPageContent() {
               destination={profile.destination}
               currentSavings={parseFloat(profile.savings_available || "0") || 0}
               onUpdateSavings={async (amount) => {
+                if (planVersion === null) return
+                const previousProfile = profile
                 // Update local profile state
                 const updatedProfile = { ...profile, savings_available: amount.toString() }
                 setProfile(updatedProfile)
                 
                 // Persist to backend
                 try {
-                  await fetch("/api/profile", {
+                  const response = await fetch("/api/profile", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
+                    body: JSON.stringify({
+                      profileData: { savings_available: amount.toString() },
+                      expectedVersion: planVersion,
+                    }),
                   })
+
+                  if (!response.ok) {
+                    setProfile(previousProfile)
+                    return
+                  }
+
+                  const data = await response.json()
+                  if (data.plan?.profile_data) {
+                    setProfile({ ...EMPTY_PROFILE, ...data.plan.profile_data })
+                  }
+                  if (typeof data.plan?.plan_version === "number") {
+                    setPlanVersion(data.plan.plan_version)
+                  }
                 } catch (error) {
+                  setProfile(previousProfile)
                   console.error("[GoMate] Error saving savings:", error)
                 }
               }}
@@ -607,12 +651,12 @@ function ChatPageContent() {
 
         {/* Review confirmation buttons */}
         {interviewState === "review" && !confirmed && !isLoading && (
-          <Card className="p-4 bg-primary/5 border-primary/20">
+          <Card className="p-4 bg-primary/5 border-primary/20" data-testid="review-confirm-card">
             <p className="text-sm text-foreground mb-3">
               Ready to generate your personalized relocation plan?
             </p>
             <div className="flex gap-2">
-              <Button onClick={handleConfirm} size="sm">
+              <Button onClick={handleConfirm} size="sm" data-testid="confirm-plan-btn">
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 Looks good, generate plan
               </Button>

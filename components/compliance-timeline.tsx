@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, CheckCircle2, Clock, Shield } from "lucide-react"
 
@@ -8,22 +7,18 @@ interface ComplianceTask {
   id: string
   title: string
   category: string
-  deadline_days: number | null
   is_legal_requirement: boolean
   status: string
   completed_at: string | null
+  deadline_at: string | null
+  days_until_deadline: number | null
+  compliance_status?: "none" | "completed" | "overdue" | "urgent" | "upcoming"
 }
 
 interface ComplianceTimelineProps {
   tasks: ComplianceTask[]
   arrivalDate: string // ISO date string
   className?: string
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
 }
 
 function daysBetween(a: Date, b: Date): number {
@@ -85,23 +80,28 @@ export function ComplianceTimeline({ tasks, arrivalDate, className }: Compliance
   const arrival = new Date(arrivalDate)
   const today = new Date()
 
-  const complianceTasks = useMemo(() => {
-    return tasks
-      .filter(t => t.is_legal_requirement && t.deadline_days != null)
-      .map(t => {
-        const deadlineDate = addDays(arrival, t.deadline_days!)
-        const isCompleted = t.status === "completed"
-        const status = getDeadlineStatus(deadlineDate, today, isCompleted)
-        const daysLeft = daysBetween(today, deadlineDate)
-        return {
-          ...t,
-          deadlineDate,
-          status,
-          daysLeft,
-        }
-      })
-      .sort((a, b) => a.deadlineDate.getTime() - b.deadlineDate.getTime())
-  }, [tasks, arrivalDate])
+  const complianceTasks = tasks
+    .filter((task) => task.is_legal_requirement && task.deadline_at)
+    .map((task) => {
+      const deadlineDate = new Date(task.deadline_at as string)
+      const isCompleted = task.status === "completed"
+      const status =
+        task.compliance_status && task.compliance_status !== "none"
+          ? ((task.compliance_status === "urgent"
+              ? "urgent"
+              : task.compliance_status) as TimelineStatus)
+          : getDeadlineStatus(deadlineDate, today, isCompleted)
+
+      return {
+        ...task,
+        deadlineDate,
+        status,
+        daysLeft:
+          task.days_until_deadline ??
+          daysBetween(today, deadlineDate),
+      }
+    })
+    .sort((a, b) => a.deadlineDate.getTime() - b.deadlineDate.getTime())
 
   if (complianceTasks.length === 0) return null
 

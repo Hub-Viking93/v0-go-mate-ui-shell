@@ -43,37 +43,31 @@ This is a check-on-read pattern. Neither component uses a cron job or push notif
 
 ## 4. Deadline Computation
 
-All deadline computation is **client-side**. There are no server-computed deadline fields.
+Deadline computation is now split across server and client paths.
 
-### 4.1 `deadline_date`
+### 4.1 Server-computed fields
 
-```typescript
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
-}
+`GET /api/settling-in` now computes and returns:
 
-const deadlineDate = addDays(arrival, task.deadline_days!)
-```
+- `deadline_at`
+- `days_until_deadline`
+- `urgency`
+- persisted `status = "overdue"` when deadline breach is detected
 
-`deadline_date = arrival_date + deadline_days`
+`ComplianceAlerts` uses these server-computed values directly.
 
-Both components use the same logic. `arrival_date` comes from the API response (`data.arrivalDate` for ComplianceAlerts, `arrivalDate` prop for ComplianceTimeline).
+### 4.2 Client-side fallback in `ComplianceTimeline`
 
-### 4.2 `days_remaining`
+`ComplianceTimeline` still recomputes `deadlineDate` and day deltas locally from:
 
-```typescript
-function daysBetween(a: Date, b: Date): number {
-  return Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24))
-}
+- `arrivalDate`
+- `task.deadline_days`
+- `new Date()` at render time
 
-const daysLeft = daysBetween(today, deadlineDate)
-```
+So the compliance system is only **partially** server-authoritative today:
 
-`daysLeft = ceil((deadlineDate - today) / ms_per_day)`
-
-`today = new Date()` — the client's local date/time at component mount. Deadline accuracy depends on the user's device clock.
+- alerts and task cards consume server-derived urgency
+- the dedicated timeline component still derives its own status client-side
 
 ---
 
@@ -194,16 +188,17 @@ Only uncompleted, unskipped legal requirements with `daysLeft <= 7` trigger aler
 ### `ComplianceAlerts`
 
 ```typescript
-const [dismissed, setDismissed] = useState(false)
-// ...
-if (alerts.length === 0 || dismissed) return null
+const [dismissed, setDismissed] = useState(() => {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(DISMISS_KEY) === 'true'
+})
 ```
 
 Dismissal is a single boolean React state variable. Clicking the `X` button sets `dismissed = true`, which hides the entire alert block.
 
-**Persistence:** Dismissal state is **not persisted**. It lives in component state only. On page refresh, navigation away, or component remount, the alerts reappear.
+**Persistence:** Dismissal state is persisted in `localStorage` under `gomate:compliance-alerts-dismissed`. It survives refreshes and navigation in the same browser, but there is still no server-side dismissal record.
 
-The contract mentions a `compliance_alert_dismissals` server-side table as the target. This does not exist. The contract also mentions `localStorage` as an alternative. Neither is used. The implementation is session-local state only.
+The contract mentions a `compliance_alert_dismissals` server-side table as the target. This does not exist. The contract also mentions `localStorage` as an alternative. The implementation now uses the `localStorage` fallback only.
 
 ### Toast notification
 
@@ -259,9 +254,9 @@ if (!data.tasks || !data.arrivalDate) return
 
 | Gap | Contract specification | Current implementation | Severity |
 |---|---|---|---|
-| G-10.3-A | `compliance_alert_dismissals` server-side table | Does not exist | P2 — Dismissals reset on page reload |
-| G-10.3-B | `localStorage` as dismissal fallback (per contract) | Not used; component state only | P2 — Dismissals not even session-persistent across navigations |
-| G-10.3-C | Server-computed deadline fields (`deadline_date`, `days_remaining`, `task_state`) | All computed client-side; timezone accuracy depends on device clock | P2 — Inconsistent values across timezones |
+| G-10.3-A | `compliance_alert_dismissals` server-side table | Does not exist | P2 — Dismissals do not persist across browsers/devices or at the account level |
+| G-10.3-B | `localStorage` as dismissal fallback (per contract) | Implemented for alerts; no server-side dismissal table exists | Partial |
+| G-10.3-C | Server-computed deadline fields (`deadline_date`, `days_remaining`, `task_state`) | Alerts and task cards use server-computed urgency, but `ComplianceTimeline` still derives deadline state client-side | P2 — Compliance rendering is only partially server-authoritative |
 | G-10.3-D | Observability events on alert generation | No events | P2 — No observability |
 | G-10.3-E | Legal tasks sorted first in timeline | Not implemented; all tasks sorted by deadline date ascending | P3 — Legal tasks may appear in middle of timeline |
 | G-10.3-F | Toast fires on every mount | Fire-and-forget on `useEffect` mount; repeated on remount | P3 — May feel intrusive on frequent navigation |

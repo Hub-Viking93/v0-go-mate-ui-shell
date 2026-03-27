@@ -23,8 +23,8 @@ The extraction layer is responsible for converting unstructured text (web-scrape
 |---|---|---|---|---|
 | Chat route | User message | `Partial<Profile>` with confidence | GPT-4o-mini | ✓ (json_object) |
 | Checklist generator | Scraped web content | `ChecklistItem[]` | Claude Sonnet 4.5 | ✗ (regex) |
-| Visa research | Scraped web content | `VisaOption[]` | GPT-4o-mini | ✗ (regex) |
-| Local requirements | Scraped web content | `LocalRequirementsResearch` (categories object) | GPT-4o-mini | ✗ (regex) |
+| Visa research | Scraped web content | `VisaOption[]` | GPT-4o-mini | ✓ (json_object) |
+| Local requirements | Scraped web content | `LocalRequirementsResearch` (categories object) | GPT-4o-mini | ✓ (json_object) |
 
 ---
 
@@ -39,8 +39,8 @@ Extracts structured profile fields from a user's natural language message. Runs 
 ```
 model: gpt-4o-mini
 response_format: { type: "json_object" }
-temperature: not set (default: 1.0)
-max_tokens: not set (model default)
+temperature: not set (default model behavior)
+max_tokens: 1500
 ```
 
 ### 3.3 Input Construction
@@ -77,7 +77,7 @@ Fields that fail enum validation are silently dropped. All other fields are acce
 
 Each extracted field receives a confidence level: `explicit`, `inferred`, or `assumed`. Confidence is tracked in `ExtractionResultWithConfidence.confidence: Record<string, FieldConfidence>`.
 
-**Gap:** Confidence levels are sent to the client in `metadata.lastExtraction.fieldConfidence` but are never persisted to the database.
+Confidence is embedded into `profile_data.__field_confidence` before the chat route saves the profile. It is persisted, but only as an ad hoc JSON payload rather than a canonical first-class confidence model.
 
 ### 3.6 Backwards-Compatible Format Handling
 
@@ -172,9 +172,7 @@ The visa extraction prompt provides:
 
 ### 5.4 Response Parsing
 
-Regex extraction: `content.match(/\{[\s\S]*\}/)` — extracts first JSON object.
-
-**Gap:** Uses regex JSON extraction instead of `response_format: { type: "json_object" }` which would be more reliable.
+Visa research now uses `response_format: { type: "json_object" }` and parses the returned message content directly with `JSON.parse()`.
 
 ### 5.5 Post-Processing
 
@@ -210,7 +208,7 @@ The local requirements prompt provides:
 
 ### 6.4 Response Parsing
 
-Same regex pattern: `text.match(/\{[\s\S]*\}/)`.
+Local requirements now use `response_format: { type: "json_object" }` and parse the returned message content directly with `JSON.parse()`.
 
 ### 6.5 Post-Processing
 
@@ -241,12 +239,12 @@ Three sites use GPT-4o-mini, one uses Claude Sonnet. No architecture decision re
 
 | Site | JSON enforcement | Reliability |
 |---|---|---|
-| Profile extraction | `response_format: { type: "json_object" }` | High — model guaranteed to return valid JSON |
-| Checklist extraction | Prompt instruction only | Medium — model may add text |
-| Visa extraction | Regex `\{[\s\S]*\}` on raw text | Lower — fragile if JSON is wrapped |
-| Local requirements extraction | Regex `\{[\s\S]*\}` on raw text | Lower — fragile if JSON is wrapped |
+| Profile extraction | `response_format: { type: "json_object" }` | High |
+| Checklist extraction | Prompt instruction only | Medium — regex array extraction still fragile |
+| Visa extraction | `response_format: { type: "json_object" }` | High |
+| Local requirements extraction | `response_format: { type: "json_object" }` | High |
 
-Only profile extraction uses the reliable JSON mode. The three content-analysis extractions use regex parsing which can fail silently.
+Checklist extraction remains the outlier. The other three extraction sites now use JSON mode.
 
 ### 7.3 Temperature Settings
 

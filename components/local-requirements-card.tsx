@@ -287,7 +287,7 @@ export function LocalRequirementsCard({
       const response = await fetch("/api/research/local-requirements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, forceRefresh: Boolean(research) }),
       })
 
       if (!response.ok) {

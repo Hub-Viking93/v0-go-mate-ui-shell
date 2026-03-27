@@ -1,6 +1,12 @@
 import FirecrawlApp from "@mendable/firecrawl-js"
 import { generateText } from "ai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { getSourceUrl, getAllSources } from "./official-sources"
+
+const openrouter = createOpenAI({
+  baseURL: process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 // ============================================================================
 // TYPES
@@ -205,9 +211,9 @@ Return ONLY a valid JSON array.`
 
   try {
     const result = await generateText({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: openrouter("anthropic/claude-sonnet-4"),
       prompt,
-      maxTokens: 6000,
+      maxOutputTokens: 6000,
     })
 
     const jsonMatch = result.text.match(/\[[\s\S]*\]/)
@@ -509,10 +515,12 @@ export async function generateSettlingInPlan(
 
   let tasks: SettlingTask[]
 
-  if (research.length > 0 || scraped.length > 0) {
+  // Always attempt AI generation — Claude has strong knowledge of country-specific
+  // post-arrival requirements even without web research context
+  try {
     tasks = await generateSettlingTasksWithAI(input, research, scraped)
-  } else {
-    console.log("[SettlingGenerator] No research content, using defaults")
+  } catch (error) {
+    console.error("[SettlingGenerator] AI generation failed, using defaults:", error instanceof Error ? error.message : error)
     tasks = getDefaultSettlingTasks(input)
   }
 

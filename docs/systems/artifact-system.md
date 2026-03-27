@@ -58,8 +58,10 @@ Research results are stored as individual JSONB columns on `relocation_plans`:
 The current storage approach is schema-per-output:
 - Each output type has its own DB column or table
 - No common envelope — outputs are not queryable by type, version, or creation date
-- No metadata attached to outputs (when was this generated, from what source, with what model, at what confidence level?)
-- No versioning — overwriting a column loses previous output
+- Metadata is inconsistent rather than absent:
+  - guides carry `guide_version`, `plan_version_at_generation`, `is_stale`, `stale_at`, `stale_reason`
+  - research JSONB columns on `relocation_plans` do not share that envelope
+- No unified versioning contract — some outputs have partial metadata, but there is no generic artifact version/history model
 - No rendering directives — the UI must hardcode which component to use for each output type
 
 ---
@@ -195,9 +197,9 @@ The `guides` table and `relocation_plans` research columns would be deprecated o
 |---|---|---|
 | Generic artifact container | Column-per-output | Need `artifacts` table with type field |
 | Metadata envelope | None | Need generated_at, generator, confidence, trace_id |
-| Versioning | Overwrite | Need version counter per artifact |
+| Versioning | Partial, output-specific metadata only | Need generic version/history contract per artifact |
 | Rendering directives | Hardcoded in UI | Need rendering_directive per artifact |
 | Dashboard templates | Hardcoded in UI | Need template registry per stage/purpose |
 | Queryable by type | Not possible | Need artifact type index |
 | Schema evolution | No versioning | Need schema_version field |
-| Stale detection | None (except local-req 7-day) | Need status="stale" + staleness contract |
+| Stale detection | Partial and output-specific (`guides.is_stale`, local-req 7-day freshness) | Need artifact-wide staleness contract |

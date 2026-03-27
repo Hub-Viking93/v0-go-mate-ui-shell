@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { InfoCard } from "@/components/info-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,10 +39,19 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-4xl">
-      <PageHeader
-        title="Settings"
-        description="Manage your account preferences and privacy settings."
-      />
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
+        <div className="relative">
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <Shield className="w-7 h-7 text-[#5EE89C]" />
+            Settings
+          </h1>
+          <p className="text-white/60 mt-1.5 text-sm md:text-base">
+            Manage your account preferences and privacy settings.
+          </p>
+        </div>
+      </div>
 
       {/* Profile Section */}
       <section className="mb-10">
@@ -51,7 +59,7 @@ export default function SettingsPage() {
           <User className="w-5 h-5 text-primary" />
           Profile
         </h2>
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="gm-card-static p-6">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
@@ -102,7 +110,7 @@ export default function SettingsPage() {
           <CreditCard className="w-5 h-5 text-primary" />
           Subscription
         </h2>
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="gm-card-static p-6">
           {tierLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-5 w-32 rounded bg-muted" />
@@ -185,7 +193,7 @@ export default function SettingsPage() {
           <Globe className="w-5 h-5 text-primary" />
           Preferences
         </h2>
-        <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="gm-card-static divide-y divide-border overflow-hidden">
           {/* Theme */}
           <div className="p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -225,7 +233,7 @@ export default function SettingsPage() {
           <Bell className="w-5 h-5 text-primary" />
           Notifications
         </h2>
-        <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="gm-card-static divide-y divide-border overflow-hidden">
           {/* Email Notifications */}
           <div className="p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -285,7 +293,7 @@ export default function SettingsPage() {
           <Shield className="w-5 h-5 text-primary" />
           Data & Privacy
         </h2>
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+        <div className="gm-card-static p-6 space-y-4">
           <p className="text-muted-foreground leading-relaxed">
             Your data privacy is important to us. GoMate stores your relocation preferences 
             and planning data securely. We never share your personal information with third 
@@ -324,7 +332,7 @@ export default function SettingsPage() {
           <Lock className="w-5 h-5 text-primary" />
           Security
         </h2>
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="gm-card-static p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="font-medium text-foreground">Password</p>

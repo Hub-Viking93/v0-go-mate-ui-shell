@@ -1,192 +1,208 @@
-# Phase 3 — User Test Specification
+# Purpose
 
-**Phase:** Phase 3 — Data Integrity
-**Date:** 2026-03-02
-**Time-to-reproduce:** Each test < 3 minutes
+Verify that Phase 3 enforces one coherent post-arrival execution model:
 
----
+- non-arrived plans do not show visible post-arrival progress
+- hidden historical settling-in state is surfaced only as metadata
+- arrived plans expose one canonical task/compliance read model
+- enrichment and task mutation surfaces obey the same arrived gate
 
-## 1. Purpose
+# Environment and Preconditions
 
-Verify three data integrity fixes:
+- Environment: local app running at `http://127.0.0.1:3000`
+- Auth: sign in with the `.env.local` test account
+- Required fixtures in the current database:
+  - non-arrived current plan: `04e28c30-dd79-4067-be41-7ea0059e0f94`
+  - arrived plan with generated tasks: `3e47c5d5-3c27-435e-b1f0-b7888882d270`
+- Expected baseline for the non-arrived plan:
+  - `stage = "collecting"`
+  - hidden historical settling-in rows may exist
+- Expected baseline for the arrived plan:
+  - `stage = "arrived"`
+  - generated settling-in tasks already exist
 
-1. Plan switching is atomic (single RPC call, no crash window)
-2. Concurrent plan creation on first login doesn't return 500
-3. Generated settling-in tasks have populated `task_key` values
+# Test Data and Deterministic Inputs
 
----
+- Auth method:
+  - sign in with the configured local test account
+  - reuse the authenticated browser session cookie for API checks if testing manually with curl
+- Deterministic identifiers:
+  - non-arrived plan id: `04e28c30-dd79-4067-be41-7ea0059e0f94`
+  - arrived plan id: `3e47c5d5-3c27-435e-b1f0-b7888882d270`
+- Deterministic task lookup procedure:
+  - active arrived task: switch to the arrived plan, then call `GET /api/settling-in` and choose the first task where `status === "available"`
+  - hidden non-arrived task: switch back to the non-arrived plan and query one row from `settling_in_tasks` for `plan_id = "04e28c30-dd79-4067-be41-7ea0059e0f94"`
+- Exact mutation payload used in the negative status test:
 
-## 2. Environment and Preconditions
-
-- Deployed preview URL on Vercel, OR `localhost:3000` via `pnpm dev`
-- A **Pro+ tier** test user account
-- Browser DevTools open (Network + Console tabs)
-
-### Migration Required
-
-**Before testing**, run `scripts/014_add_plan_switch_rpc.sql` in the Supabase SQL editor. This creates the `switch_current_plan()` database function.
-
----
-
-## 3. Test Data and Deterministic Inputs
-
-| Item | Value |
-|---|---|
-| Test user | Pro+ tier account |
-| Plans | User should have at least 2 relocation plans |
-| Pre-arrival state | `plan.stage` is NOT `arrived` (for task_key test, need to switch to arrived plan) |
-
-### How to check your plans
-
-Run in browser console (while logged in):
-```javascript
-fetch("/api/plans").then(r => r.json()).then(d => {
-  console.log("Plans:", d.plans?.length)
-  d.plans?.forEach(p => console.log(`  ${p.id.substring(0,8)} | current: ${p.is_current} | stage: ${p.stage}`))
-})
+```json
+{ "status": "overdue" }
 ```
 
----
+# Happy Path Tests (End-to-End)
 
-## 4. Happy Path Tests (End-to-End)
+## HP-1 Non-arrived progress remains pre-arrival only
 
-### Test 1: Atomic plan switch
+1. Make plan `04e28c30-dd79-4067-be41-7ea0059e0f94` current.
+2. Call `GET /api/progress`.
 
-**Precondition:** Logged in as Pro+ user with at least 2 plans.
+Expected response:
 
-**Steps:**
-1. Open browser console
-2. Get the ID of a non-current plan:
-```javascript
-const plans = await fetch("/api/plans").then(r => r.json())
-const other = plans.plans.find(p => !p.is_current)
-console.log("Switching to:", other.id)
-```
-3. Execute the switch:
-```javascript
-const res = await fetch("/api/plans", {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ planId: other.id, action: "switch" })
-})
-const data = await res.json()
-console.log("Status:", res.status, "Switched plan:", data.plan?.id?.substring(0,8))
-```
-4. Verify exactly one plan is current:
-```javascript
-const after = await fetch("/api/plans").then(r => r.json())
-const current = after.plans.filter(p => p.is_current)
-console.log("Current plans:", current.length, "(should be 1)")
-current.forEach(p => console.log("  Current:", p.id.substring(0,8)))
-```
+- `status = 200`
+- `stage = "collecting"`
+- `post_arrival_progress = { "percentage": 0, "completed": 0, "total": 0 }`
+- `compliance_progress = { "percentage": 0, "completed": 0, "total": 0 }`
+- `post_arrival_state.enabled = false`
+- `post_arrival_state.hidden` may be non-null if hidden historical tasks exist
 
-**Expected result:**
-- HTTP 200
-- Switched plan returned
-- Exactly 1 plan with `is_current: true`
+## HP-2 Non-arrived settling-in surface stays locked
 
-**Pass criteria:** Switch succeeds. Exactly one current plan after switch.
+1. With the same non-arrived plan current, call `GET /api/settling-in`.
 
----
+Expected response:
 
-### Test 2: Profile endpoint returns plan (normal path)
+- `status = 200`
+- `tasks = []`
+- `executionEnabled = false`
+- `generated = false`
+- `stats.total = 0`
+- `legacyTaskState` present if hidden historical tasks exist
 
-**Steps:**
-```javascript
-fetch("/api/profile").then(r => r.json()).then(d => console.log("Plan:", d.plan?.id?.substring(0,8), "Stage:", d.plan?.stage))
-```
+## HP-3 Arrived plan exposes canonical execution state
 
-**Expected result:** HTTP 200, plan data returned.
+1. Switch current plan to `3e47c5d5-3c27-435e-b1f0-b7888882d270`.
+2. Call `GET /api/settling-in`.
 
-**Pass criteria:** HTTP 200. Plan object present.
+Expected response:
 
----
+- `status = 200`
+- `executionEnabled = true`
+- `tasks.length >= 1`
+- `stats.total >= 1`
+- every task includes:
+  - `urgency`
+  - `days_until_deadline`
+  - `compliance_scope`
+  - `compliance_status`
+- at least one legal task includes `compliance_scope = "required"`
 
-### Test 3: task_key populated on settling-in task generation
+## HP-4 Arrived enrichment works for an active task
 
-**Precondition:** Pro+ user with `plan.stage === 'arrived'`. If not already arrived, switch to an arrived plan (Test 1), or use the dashboard "I've arrived" button.
+1. From `GET /api/settling-in`, choose the first task with `status = "available"`.
+2. POST `/api/settling-in/{taskId}/why-it-matters`.
 
-**Steps:**
-1. Navigate to `/settling-in` (should show generate button if arrived and no tasks)
-2. Click "Generate checklist" and wait for generation
-3. Verify task_keys in console:
-```javascript
-const data = await fetch("/api/settling-in").then(r => r.json())
-data.tasks.forEach(t => console.log(`task_key: "${t.task_key}" | title: "${t.title}"`))
-const allHaveKeys = data.tasks.every(t => t.task_key && t.task_key.length > 0)
-const allUrlSafe = data.tasks.every(t => /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(t.task_key))
-console.log("All have task_key:", allHaveKeys, "| All URL-safe:", allUrlSafe)
-```
+Expected response:
 
-**Expected result:**
-- Every task has a non-null, non-empty `task_key`
-- All `task_key` values are URL-safe slugs (a-z, 0-9, hyphens only)
-- No leading or trailing hyphens
+- `status = 200`
+- body contains `whyItMatters` as a non-empty string
+- body contains `cached` boolean
 
-**Pass criteria:** `allHaveKeys` is `true`. `allUrlSafe` is `true`.
+## HP-5 Cached generation does not duplicate work
 
----
+1. While the arrived plan is current, POST `/api/settling-in/generate`.
 
-## 5. Negative Tests (Failure / Safety)
+Expected response:
 
-### Negative Test 1: Plan switch with invalid plan ID
+- `status = 200`
+- `cached = true`
+- `stats.total` matches the current `GET /api/settling-in` total
 
-**Steps:**
-```javascript
-fetch("/api/plans", {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ planId: "00000000-0000-0000-0000-000000000000", action: "switch" })
-}).then(r => console.log("Status:", r.status))
+# Negative Tests (Failure / Safety)
+
+## NG-1 Invalid input: derived overdue state cannot be patched
+
+1. While the arrived plan is current, choose an active task id from `GET /api/settling-in`.
+2. PATCH `/api/settling-in/{taskId}` with:
+
+```json
+{ "status": "overdue" }
 ```
 
-**Expected result:** HTTP 404 (plan not found)
+Expected response:
 
-**Pass criteria:** HTTP 404. No crash.
+- `status = 400`
+- body contains `error`
+- task state remains unchanged on the next `GET /api/settling-in`
 
----
+## NG-2 Unauthorized access attempt
 
-### Negative Test 2: Unauthorized access
+1. Call `GET /api/progress` without an authenticated session.
 
-**Steps (incognito window):**
-```javascript
-fetch("/api/plans").then(r => console.log("Status:", r.status))
-fetch("/api/profile").then(r => console.log("Status:", r.status))
+Expected response:
+
+- `status = 401`
+- body equals or contains `{ "error": "Unauthorized" }`
+
+## NG-3 Invalid state transition attempt: hidden task enrichment before arrival
+
+1. Make non-arrived plan `04e28c30-dd79-4067-be41-7ea0059e0f94` current.
+2. Resolve one hidden task id for that plan.
+3. POST `/api/settling-in/{hiddenTaskId}/why-it-matters`.
+
+Expected response:
+
+- `status = 400`
+- body contains `error = "Task enrichment requires arrival confirmation"`
+
+## NG-4 Missing resource / unknown identifier
+
+1. POST `/api/settling-in/00000000-0000-0000-0000-000000000000/why-it-matters`
+
+Expected response:
+
+- `status = 404`
+- body contains `error = "Task not found"`
+
+## NG-5 Interruption / partial execution safety: hidden state remains metadata only
+
+1. With the non-arrived plan current, call `GET /api/progress`.
+2. Immediately call `GET /api/settling-in`.
+
+Expected response:
+
+- `GET /api/progress` still reports zero visible post-arrival progress
+- `GET /api/settling-in` still returns zero visible tasks
+- any hidden historical state appears only in `post_arrival_state.hidden` or `legacyTaskState`
+
+# Time-to-Reproduce Rule
+
+All critical flows in this spec are reproducible in under 5 minutes using the pre-existing plan fixtures and the authenticated localhost session.
+
+If any critical flow takes more than 5 minutes, log:
+
+`TEST-SPEC-FAIL`
+
+# Pass/Fail Criteria
+
+Pass only if all of the following are true:
+
+- every Happy Path test returns the expected response shape and state
+- every Negative Test returns the expected safe error outcome
+- no non-arrived plan shows visible post-arrival progress
+- no hidden/pre-arrival task can be enriched
+- no client can mutate `overdue` directly
+
+Fail if any expected status code, response field, or state condition differs.
+
+# Bug Reporting Template
+
+Use this exact structure in `user-bugs-phase-3.md` for any failure:
+
+```md
+## BUG-ID
+- Reproduction steps:
+- Expected result:
+- Actual result:
+- Severity: Critical | High | Medium | Low
+- Evidence:
 ```
 
-**Expected result:** Both return 401
+If a critical flow cannot be reproduced in 5 minutes, record:
 
-**Pass criteria:** HTTP 401 on both.
-
----
-
-## 6. Time-to-Reproduce Rule
-
-Every test is reproducible in under 3 minutes. Test 3 (task generation) takes 30–60 seconds for AI processing. If any critical flow cannot be reproduced in 5 minutes, log **TEST-SPEC-FAIL**.
-
----
-
-## 7. Pass/Fail Criteria
-
-**Phase 3 User Acceptance PASSES when ALL are true:**
-
-- [ ] Test 1: Atomic plan switch works, exactly 1 current plan after switch
-- [ ] Test 2: GET /api/profile returns plan (200)
-- [ ] Test 3: Generated tasks have populated, URL-safe task_key values
-- [ ] Negative Test 1: Invalid plan ID returns 404
-- [ ] Negative Test 2: Unauthorized returns 401
-
----
-
-## 8. Bug Reporting Template
-
-```markdown
-### Bug: [Short description]
-
-**Test:** [Which test]
-**Steps:** [Copied from spec, with deviations]
-**Expected:** [From spec]
-**Actual:** [What happened]
-**Severity:** Critical / High / Medium / Low
-**Evidence:** [Screenshot, console output, or response]
+```md
+## TEST-SPEC-FAIL
+- Reproduction steps:
+- Expected result:
+- Actual result:
+- Severity: High
+- Evidence:
 ```

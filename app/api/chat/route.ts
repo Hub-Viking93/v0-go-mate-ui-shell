@@ -2,6 +2,7 @@ import { type UIMessage } from "ai"
 import { createClient } from "@/lib/supabase/server"
 import {
   type Profile,
+  type AllFieldKey,
   EMPTY_PROFILE,
   ALL_FIELDS,
   FIELD_CONFIG,
@@ -14,15 +15,16 @@ import {
   getFilledFields,
   getProgressInfo,
 } from "@/lib/gomate/state-machine"
-import { buildSystemPrompt, buildPostArrivalSystemPrompt, buildPostArrivalWelcome } from "@/lib/gomate/system-prompt"
+import { buildSystemPrompt, buildPostArrivalSystemPrompt, buildPostArrivalWelcome, buildFieldReminder } from "@/lib/gomate/system-prompt"
 import { getRelevantSources } from "@/lib/gomate/source-linker"
 import { getOfficialSourcesArray } from "@/lib/gomate/official-sources"
 import { getVisaStatus } from "@/lib/gomate/visa-checker"
 import { saveProfileToSupabase } from "@/lib/gomate/supabase-utils"
-import { 
-  generateProfileSummary, 
-  generateVisaRecommendation, 
-  formatVisaRecommendation 
+import { derivePlanAuthority } from "@/lib/gomate/core-state"
+import {
+  generateProfileSummary,
+  generateVisaRecommendation,
+  formatVisaRecommendation
 } from "@/lib/gomate/profile-summary"
 import {
   getCostOfLivingData,
@@ -30,8 +32,44 @@ import {
   calculateSavingsTarget,
   generateResearchReport,
 } from "@/lib/gomate/web-research"
+import { fetchWithRetry } from "@/lib/gomate/fetch-with-retry"
 
 export const maxDuration = 30
+
+// API base URL — uses OpenRouter when OPENAI_BASE_URL is set, falls back to OpenAI direct
+const CHAT_API_BASE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")
+const IS_OPENROUTER = CHAT_API_BASE.includes("openrouter.ai")
+
+// Yes/no fields that benefit from normalization during force-accept
+const YES_NO_FIELDS = new Set([
+  "highly_skilled", "remote_income", "moving_alone", "spouse_joining",
+  "job_offer", "employer_sponsorship", "family_ties", "need_budget_help",
+  "pets", "healthcare_needs",
+])
+
+// Identity fields that should not be overwritten after first extraction
+const IDENTITY_FIELDS = new Set(["purpose", "destination", "citizenship"])
+
+// Normalize ambiguous yes/no answers for force-accept fallback
+function normalizeYesNo(text: string): string | null {
+  const lower = text.toLowerCase().trim()
+  if (/^(yes|yeah|yep|sure|definitely|of course|absolutely|correct|right|i do|i am|i have|affirmative)/i.test(lower)) return "yes"
+  if (/^(no|nah|nope|not really|i don't|i'm not|i haven't|never|none|not at all)/i.test(lower)) return "no"
+  return null
+}
+
+// Build common headers for LLM API calls
+function buildApiHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+  }
+  if (IS_OPENROUTER) {
+    headers["HTTP-Referer"] = "https://gomate.app"
+    headers["X-Title"] = "GoMate"
+  }
+  return headers
+}
 
 // Field confidence levels for extraction tracking
 type FieldConfidence = "explicit" | "inferred" | "assumed"
@@ -68,8 +106,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // GAP-044: Explicit auth guard — return 401 if no authenticated user
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
     const body = await req.json()
-    
+
     const {
       messages,
       profile: incomingProfile,
@@ -80,40 +128,53 @@ export async function POST(req: Request) {
       confirmed?: boolean
     } = body
 
-    // Initialize or use incoming profile
-    let profile: Profile = incomingProfile || { ...EMPTY_PROFILE }
+    // Initialize or use incoming profile — always merge with EMPTY_PROFILE
+    // to ensure all keys exist (updateProfile requires key presence)
+    let profile: Profile = { ...EMPTY_PROFILE, ...(incomingProfile || {}) }
     const userConfirmed = confirmed || false
-    
+
     // Check if the plan is locked (completed) - if so, skip extraction
     let planLocked = false
     let planStage: string | null = null
     let planId: string | null = null
     let arrivalDate: string | null = null
+    let onboardingCompleted = false
+    let fieldAttempts: Record<string, number> = {}
     try {
-      const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: plan } = await supabase
-          .from("relocation_plans")
-          .select("id, locked, profile_data, stage, arrival_date")
-          .eq("user_id", user.id)
-          .eq("is_current", true)
-          .maybeSingle()
-        
-        if (plan) {
-          planId = plan.id
-          planStage = plan.stage
-          arrivalDate = plan.arrival_date
-          if (plan.locked) {
-            planLocked = true
-            if (plan.profile_data) {
-              profile = { ...EMPTY_PROFILE, ...plan.profile_data }
-            }
+      const { data: plan } = await supabase
+        .from("relocation_plans")
+        .select("id, locked, profile_data, stage, status, arrival_date, onboarding_completed")
+        .eq("user_id", user.id)
+        .eq("is_current", true)
+        .maybeSingle()
+
+      if (plan) {
+        const planAuthority = derivePlanAuthority(plan)
+        planId = plan.id
+        planStage = planAuthority.stage
+        arrivalDate = plan.arrival_date
+        onboardingCompleted = !!plan.onboarding_completed
+        // Read stuck-field attempt tracker from DB
+        if (plan.profile_data && typeof plan.profile_data === "object") {
+          fieldAttempts = ((plan.profile_data as Record<string, unknown>).__field_attempts as Record<string, number>) || {}
+        }
+        if (plan.locked) {
+          planLocked = true
+          if (plan.profile_data) {
+            profile = { ...EMPTY_PROFILE, ...plan.profile_data }
           }
         }
       }
     } catch {
       // Continue without lock check if it fails
+    }
+
+    // GAP-046: Termination guard — block chat when interview is done and generation is in progress
+    if (planStage === "generating") {
+      return new Response(
+        JSON.stringify({ error: "Interview complete — generation in progress." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
     }
 
     // Get the last user message for extraction
@@ -123,16 +184,137 @@ export async function POST(req: Request) {
     // If there's a user message and plan is NOT locked, extract data from it
     let extractionResultWithConfidence: ExtractionResultWithConfidence | null = null
     let extractionAttempted = false
-    
-    if (lastUserText && !userConfirmed && !planLocked) {
+    let profileSaveError = false
+
+    // Track critical fields before extraction for confirmation flow
+    const prevDestination = profile.destination
+    const prevCitizenship = profile.citizenship
+
+    // Get last AI message for extraction context (helps disambiguate yes/no responses)
+    const lastAIMessage = messages.filter((m) => m.role === "assistant").pop()
+    const lastAIText = lastAIMessage ? getMessageText(lastAIMessage) : ""
+
+    // GAP-025: Extraction disabled when plan is locked OR stage is arrived
+    if (lastUserText && !userConfirmed && !planLocked && planStage !== "arrived") {
       extractionAttempted = true
-      extractionResultWithConfidence = await extractProfileData(lastUserText, profile)
+      const pendingFieldKey_preExtraction = getNextPendingField(profile)
+      extractionResultWithConfidence = await extractProfileData(lastUserText, profile, pendingFieldKey_preExtraction, lastAIText)
       if (extractionResultWithConfidence && Object.keys(extractionResultWithConfidence.fields).length > 0) {
         profile = updateProfile(profile, extractionResultWithConfidence.fields)
-        
-        // Save the updated profile to Supabase
-        await saveProfileToSupabase(profile)
+
+        // Post-extraction guard: visa_role disambiguation
+        // If user has their own purpose (work/study) with a job offer or study admission,
+        // they are PRIMARY even if they mention bringing a partner
+        if (profile.visa_role === "dependent") {
+          const hasOwnPurpose = (
+            (profile.purpose === "work" && (profile.job_offer === "yes" || profile.job_field)) ||
+            (profile.purpose === "study" && (profile.study_type || profile.study_field)) ||
+            profile.purpose === "digital_nomad"
+          )
+          if (hasOwnPurpose) {
+            profile.visa_role = "primary"
+          }
+        }
+
+        // GAP-005: Persist field confidence alongside profile data
+        const existingConfidence = (profile as Record<string, unknown>).__field_confidence as Record<string, string> || {}
+        const mergedConfidence = {
+          ...existingConfidence,
+          ...extractionResultWithConfidence.confidence,
+        }
+
+        // If visa_role was auto-corrected by the post-extraction guard,
+        // treat it as explicitly confirmed (system override, not AI guess)
+        if (
+          profile.visa_role === "primary" &&
+          extractionResultWithConfidence.fields.visa_role === "dependent"
+        ) {
+          mergedConfidence.visa_role = "explicit"
+        }
+
+        // Check if the pending field was successfully extracted
+        if (pendingFieldKey_preExtraction) {
+          const postPending = getNextPendingField(profile)
+          if (postPending !== pendingFieldKey_preExtraction) {
+            // Field was extracted — reset its attempt counter
+            delete fieldAttempts[pendingFieldKey_preExtraction]
+          }
+        }
+
+        const profileWithMeta = {
+          ...profile,
+          __field_confidence: mergedConfidence,
+          __field_attempts: fieldAttempts,
+        }
+
+        // GAP-048: Wrap profile save in try-catch — surface errors in metadata
+        try {
+          await saveProfileToSupabase(profileWithMeta)
+        } catch (e) {
+          console.error("[GoMate] Profile save failed:", e)
+          profileSaveError = true
+        }
       }
+
+      // BUG-1 FIX: Stuck field detection and recovery
+      // If extraction ran but the pending field didn't change, increment attempt counter
+      if (pendingFieldKey_preExtraction) {
+        const postPending = getNextPendingField(profile)
+        const fieldStillPending = postPending === pendingFieldKey_preExtraction
+
+        if (fieldStillPending) {
+          fieldAttempts[pendingFieldKey_preExtraction] = (fieldAttempts[pendingFieldKey_preExtraction] || 0) + 1
+          const attempts = fieldAttempts[pendingFieldKey_preExtraction]
+
+          if (attempts >= 5) {
+            // Force-accept: use the raw user message as the field value
+            let forcedValue = lastUserText.trim()
+            if (YES_NO_FIELDS.has(pendingFieldKey_preExtraction)) {
+              const normalized = normalizeYesNo(forcedValue)
+              if (normalized) forcedValue = normalized
+            }
+            if (forcedValue) {
+              console.warn(`[GoMate] Force-accepting "${forcedValue}" for stuck field "${pendingFieldKey_preExtraction}" after ${attempts} attempts`)
+              profile = updateProfile(profile, { [pendingFieldKey_preExtraction]: forcedValue } as Partial<Profile>)
+              delete fieldAttempts[pendingFieldKey_preExtraction]
+            }
+          } else if (attempts >= 3) {
+            // Focused extraction: simpler, more direct prompt targeting just this field
+            console.warn(`[GoMate] Attempting focused extraction for "${pendingFieldKey_preExtraction}" (attempt ${attempts})`)
+            const focusedResult = await extractProfileDataFocused(lastUserText, pendingFieldKey_preExtraction)
+            if (focusedResult && Object.keys(focusedResult.fields).length > 0) {
+              profile = updateProfile(profile, focusedResult.fields)
+              delete fieldAttempts[pendingFieldKey_preExtraction]
+            }
+          }
+
+          // Save updated attempt counts and any force-accepted values
+          const profileWithMeta = {
+            ...profile,
+            __field_confidence: (profile as Record<string, unknown>).__field_confidence || {},
+            __field_attempts: fieldAttempts,
+          }
+          try {
+            await saveProfileToSupabase(profileWithMeta)
+          } catch (e) {
+            console.error("[GoMate] Profile save failed (stuck field recovery):", e)
+            profileSaveError = true
+          }
+        }
+      }
+    }
+
+    // Detect first-time critical field extraction for confirmation prompt
+    const criticalFieldConfirmations: string[] = []
+    if (!prevDestination && profile.destination) {
+      criticalFieldConfirmations.push(
+        `IMPORTANT: You just extracted destination as "${profile.destination}". Before proceeding, confirm this with the user naturally: "Just to confirm — you're planning to move to ${profile.destination}, correct?" Only continue to the next question after they confirm.`
+      )
+    }
+    if (!prevCitizenship && profile.citizenship) {
+      criticalFieldConfirmations.push(
+        `IMPORTANT: You just extracted citizenship as "${profile.citizenship}". Confirm this: "And you're a ${profile.citizenship} citizen, right?" Only continue after confirmation.`
+      )
     }
 
     // Determine interview state
@@ -156,7 +338,6 @@ export async function POST(req: Request) {
         deadline_days?: number | null; is_legal_requirement?: boolean;
       }> = []
       try {
-        const supabase = await createClient()
         const { data: tasks } = await supabase
           .from("settling_in_tasks")
           .select("title, category, status, deadline_days, is_legal_requirement")
@@ -176,32 +357,60 @@ export async function POST(req: Request) {
         settlingTasks
       )
     } else {
-      systemPrompt = buildSystemPrompt(profile, pendingFieldKey, interviewState)
+      systemPrompt = buildSystemPrompt(profile, pendingFieldKey, interviewState, onboardingCompleted)
     }
 
-    // Use fetch directly for streaming to avoid OpenAI SDK compatibility issues
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        stream: true,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...convertToOpenAIMessages(messages),
-        ],
-      }),
-    })
+    // Inject critical field confirmation instructions (Phase 10)
+    if (criticalFieldConfirmations.length > 0) {
+      systemPrompt += "\n\n## Critical Field Confirmation (this turn only)\n" +
+        criticalFieldConfirmations.join("\n")
+    }
+
+    // Build field reminder to inject after conversation history (recency bias fix)
+    const fieldReminder = buildFieldReminder(profile, pendingFieldKey)
+
+    // Use fetchWithRetry for streaming — retries on 429/5xx with exponential backoff
+    let openaiResponse: Response
+    try {
+      openaiResponse = await fetchWithRetry(
+        `${CHAT_API_BASE}/chat/completions`,
+        {
+          method: "POST",
+          headers: buildApiHeaders(),
+          body: JSON.stringify({
+            model: "gpt-4o",
+            stream: true,
+            max_tokens: 500, // GAP-045: Explicit maxTokens on chat LLM call
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...convertToOpenAIMessages(messages),
+              // Inject field reminder AFTER history so it's the last thing the LLM sees
+              ...(fieldReminder ? [{ role: "system", content: fieldReminder }] : []),
+            ],
+          }),
+        },
+        30_000, // 30s timeout for streaming responses
+        3,
+      )
+    } catch (fetchError) {
+      console.error("[GoMate] Chat fetch failed after retries:", fetchError)
+      return new Response(
+        JSON.stringify({ error: "Our AI is temporarily unavailable. Please try again in a moment." }),
+        { status: 503, headers: { "Content-Type": "application/json" } }
+      )
+    }
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text()
       console.error("[GoMate] OpenAI streaming error:", errorText)
+      const isRateLimit = openaiResponse.status === 429 || errorText.includes("rate_limit")
       return new Response(
-        JSON.stringify({ error: "OpenAI API error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: isRateLimit
+            ? "Our AI is experiencing high demand. Please wait a moment and try again."
+            : "OpenAI API error",
+        }),
+        { status: isRateLimit ? 429 : 500, headers: { "Content-Type": "application/json" } }
       )
     }
 
@@ -257,12 +466,14 @@ export async function POST(req: Request) {
       // Only include official sources when profile is complete
       officialSources: complete ? officialSources : [],
       planLocked,
+      onboardingCompleted,
       profileSummary,
       visaRecommendation: formattedVisaRec,
       costOfLiving: costOfLivingData,
       budget: budgetData,
       savings: savingsData,
       researchReport,
+      profileSaveError, // GAP-048: Surface profile write errors in metadata
 // Extraction feedback - helps AI verify data was captured
       lastExtraction: extractionAttempted ? {
         attempted: true,
@@ -343,7 +554,9 @@ export async function POST(req: Request) {
 // Returns both extracted fields and confidence levels for each field
 async function extractProfileData(
   userMessage: string,
-  currentProfile: Profile
+  currentProfile: Profile,
+  pendingField?: AllFieldKey | null,
+  lastAIMessage?: string
 ): Promise<ExtractionResultWithConfidence | null> {
   // Build dynamic field list based on current profile state
   const relevantFields = getRequiredFields(currentProfile)
@@ -352,13 +565,33 @@ async function extractProfileData(
     return `- ${field}: ${config.intent}`
   }).join("\n")
 
+  // Build pending field context for yes/no disambiguation
+  const pendingFieldConfig = pendingField ? FIELD_CONFIG[pendingField as AllFieldKey] : null
+  const pendingContext = pendingField && pendingFieldConfig
+    ? `\nCONTEXT — The AI just asked about: "${pendingField}" (${pendingFieldConfig.label})
+${lastAIMessage ? `AI's last message: "${lastAIMessage.slice(0, 200)}"` : ""}
+If the user responds with "yes", "no", "I think so", "definitely", "not really", etc.:
+- FIRST check if the AI's last message was asking about the pending field "${pendingField}" or about something ELSE (e.g., confirming a previous answer)
+- If AI was confirming a DIFFERENT field (like destination/citizenship), do NOT map "yes"/"no" to "${pendingField}" — the user is confirming that other field, not answering about "${pendingField}"
+- Only map "yes"/"no" to "${pendingField}" when the AI was actually asking about it
+ALSO extract ANY additional fields mentioned in the same message — don't stop at just the pending field.
+If the user provides information about a DIFFERENT field than "${pendingField}", extract that field instead.
+Examples:
+- Pending field "highly_skilled", AI asked about highly_skilled, user says "Yes" → highly_skilled="yes"
+- Pending field "purpose", AI asked "confirm you're moving to Japan?", user says "Yes" → extract NOTHING (user is confirming destination, not answering purpose)
+- Pending field "timeline", user says "I'm transferring with my company for work, around January" → purpose="work", timeline="January", job_offer="yes"
+- Pending field "job_offer", user says "Yes, my company is sponsoring" → job_offer="yes", employer_sponsorship="yes"
+- Pending field "moving_alone", user says "Yes, with my wife and two kids" → moving_alone="no", spouse_joining="yes", children_count="2"
+`
+    : ""
+
   const extractionPrompt = `You are extracting relocation profile information from a user message. Extract ALL fields that are clearly mentioned or strongly implied.
 
 Current profile:
 ${JSON.stringify(currentProfile, null, 2)}
 
 User message: "${userMessage}"
-
+${pendingContext}
 FIELDS TO EXTRACT:
 ${fieldDescriptions}
 
@@ -378,6 +611,14 @@ EXTRACTION RULES:
    - "following my partner" → visa_role="dependent"
    - "moving to be with my boyfriend" → visa_role="dependent"
    - "I got a job offer" or "I'm studying" → visa_role="primary"
+
+   CRITICAL DISAMBIGUATION — "moving WITH" vs "joining/following":
+   - If user has their OWN purpose (job offer, study admission, work transfer) AND
+     mentions bringing a partner/family → visa_role="primary", moving_alone="no"
+   - "I got a job in Berlin, moving with my partner" → visa_role="primary" (user has own job)
+   - "I'm studying in Tokyo, my wife is coming too" → visa_role="primary" (user has own purpose)
+   - "dependent" ONLY when user is deriving their visa FROM someone else's status
+   - If purpose is already "work" or "study" and user says "with my partner" → keep visa_role="primary"
    
 3. PARTNER FIELDS (only when visa_role="dependent" or joining someone):
    - partner_citizenship: "He's Swedish" → partner_citizenship="Swedish"
@@ -434,7 +675,12 @@ EXTRACTION RULES:
 10. Numbers: Extract as string ("2" not 2)
 11. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
 
-IMPORTANT: Extract everything mentioned. Don't leave fields empty if the user provided the information.
+IMPORTANT: Extract ALL fields mentioned in one message. Don't leave fields empty if the user provided the information.
+Common multi-field messages — extract ALL applicable fields:
+- "Yes, my company is sponsoring" → job_offer="yes" AND employer_sponsorship="yes"
+- "Moving with my wife and 2 kids" → moving_alone="no", spouse_joining="yes", children_count="2"
+- "I've been freelancing for 3 years making about 5000/month" → income_source, monthly_income, income_history_months
+- "8 years as a software engineer" → years_experience="8", job_field="software engineering", highly_skilled="yes"
 
 CONFIDENCE LEVELS - For each extracted field, also provide a confidence level:
 - "explicit": User directly stated this value (e.g., "I'm moving to Germany" → destination is explicit)
@@ -476,18 +722,28 @@ Response:
 Return {"fields": {}, "confidence": {}} if nothing extractable.`
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: extractionPrompt }],
-        response_format: { type: "json_object" },
-      }),
-    })
+    let response: Response
+    try {
+      response = await fetchWithRetry(
+        `${CHAT_API_BASE}/chat/completions`,
+        {
+          method: "POST",
+          headers: buildApiHeaders(),
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: extractionPrompt }],
+            response_format: { type: "json_object" },
+            temperature: 0, // GAP-004: Deterministic extraction
+            max_tokens: 200, // GAP-045: Explicit maxTokens on extraction LLM call
+          }),
+        },
+        15_000,
+        3,
+      )
+    } catch {
+      console.error("[GoMate] Extraction fetch failed after retries")
+      return null
+    }
 
     if (!response.ok) {
       return null
@@ -516,7 +772,16 @@ Return {"fields": {}, "confidence": {}} if nothing extractable.`
     for (const [key, value] of Object.entries(extractedFields)) {
       if (!validKeys.has(key)) continue
       if (typeof value !== "string" || value === "") continue
-      
+
+      // BUG-2 FIX: Don't overwrite identity fields (purpose, destination, citizenship)
+      // once they've been set, unless the extraction has explicit confidence
+      if (IDENTITY_FIELDS.has(key) && currentProfile[key as keyof Profile]) {
+        const confidence = extractedConfidence[key]
+        if (confidence !== "explicit") continue
+        // Even with explicit confidence, skip if value is the same
+        if (currentProfile[key as keyof Profile] === value) continue
+      }
+
       if (key === "purpose") {
         const validPurposes = ["study", "work", "settle", "digital_nomad", "other"]
         const lowerValue = value.toLowerCase()
@@ -567,6 +832,84 @@ Return {"fields": {}, "confidence": {}} if nothing extractable.`
     
     return Object.keys(result).length > 0 
       ? { fields: result, confidence: resultConfidence } 
+      : null
+  } catch {
+    return null
+  }
+}
+
+// Focused extraction for stuck fields — simpler prompt targeting a single field
+async function extractProfileDataFocused(
+  userMessage: string,
+  targetField: AllFieldKey,
+): Promise<ExtractionResultWithConfidence | null> {
+  const config = FIELD_CONFIG[targetField]
+  if (!config) return null
+
+  const isYesNo = YES_NO_FIELDS.has(targetField)
+  const prompt = `You are extracting a SINGLE field from a user's message in a relocation interview.
+
+The user was asked about: "${config.label}" — ${config.intent}
+Their response: "${userMessage}"
+
+Extract the value for field "${targetField}".
+${isYesNo ? `This is a yes/no field:
+- Any affirmative response (yes, yeah, sure, definitely, of course, I do, I am, I have): extract "yes"
+- Any negative response (no, nah, not really, I don't, I'm not, never, none): extract "no"
+- "Not really" or "not exactly" = "no"
+- "I'd say so" or "I think so" = "yes"` : `Extract the value as a concise string. For amounts, include the number and currency (e.g. "3000 EUR"). For locations, use "City, Country" format.`}
+
+Respond with JSON: {"fields": {"${targetField}": "extracted value"}, "confidence": {"${targetField}": "explicit"}}
+If you truly cannot extract anything: {"fields": {}, "confidence": {}}`
+
+  try {
+    let response: Response
+    try {
+      response = await fetchWithRetry(
+        `${CHAT_API_BASE}/chat/completions`,
+        {
+          method: "POST",
+          headers: buildApiHeaders(),
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+            temperature: 0,
+            max_tokens: 100,
+          }),
+        },
+        15_000,
+        3,
+      )
+    } catch {
+      return null
+    }
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    const text = data.choices?.[0]?.message?.content || "{}"
+
+    let parsed: { fields?: Record<string, unknown>; confidence?: Record<string, string> }
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      return null
+    }
+
+    const fields = parsed.fields || {}
+    const confidence = parsed.confidence || {}
+    const result: Partial<Profile> = {}
+    const resultConfidence: Record<string, FieldConfidence> = {}
+
+    const value = fields[targetField]
+    if (typeof value === "string" && value !== "") {
+      result[targetField as keyof Profile] = value as Profile[keyof Profile]
+      resultConfidence[targetField] = (confidence[targetField] as FieldConfidence) || "explicit"
+    }
+
+    return Object.keys(result).length > 0
+      ? { fields: result, confidence: resultConfidence }
       : null
   } catch {
     return null

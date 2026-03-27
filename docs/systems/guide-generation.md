@@ -10,7 +10,7 @@
 - `app/(app)/guides/[id]/page.tsx` (936 lines) — added Phase 8
 - `scripts/005_create_guides.sql`
 - `scripts/007_add_guide_type.sql`
-**Last audited:** 2026-02-25
+**Last audited:** 2026-03-14
 
 ---
 
@@ -234,21 +234,33 @@ Generates or updates a guide for a plan.
 
 ```
 POST /api/guides
-{ planId?: string }
+{ planId?: string, guideId?: string }
 │
 ├── Auth check
 ├── Load profile from planId or current plan
 ├── Require profile.destination
 │
-├── Check for existing guide:
+├── If guideId supplied:
+│   load exact guide row by id + ownership
+│
+├── Else check for existing guide:
+│   .eq("plan_id", currentPlanId)
 │   .eq("destination", profile.destination)
 │   .eq("purpose", profile.purpose || "other")
+│   .eq("guide_type", "main")
+│   .order("updated_at", DESC)
+│   .limit(1)
 │
 ├── If exists: generateGuide(profile) → UPDATE existing record
 └── If not:    generateGuide(profile) → INSERT new record
 ```
 
-**Upsert logic:** The uniqueness check is on `(destination, purpose)` — not on `plan_id`. A user can only have one guide per destination+purpose combination. A second request for the same destination/purpose updates the existing guide rather than creating a new one.
+**Upsert logic:** The route now supports two update modes:
+
+- exact-guide regeneration via `guideId`
+- latest plan-scoped guide update via `(plan_id, destination, purpose, guide_type="main")`
+
+This improves viewer correctness, but the database still has no hard uniqueness constraint preventing multiple guide rows for the same logical plan artifact.
 
 **maxDuration: 60 seconds** — set on the route handler. This is conservative; guide generation is synchronous and typically completes in milliseconds.
 
@@ -290,9 +302,9 @@ Rich, country-specific content exists for Germany, Netherlands, Spain, Portugal,
 
 Migration 007 adds `guide_type text default 'main'`. The field is indexed for performance but `guideToDbFormat()` never sets it to anything other than the default. The infrastructure for guide type differentiation is in place but unused.
 
-### G-4.1-E: No guide versioning or invalidation
+### G-4.1-E: Mutable guide versioning without immutable history
 
-When `POST /api/guides` is called, it overwrites the existing guide (by destination+purpose). There is no version history. If a user updates their profile after guide generation, re-triggering generation silently replaces the previous guide with no record of what changed.
+`guide_version`, `plan_version_at_generation`, and `is_stale` now exist, so guide invalidation is real. However, regeneration still updates a mutable row instead of creating immutable history. The system has version metadata, not a true versioned artifact model.
 
 ### G-4.1-F: Budget section uses dead-code cost data
 
@@ -429,9 +441,9 @@ Rich, country-specific content exists for Germany, Netherlands, Spain, Portugal,
 
 Migration 007 adds `guide_type text default 'main'`. The field is indexed for performance but `guideToDbFormat()` never sets it to anything other than the default.
 
-### G-4.1-E: No guide versioning or invalidation
+### G-4.1-E: Mutable guide versioning without immutable history
 
-When `POST /api/guides` is called, it overwrites the existing guide (by destination+purpose). There is no version history.
+When `POST /api/guides` is called, the route either updates an exact guide row (`guideId`) or the latest plan-scoped guide for the same destination/purpose. `guide_version`, `plan_version_at_generation`, and `is_stale` are real, but regeneration still mutates a row instead of preserving immutable history.
 
 ### G-4.1-F: Budget section uses dead-code cost data
 

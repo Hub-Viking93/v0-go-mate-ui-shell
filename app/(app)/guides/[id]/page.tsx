@@ -35,6 +35,20 @@ import {
   Download
 } from "lucide-react"
 import { downloadGuidePDF } from "@/lib/gomate/pdf-generator"
+import { useCurrencyConversion } from "@/hooks/use-currency-conversion"
+
+/** Renders a multi-paragraph enrichment string as styled prose */
+function EnrichedProse({ content, className }: { content?: string; className?: string }) {
+  if (!content) return null
+  const paragraphs = content.split(/\n\n+/).filter(Boolean)
+  return (
+    <div className={className}>
+      {paragraphs.map((p, i) => (
+        <p key={i} className="text-muted-foreground mb-3 leading-relaxed">{p.trim()}</p>
+      ))}
+    </div>
+  )
+}
 
 interface GuideSection {
   [key: string]: unknown
@@ -42,10 +56,12 @@ interface GuideSection {
 
 interface Guide {
   id: string
+  plan_id?: string
   title: string
   destination: string
   destination_city?: string
   purpose: string
+  currency?: string
   overview: {
     title: string
     subtitle: string
@@ -64,11 +80,13 @@ interface Guide {
     tips: string[]
     warnings: string[]
     officialLink?: string
+    detailedProcess?: string
   }
   budget_section: {
     monthlyBudget: { minimum: number; comfortable: number; breakdown: Record<string, number> }
     savingsTarget: { emergencyFund: number; movingCosts: number; initialSetup: number; visaFees: number; total: number; timeline: string }
     costComparison?: string
+    savingStrategy?: string
     tips: string[]
   }
   housing_section: {
@@ -78,6 +96,8 @@ interface Guide {
     depositInfo: string
     tips: string[]
     warnings: string[]
+    neighborhoodGuide?: string
+    rentalProcess?: string
   }
   banking_section: {
     overview: string
@@ -85,6 +105,7 @@ interface Guide {
     requirements: string[]
     digitalBanks: { name: string; features: string[] }[]
     tips: string[]
+    accountOpeningGuide?: string
   }
   healthcare_section: {
     overview: string
@@ -93,6 +114,8 @@ interface Guide {
     registrationSteps: string[]
     emergencyInfo: string
     tips: string[]
+    registrationGuide?: string
+    insuranceAdvice?: string
   }
   culture_section: {
     overview: string
@@ -101,6 +124,9 @@ interface Guide {
     workCulture: string[]
     doAndDonts: { dos: string[]; donts: string[] }
     localTips: string[]
+    deepDive?: string
+    workplaceCulture?: string
+    socialIntegration?: string
   }
   jobs_section?: {
     overview: string
@@ -110,6 +136,8 @@ interface Guide {
     salaryExpectations: string
     workPermitInfo: string
     networkingTips: string[]
+    marketOverview?: string
+    searchStrategy?: string
   }
   education_section?: {
     overview: string
@@ -118,9 +146,12 @@ interface Guide {
     tuitionInfo: string
     scholarships: string[]
     tips: string[]
+    systemOverview?: string
+    applicationStrategy?: string
   }
   timeline_section: {
     totalMonths: number
+    overview?: string
     phases: { name: string; duration: string; tasks: string[]; tips: string[] }[]
   }
   checklist_section: {
@@ -131,17 +162,29 @@ interface Guide {
   created_at: string
   updated_at: string
   status: string
+  guide_version?: number
+  is_stale?: boolean
+  stale_reason?: string
+  is_current?: boolean
+  profile_snapshot?: Record<string, unknown>
+  hero_image_url?: string
+  hero_image_attribution?: { photographerName: string; photographerUrl: string }
 }
 
 export default function GuideDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const [guide, setGuide] = useState<Guide | null>(null)
+  const [homeCurrency, setHomeCurrency] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
+
+  // Currency conversion: guide amounts (destination currency) → user's home currency
+  const guideCurrency = guide?.currency || "EUR"
+  const { formatDual } = useCurrencyConversion(guideCurrency, homeCurrency)
 
   useEffect(() => {
     async function fetchGuide() {
@@ -149,6 +192,9 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
         const response = await fetch(`/api/guides/${id}`)
         if (response.ok) {
           const data = await response.json()
+          if (data.homeCurrency) {
+            setHomeCurrency(data.homeCurrency)
+          }
           // Ensure the guide has all required default structures
           const guideData = data.guide
           if (guideData) {
@@ -201,7 +247,10 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
       const response = await fetch("/api/guides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          planId: guide.plan_id,
+          guideId: guide.id,
+        }),
       })
       if (response.ok) {
         const data = await response.json()
@@ -262,8 +311,8 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
     <div className="p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-8">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           asChild
           className="mb-4 -ml-2"
         >
@@ -272,7 +321,40 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             Back to Guides
           </Link>
         </Button>
-        
+
+        {guide.hero_image_url && (
+          <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden mb-6">
+            <img
+              src={guide.hero_image_url}
+              alt={guide.destination_city ? `${guide.destination_city}, ${guide.destination}` : guide.destination}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+            {guide.hero_image_attribution?.photographerName && (
+              <p className="absolute bottom-2 right-3 text-xs text-white/70">
+                Photo by{" "}
+                <a
+                  href={`${guide.hero_image_attribution.photographerUrl}?utm_source=gomate&utm_medium=referral`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  {guide.hero_image_attribution.photographerName}
+                </a>{" "}
+                on{" "}
+                <a
+                  href="https://unsplash.com?utm_source=gomate&utm_medium=referral"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Unsplash
+                </a>
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="flex items-start gap-4">
             <CountryFlag country={guide.destination} size="lg" />
@@ -336,6 +418,38 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
+      {/* Staleness Banner */}
+      {guide.is_stale && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/10 border border-amber-500/30 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                This guide may be outdated
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your profile has changed since this guide was generated.
+                {guide.stale_reason === "destination_changed" && " Your destination was updated."}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="shrink-0 gap-1.5"
+          >
+            {regenerating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            Regenerate
+          </Button>
+        </div>
+      )}
+
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted/50">
@@ -389,7 +503,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
         <TabsContent value="overview" className="space-y-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">About This Guide</h2>
-            <p className="text-muted-foreground mb-6">{guide.overview?.summary}</p>
+            <EnrichedProse content={guide.overview?.summary} className="mb-6" />
             
             <h3 className="font-semibold mb-3">Key Facts</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -451,48 +565,83 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
           <Card className="p-6">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold">{guide.visa_section?.recommendedVisa}</h2>
-                <p className="text-muted-foreground">{guide.visa_section?.visaType}</p>
+                <h2 className="text-xl font-semibold">
+                  {guide.visa_section?.recommendedVisa || "Visa Information"}
+                </h2>
+                {guide.visa_section?.visaType && (
+                  <p className="text-muted-foreground">{guide.visa_section.visaType}</p>
+                )}
               </div>
-              <Badge variant="secondary" className="text-lg px-4 py-1">
-                {guide.visa_section?.estimatedCost}
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Processing Time</p>
-                <p className="font-semibold">{guide.visa_section?.processingTime}</p>
-              </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Eligibility</p>
-                <p className="font-semibold">{guide.visa_section?.eligibility}</p>
-              </div>
+              {guide.visa_section?.estimatedCost && (
+                <Badge variant="secondary" className="text-lg px-4 py-1">
+                  {guide.visa_section.estimatedCost}
+                </Badge>
+              )}
             </div>
 
-            <h3 className="font-semibold mb-3">Requirements</h3>
-            <ul className="space-y-2 mb-6">
-              {guide.visa_section?.requirements?.map((req, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <CheckSquare className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <span>{req}</span>
-                </li>
-              ))}
-            </ul>
+            {!guide.visa_section?.recommendedVisa && !guide.visa_section?.processingTime && (
+              <div className="p-4 rounded-lg bg-muted/50 mb-6">
+                <p className="text-sm text-muted-foreground">
+                  Detailed visa recommendations are not yet available for this guide. Regenerate the guide to get updated visa pathway information.
+                </p>
+              </div>
+            )}
 
-            <h3 className="font-semibold mb-3">Application Steps</h3>
-            <ol className="space-y-3 mb-6">
-              {guide.visa_section?.applicationSteps?.map((step, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="pt-0.5">{step}</span>
-                </li>
-              ))}
-            </ol>
+            {(guide.visa_section?.processingTime || guide.visa_section?.eligibility) && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {guide.visa_section?.processingTime && (
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground">Processing Time</p>
+                    <p className="font-semibold">{guide.visa_section.processingTime}</p>
+                  </div>
+                )}
+                {guide.visa_section?.eligibility && (
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground">Eligibility</p>
+                    <p className="font-semibold">{guide.visa_section.eligibility}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {guide.visa_section?.warnings?.length > 0 && (
+            {guide.visa_section?.detailedProcess && (
+              <div className="mb-6">
+                <h3 className="font-semibold mb-3">Detailed Visa Process</h3>
+                <EnrichedProse content={guide.visa_section.detailedProcess} />
+              </div>
+            )}
+
+            {guide.visa_section?.requirements && guide.visa_section.requirements.length > 0 && (
+              <>
+                <h3 className="font-semibold mb-3">Requirements</h3>
+                <ul className="space-y-2 mb-6">
+                  {guide.visa_section.requirements.map((req, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <CheckSquare className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <span>{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {guide.visa_section?.applicationSteps && guide.visa_section.applicationSteps.length > 0 && (
+              <>
+                <h3 className="font-semibold mb-3">Application Steps</h3>
+                <ol className="space-y-3 mb-6">
+                  {guide.visa_section.applicationSteps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+
+            {guide.visa_section?.warnings && guide.visa_section.warnings.length > 0 && (
               <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
                 <h4 className="font-semibold text-amber-800 flex items-center gap-2 mb-2">
                   <AlertTriangle className="w-4 h-4" />
@@ -510,6 +659,13 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Budget Tab */}
         <TabsContent value="budget" className="space-y-6">
+          {guide.budget_section?.costComparison && guide.budget_section.costComparison.length > 100 && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Cost of Living Overview</h2>
+              <EnrichedProse content={guide.budget_section.costComparison} />
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Monthly Budget</h2>
@@ -517,24 +673,24 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Minimum</span>
                   <span className="text-2xl font-bold">
-                    {guide.budget_section?.monthlyBudget?.minimum?.toLocaleString() || "N/A"}/mo
+                    {guide.budget_section?.monthlyBudget?.minimum != null ? formatDual(guide.budget_section.monthlyBudget.minimum) : "N/A"}/mo
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Comfortable</span>
                   <span className="text-2xl font-bold text-primary">
-                    {guide.budget_section?.monthlyBudget?.comfortable?.toLocaleString() || "N/A"}/mo
+                    {guide.budget_section?.monthlyBudget?.comfortable != null ? formatDual(guide.budget_section.monthlyBudget.comfortable) : "N/A"}/mo
                   </span>
                 </div>
               </div>
-              
+
               <h3 className="font-semibold mt-6 mb-3">Breakdown</h3>
               <div className="space-y-2">
-                {guide.budget_section?.monthlyBudget?.breakdown && 
+                {guide.budget_section?.monthlyBudget?.breakdown &&
                   Object.entries(guide.budget_section.monthlyBudget.breakdown).map(([category, amount]) => (
                     <div key={category} className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{category}</span>
-                      <span>{(amount as number).toLocaleString()}</span>
+                      <span>{formatDual(amount as number)}</span>
                     </div>
                   ))
                 }
@@ -544,28 +700,28 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Savings Target</h2>
               <div className="text-3xl font-bold text-primary mb-2">
-                {guide.budget_section?.savingsTarget?.total?.toLocaleString() || "N/A"}
+                {guide.budget_section?.savingsTarget?.total != null ? formatDual(guide.budget_section.savingsTarget.total) : "N/A"}
               </div>
               <p className="text-muted-foreground mb-4">
                 Save over {guide.budget_section?.savingsTarget?.timeline}
               </p>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span>Emergency Fund (3 months)</span>
-                  <span>{guide.budget_section?.savingsTarget?.emergencyFund?.toLocaleString()}</span>
+                  <span>{guide.budget_section?.savingsTarget?.emergencyFund != null ? formatDual(guide.budget_section.savingsTarget.emergencyFund) : ""}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Moving Costs</span>
-                  <span>{guide.budget_section?.savingsTarget?.movingCosts?.toLocaleString()}</span>
+                  <span>{guide.budget_section?.savingsTarget?.movingCosts != null ? formatDual(guide.budget_section.savingsTarget.movingCosts) : ""}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Initial Setup</span>
-                  <span>{guide.budget_section?.savingsTarget?.initialSetup?.toLocaleString()}</span>
+                  <span>{guide.budget_section?.savingsTarget?.initialSetup != null ? formatDual(guide.budget_section.savingsTarget.initialSetup) : ""}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Visa & Fees</span>
-                  <span>{guide.budget_section?.savingsTarget?.visaFees?.toLocaleString()}</span>
+                  <span>{guide.budget_section?.savingsTarget?.visaFees != null ? formatDual(guide.budget_section.savingsTarget.visaFees) : ""}</span>
                 </div>
               </div>
             </Card>
@@ -585,13 +741,20 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
               ))}
             </ul>
           </Card>
+
+          {guide.budget_section?.savingStrategy && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Saving & Financial Strategy</h2>
+              <EnrichedProse content={guide.budget_section.savingStrategy} />
+            </Card>
+          )}
         </TabsContent>
 
         {/* Housing Tab */}
         <TabsContent value="housing" className="space-y-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Housing Overview</h2>
-            <p className="text-muted-foreground mb-6">{guide.housing_section?.overview}</p>
+            <EnrichedProse content={guide.housing_section?.overview} className="mb-6" />
             
             <h3 className="font-semibold mb-3">Average Rent</h3>
             <div className="grid grid-cols-3 gap-4 mb-6">
@@ -633,6 +796,20 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             </p>
           </Card>
 
+          {guide.housing_section?.neighborhoodGuide && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Neighborhood Guide</h2>
+              <EnrichedProse content={guide.housing_section.neighborhoodGuide} />
+            </Card>
+          )}
+
+          {guide.housing_section?.rentalProcess && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Rental Process</h2>
+              <EnrichedProse content={guide.housing_section.rentalProcess} />
+            </Card>
+          )}
+
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Tips & Warnings</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -669,8 +846,8 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
               <Building2 className="w-5 h-5 text-primary" />
               Banking
             </h2>
-            <p className="text-muted-foreground mb-6">{guide.banking_section?.overview}</p>
-            
+            <EnrichedProse content={guide.banking_section?.overview} className="mb-6" />
+
             <h3 className="font-semibold mb-3">Recommended Banks</h3>
             <div className="space-y-3 mb-6">
               {guide.banking_section?.recommendedBanks?.map((bank, i) => (
@@ -697,6 +874,13 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               ))}
             </div>
+
+            {guide.banking_section?.accountOpeningGuide && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3">How to Open a Bank Account</h3>
+                <EnrichedProse content={guide.banking_section.accountOpeningGuide} />
+              </div>
+            )}
           </Card>
 
           <Card className="p-6">
@@ -704,7 +888,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
               <Heart className="w-5 h-5 text-primary" />
               Healthcare
             </h2>
-            <p className="text-muted-foreground mb-4">{guide.healthcare_section?.overview}</p>
+            <EnrichedProse content={guide.healthcare_section?.overview} className="mb-4" />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="p-4 rounded-lg bg-muted/50">
@@ -732,6 +916,20 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             <p className="text-sm text-muted-foreground">
               <strong>Insurance:</strong> {guide.healthcare_section?.insuranceRequirements}
             </p>
+
+            {guide.healthcare_section?.registrationGuide && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3">Registration Guide</h3>
+                <EnrichedProse content={guide.healthcare_section.registrationGuide} />
+              </div>
+            )}
+
+            {guide.healthcare_section?.insuranceAdvice && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3">Insurance Advice</h3>
+                <EnrichedProse content={guide.healthcare_section.insuranceAdvice} />
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -739,7 +937,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
         <TabsContent value="culture" className="space-y-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Cultural Overview</h2>
-            <p className="text-muted-foreground mb-6">{guide.culture_section?.overview}</p>
+            <EnrichedProse content={guide.culture_section?.overview} className="mb-6" />
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="p-4 rounded-lg bg-muted/50">
@@ -785,6 +983,27 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </Card>
 
+          {guide.culture_section?.deepDive && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Cultural Deep Dive</h2>
+              <EnrichedProse content={guide.culture_section.deepDive} />
+            </Card>
+          )}
+
+          {guide.culture_section?.workplaceCulture && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Workplace Culture</h2>
+              <EnrichedProse content={guide.culture_section.workplaceCulture} />
+            </Card>
+          )}
+
+          {guide.culture_section?.socialIntegration && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Social Integration</h2>
+              <EnrichedProse content={guide.culture_section.socialIntegration} />
+            </Card>
+          )}
+
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Social Norms & Local Tips</h2>
             <ul className="space-y-2">
@@ -803,7 +1022,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
           <TabsContent value="jobs" className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Job Market Overview</h2>
-              <p className="text-muted-foreground mb-6">{guide.jobs_section?.overview}</p>
+              <EnrichedProse content={guide.jobs_section?.overview} className="mb-6" />
               
               <h3 className="font-semibold mb-3">In-Demand Skills</h3>
               <div className="flex flex-wrap gap-2 mb-6">
@@ -830,6 +1049,20 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
                   </a>
                 ))}
               </div>
+
+              {guide.jobs_section?.marketOverview && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-3">Market Analysis</h3>
+                  <EnrichedProse content={guide.jobs_section.marketOverview} />
+                </div>
+              )}
+
+              {guide.jobs_section?.searchStrategy && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-3">Search Strategy</h3>
+                  <EnrichedProse content={guide.jobs_section.searchStrategy} />
+                </div>
+              )}
             </Card>
           </TabsContent>
         )}
@@ -839,7 +1072,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
           <TabsContent value="education" className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Education Overview</h2>
-              <p className="text-muted-foreground mb-6">{guide.education_section?.overview}</p>
+              <EnrichedProse content={guide.education_section?.overview} className="mb-6" />
               
               <h3 className="font-semibold mb-3">Application Process</h3>
               <ol className="space-y-2 mb-6">
@@ -863,12 +1096,33 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="font-medium text-sm">{guide.education_section?.scholarships?.join(", ")}</p>
                 </div>
               </div>
+
+              {guide.education_section?.systemOverview && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-3">Education System</h3>
+                  <EnrichedProse content={guide.education_section.systemOverview} />
+                </div>
+              )}
+
+              {guide.education_section?.applicationStrategy && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-3">Application Strategy</h3>
+                  <EnrichedProse content={guide.education_section.applicationStrategy} />
+                </div>
+              )}
             </Card>
           </TabsContent>
         )}
 
         {/* Timeline Tab */}
         <TabsContent value="timeline" className="space-y-6">
+          {guide.timeline_section?.overview && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Timeline Overview</h2>
+              <EnrichedProse content={guide.timeline_section.overview} />
+            </Card>
+          )}
+
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-2">Your Relocation Timeline</h2>
             <p className="text-muted-foreground mb-6">

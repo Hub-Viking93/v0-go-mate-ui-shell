@@ -33,7 +33,14 @@ export interface SettlingInTask {
   official_link: string | null
   estimated_time: string | null
   cost: string | null
-  status: "locked" | "available" | "in_progress" | "completed" | "skipped"
+  deadline_at: string | null
+  days_until_deadline: number | null
+  urgency: "overdue" | "urgent" | "approaching" | "normal"
+  compliance_scope?: "required" | "recommended"
+  compliance_status?: "none" | "completed" | "overdue" | "urgent" | "upcoming"
+  block_reason?: string
+  blocked_by?: Array<{ id: string; title: string }>
+  status: "locked" | "available" | "in_progress" | "completed" | "skipped" | "overdue"
   completed_at: string | null
   sort_order: number
 }
@@ -59,21 +66,14 @@ export function SettlingInTaskCard({
   const isLocked = task.status === "locked"
   const isCompleted = task.status === "completed"
   const isSkipped = task.status === "skipped"
-  const isActionable = task.status === "available" || task.status === "in_progress"
+  const isOverdueStatus = task.status === "overdue"
+  const isActionable = task.status === "available" || task.status === "in_progress" || isOverdueStatus
 
-  // Compute deadline date from arrival_date + deadline_days
-  const deadlineDate =
-    arrivalDate && task.deadline_days
-      ? new Date(
-          new Date(arrivalDate).getTime() + task.deadline_days * 86400000
-        )
-      : null
-
-  const isOverdue = deadlineDate ? deadlineDate < new Date() && !isCompleted : false
-  const isUrgent =
-    deadlineDate && !isCompleted
-      ? deadlineDate.getTime() - Date.now() < 7 * 86400000 && deadlineDate > new Date()
-      : false
+  // Use server-computed urgency
+  const isOverdue = task.urgency === "overdue" || isOverdueStatus
+  const isUrgent = task.urgency === "urgent"
+  const isApproaching = task.urgency === "approaching"
+  const deadlineDate = task.deadline_at ? new Date(task.deadline_at) : null
 
   // Get dependency names
   const depNames = task.depends_on
@@ -157,16 +157,26 @@ export function SettlingInTaskCard({
                 </Badge>
               )}
               {isUrgent && !isOverdue && (
-                <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">
-                  Due soon
+                <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white">
+                  Due tomorrow
                 </Badge>
               )}
-              {task.deadline_days && deadlineDate && !isCompleted && !isOverdue && !isUrgent && (
+              {isApproaching && !isOverdue && !isUrgent && (
+                <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">
+                  {task.days_until_deadline != null ? `${task.days_until_deadline}d left` : "Due soon"}
+                </Badge>
+              )}
+              {deadlineDate && !isCompleted && !isOverdue && !isUrgent && !isApproaching && (
                 <span className="text-[11px] text-muted-foreground font-mono">
                   by {deadlineDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                 </span>
               )}
-              {isLocked && depNames.length > 0 && (
+              {isLocked && task.blocked_by && task.blocked_by.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  Blocked by: {task.blocked_by.map((b) => b.title).join(", ")}
+                </span>
+              )}
+              {isLocked && (!task.blocked_by || task.blocked_by.length === 0) && depNames.length > 0 && (
                 <span className="text-[11px] text-muted-foreground">
                   Needs: {depNames.join(", ")}
                 </span>

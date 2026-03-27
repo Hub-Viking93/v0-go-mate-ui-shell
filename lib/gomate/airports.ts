@@ -1,5 +1,3 @@
-"use client"
-
 // Airport interface matching the dataset structure
 export interface Airport {
   id: number
@@ -87,6 +85,26 @@ export const POPULAR_AIRPORTS: Airport[] = [
   { id: 28, name: "Miami International Airport", city: "Miami", country: "United States", iataCode: "MIA", icaoCode: "KMIA", latitude: 25.7932, longitude: -80.2906, altitude: 8, timezone: "America/New_York", type: "airport" },
   { id: 29, name: "Atlanta Hartsfield-Jackson International Airport", city: "Atlanta", country: "United States", iataCode: "ATL", icaoCode: "KATL", latitude: 33.6367, longitude: -84.428, altitude: 1026, timezone: "America/New_York", type: "airport" },
   { id: 30, name: "Hong Kong International Airport", city: "Hong Kong", country: "Hong Kong", iataCode: "HKG", icaoCode: "VHHH", latitude: 22.3089, longitude: 113.915, altitude: 28, timezone: "Asia/Hong_Kong", type: "airport" },
+  { id: 31, name: "Manchester Airport", city: "Manchester", country: "United Kingdom", iataCode: "MAN", icaoCode: "EGCC", latitude: 53.3537, longitude: -2.27495, altitude: 257, timezone: "Europe/London", type: "airport" },
+  { id: 32, name: "London Gatwick Airport", city: "London", country: "United Kingdom", iataCode: "LGW", icaoCode: "EGKK", latitude: 51.1481, longitude: -0.190278, altitude: 202, timezone: "Europe/London", type: "airport" },
+  { id: 33, name: "London Stansted Airport", city: "London", country: "United Kingdom", iataCode: "STN", icaoCode: "EGSS", latitude: 51.885, longitude: 0.235, altitude: 348, timezone: "Europe/London", type: "airport" },
+  { id: 34, name: "Edinburgh Airport", city: "Edinburgh", country: "United Kingdom", iataCode: "EDI", icaoCode: "EGPH", latitude: 55.95, longitude: -3.3725, altitude: 135, timezone: "Europe/London", type: "airport" },
+  { id: 35, name: "Dublin Airport", city: "Dublin", country: "Ireland", iataCode: "DUB", icaoCode: "EIDW", latitude: 53.4213, longitude: -6.27007, altitude: 242, timezone: "Europe/Dublin", type: "airport" },
+  { id: 36, name: "Brussels Airport", city: "Brussels", country: "Belgium", iataCode: "BRU", icaoCode: "EBBR", latitude: 50.9014, longitude: 4.48444, altitude: 184, timezone: "Europe/Brussels", type: "airport" },
+  { id: 37, name: "Düsseldorf Airport", city: "Düsseldorf", country: "Germany", iataCode: "DUS", icaoCode: "EDDL", latitude: 51.2895, longitude: 6.76678, altitude: 147, timezone: "Europe/Berlin", type: "airport" },
+  { id: 38, name: "Hamburg Airport", city: "Hamburg", country: "Germany", iataCode: "HAM", icaoCode: "EDDH", latitude: 53.6304, longitude: 9.98823, altitude: 53, timezone: "Europe/Berlin", type: "airport" },
+  { id: 39, name: "Prague Václav Havel Airport", city: "Prague", country: "Czech Republic", iataCode: "PRG", icaoCode: "LKPR", latitude: 50.1008, longitude: 14.26, altitude: 1247, timezone: "Europe/Prague", type: "airport" },
+  { id: 40, name: "Budapest Ferenc Liszt Airport", city: "Budapest", country: "Hungary", iataCode: "BUD", icaoCode: "LHBP", latitude: 47.4369, longitude: 19.2556, altitude: 495, timezone: "Europe/Budapest", type: "airport" },
+  { id: 41, name: "Warsaw Chopin Airport", city: "Warsaw", country: "Poland", iataCode: "WAW", icaoCode: "EPWA", latitude: 52.1657, longitude: 20.9671, altitude: 361, timezone: "Europe/Warsaw", type: "airport" },
+  { id: 42, name: "Seoul Incheon International Airport", city: "Seoul", country: "South Korea", iataCode: "ICN", icaoCode: "RKSI", latitude: 37.4691, longitude: 126.451, altitude: 23, timezone: "Asia/Seoul", type: "airport" },
+  { id: 43, name: "Bangkok Suvarnabhumi Airport", city: "Bangkok", country: "Thailand", iataCode: "BKK", icaoCode: "VTBS", latitude: 13.6811, longitude: 100.747, altitude: 5, timezone: "Asia/Bangkok", type: "airport" },
+  { id: 44, name: "Kuala Lumpur International Airport", city: "Kuala Lumpur", country: "Malaysia", iataCode: "KUL", icaoCode: "WMKK", latitude: 2.74558, longitude: 101.71, altitude: 69, timezone: "Asia/Kuala_Lumpur", type: "airport" },
+  { id: 45, name: "Melbourne Airport", city: "Melbourne", country: "Australia", iataCode: "MEL", icaoCode: "YMML", latitude: -37.6733, longitude: 144.843, altitude: 434, timezone: "Australia/Melbourne", type: "airport" },
+  { id: 46, name: "Auckland Airport", city: "Auckland", country: "New Zealand", iataCode: "AKL", icaoCode: "NZAA", latitude: -37.0081, longitude: 174.792, altitude: 23, timezone: "Pacific/Auckland", type: "airport" },
+  { id: 47, name: "Doha Hamad International Airport", city: "Doha", country: "Qatar", iataCode: "DOH", icaoCode: "OTHH", latitude: 25.2731, longitude: 51.6081, altitude: 13, timezone: "Asia/Qatar", type: "airport" },
+  { id: 48, name: "Istanbul Airport", city: "Istanbul", country: "Turkey", iataCode: "IST", icaoCode: "LTFM", latitude: 41.2753, longitude: 28.7519, altitude: 325, timezone: "Europe/Istanbul", type: "airport" },
+  { id: 49, name: "Vancouver International Airport", city: "Vancouver", country: "Canada", iataCode: "YVR", icaoCode: "CYVR", latitude: 49.1947, longitude: -123.184, altitude: 14, timezone: "America/Vancouver", type: "airport" },
+  { id: 50, name: "Montréal-Trudeau International Airport", city: "Montreal", country: "Canada", iataCode: "YUL", icaoCode: "CYUL", latitude: 45.4706, longitude: -73.7408, altitude: 118, timezone: "America/Toronto", type: "airport" },
 ]
 
 // Search airports by query (city, name, or IATA code)

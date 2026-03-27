@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { InfoCard } from "@/components/info-card"
 import { CountdownTimer } from "@/components/countdown-timer"
@@ -18,6 +17,7 @@ import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
+import { getCurrencyFromCountry } from "@/lib/gomate/currency"
 import { PlanSwitcher } from "@/components/plan-switcher"
 import { TierGate } from "@/components/tier-gate"
 import { ArrivalBanner, SettlingInDashboardCard } from "@/components/arrival-banner"
@@ -43,19 +43,37 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react"
-import { type Profile, getRequiredFields } from "@/lib/gomate/profile-schema"
-import { getCompletionPercentage, getFilledFields } from "@/lib/gomate/state-machine"
+import { type Profile } from "@/lib/gomate/profile-schema"
+import {
+  deriveDashboardState,
+  type DashboardPlanSnapshot,
+  type DashboardProgressSnapshot,
+  type DashboardSettlingSummary,
+} from "@/lib/gomate/dashboard-state"
 
 interface RelocationPlan {
   id: string
   user_id: string
   profile_data: Profile
   stage: string
+  lifecycle: string
   title: string | null
   status: string
   is_current: boolean
   locked: boolean
   locked_at: string | null
+  research_status: string | null
+  research_completed_at: string | null
+  plan_version: number
+  canEditProfile: boolean
+  canLock: boolean
+  readiness?: {
+    requiredCount: number
+    filledCount: number
+    confirmedCount: number
+    isStructurallyComplete: boolean
+    isReadyForLock: boolean
+  }
   created_at: string
   updated_at: string
 }
@@ -66,6 +84,14 @@ interface UserGuide {
   destination: string
   purpose: string
   created_at: string
+}
+
+function formatEnumLabel(value: string | null | undefined): string {
+  if (!value) return "Not set"
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
 }
 
 // Default mock data for when profile is incomplete
@@ -108,10 +134,14 @@ function generateBudgetFromProfile(profile: Profile, monthsUntilMove: number = 6
   const totalTarget = Math.round(baseSavings)
   const monthlyTarget = monthsUntilMove > 0 ? Math.round(totalTarget / monthsUntilMove) : totalTarget
   
+  // Derive currency from the user's home country (current_location or citizenship),
+  // NOT the destination. The budget shows how much the user needs to save in their own currency.
+  const homeCurrency = getCurrencyFromCountry(profile.current_location)
+    || getCurrencyFromCountry(profile.citizenship)
+    || "USD"
+
   return {
-    currency: destination.toLowerCase().includes("japan") ? "JPY" : 
-              destination.toLowerCase().includes("uk") ? "GBP" : 
-              destination.toLowerCase().includes("uae") || destination.toLowerCase().includes("dubai") ? "AED" : "EUR",
+    currency: homeCurrency,
     totalSavingsTarget: totalTarget,
     monthlySavingsTarget: monthlyTarget,
     monthsUntilMove,
@@ -444,7 +474,7 @@ function generateDocumentItems(profile: Profile): DocumentItem[] {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { tier, can } = useTier()
+  const { tier } = useTier()
   const goToUpgrade = () => router.push("/settings")
   const [plan, setPlan] = useState<RelocationPlan | null>(null)
   const [userGuide, setUserGuide] = useState<UserGuide | null>(null)
@@ -455,15 +485,24 @@ export default function DashboardPage() {
   const [visaResearch, setVisaResearch] = useState<VisaResearchData | null>(null)
   const [localRequirements, setLocalRequirements] = useState<LocalRequirementsData | null>(null)
   const [researchStatus, setResearchStatus] = useState<string | null>(null)
+  const [progressData, setProgressData] = useState<
+    (DashboardProgressSnapshot & {
+      plan_id: string
+      stage: string
+      lifecycle: string
+    }) | null
+  >(null)
+  const [settlingSummary, setSettlingSummary] = useState<DashboardSettlingSummary | null>(null)
 
   // Fetch the user's plan, guide, and document statuses on mount
   useEffect(() => {
     async function fetchData() {
       try {
-        const [planRes, guidesRes, docsRes] = await Promise.all([
+        const [planRes, guidesRes, docsRes, progressRes] = await Promise.all([
           fetch("/api/profile"),
           fetch("/api/guides"),
           fetch("/api/documents"),
+          fetch("/api/progress"),
         ])
         
         if (planRes.ok) {
@@ -500,6 +539,11 @@ export default function DashboardPage() {
           const data = await docsRes.json()
           setDocumentStatuses(data.statuses || {})
         }
+
+        if (progressRes.ok) {
+          const data = await progressRes.json()
+          setProgressData(data)
+        }
       } catch (error) {
         console.error("[GoMate] Error fetching data:", error)
       } finally {
@@ -509,6 +553,51 @@ export default function DashboardPage() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    async function fetchSettlingSummary() {
+      if (!plan || plan.lifecycle !== "arrived" || tier !== "pro_plus") {
+        if (active) setSettlingSummary(null)
+        return
+      }
+
+      try {
+        const response = await fetch("/api/settling-in")
+        if (!response.ok) {
+          if (active) setSettlingSummary(null)
+          return
+        }
+
+        const data = await response.json()
+        if (!active) return
+
+        setSettlingSummary({
+          generated: Boolean(data.generated),
+          stats: {
+            total: data.stats?.total || 0,
+            completed: data.stats?.completed || 0,
+            overdue: data.stats?.overdue || 0,
+            available: data.stats?.available || 0,
+            locked: data.stats?.locked || 0,
+            legalTotal: data.stats?.legalTotal || 0,
+            legalCompleted: data.stats?.legalCompleted || 0,
+            progressPercent: data.stats?.progressPercent || 0,
+          },
+        })
+      } catch (error) {
+        if (active) setSettlingSummary(null)
+        console.error("[GoMate] Error fetching settling summary:", error)
+      }
+    }
+
+    fetchSettlingSummary()
+
+    return () => {
+      active = false
+    }
+  }, [plan?.id, plan?.lifecycle, tier])
+
   // Lock/unlock handlers
   const handleLockPlan = async () => {
     if (!plan) return
@@ -517,11 +606,21 @@ export default function DashboardPage() {
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "lock", planId: plan.id }),
+        body: JSON.stringify({
+          action: "lock",
+          planId: plan.id,
+          expectedVersion: plan.plan_version,
+        }),
       })
       if (response.ok) {
         const data = await response.json()
         setPlan(data.plan)
+      } else if (response.status === 409) {
+        const refreshed = await fetch("/api/profile")
+        if (refreshed.ok) {
+          const latest = await refreshed.json()
+          setPlan(latest.plan)
+        }
       }
     } catch (error) {
       console.error("[GoMate] Error locking plan:", error)
@@ -537,11 +636,21 @@ export default function DashboardPage() {
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "unlock", planId: plan.id }),
+        body: JSON.stringify({
+          action: "unlock",
+          planId: plan.id,
+          expectedVersion: plan.plan_version,
+        }),
       })
       if (response.ok) {
         const data = await response.json()
         setPlan(data.plan)
+      } else if (response.status === 409) {
+        const refreshed = await fetch("/api/profile")
+        if (refreshed.ok) {
+          const latest = await refreshed.json()
+          setPlan(latest.plan)
+        }
       }
     } catch (error) {
       console.error("[GoMate] Error unlocking plan:", error)
@@ -557,11 +666,15 @@ export default function DashboardPage() {
   const hasCitizenship = !!profile.citizenship
   const hasTimeline = !!profile.timeline
   
-  // Calculate profile completeness using actual required fields from schema
-  const requiredFields = getRequiredFields(profile)
-  const filledFieldsList = getFilledFields(profile)
-  const filledCount = filledFieldsList.length
-  const progressPercent = getCompletionPercentage(profile)
+  const dashboardState = deriveDashboardState({
+    plan: plan as DashboardPlanSnapshot | null,
+    progress: progressData,
+    settlingSummary,
+  })
+  const progressPercent =
+    progressData?.interview_progress.confirmedPercentage ??
+    progressData?.interview_progress.percentage ??
+    0
 
   // Generate data based on profile or use defaults
   const targetCountry = profile.destination || "Germany"
@@ -643,25 +756,28 @@ export default function DashboardPage() {
   }
 
   // Show onboarding prompt if profile is mostly empty
-  if (filledCount < 3) {
+  if (dashboardState.showWelcome) {
     return (
       <div className="p-6 md:p-8 lg:p-10">
-        <div className="max-w-2xl mx-auto text-center py-16">
-          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="w-10 h-10 text-primary" />
+        <div className="max-w-2xl mx-auto text-center py-12">
+          <div className="relative inline-block mb-8">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#1B3A2D] to-[#2D6A4F] flex items-center justify-center shadow-lg">
+              <Sparkles className="w-12 h-12 text-[#5EE89C]" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md">
+              <MapPin className="w-4 h-4 text-white" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-4">
-            Welcome to GoMate
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4 tracking-tight">
+            {dashboardState.title}
           </h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            Let's start planning your relocation. Chat with me to tell me about your move, 
-            and I'll create a personalized dashboard with visa recommendations, budget plans, 
-            and a document checklist.
+          <p className="text-lg text-muted-foreground mb-10 max-w-md mx-auto text-pretty">
+            {dashboardState.description}
           </p>
-          <Button asChild size="lg" className="rounded-xl gap-2">
+          <Button asChild size="lg" className="rounded-xl gap-2 px-8 py-6 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
             <Link href="/chat">
               <MessageSquare className="w-5 h-5" />
-              Start planning
+              {dashboardState.chatActionLabel}
             </Link>
           </Button>
         </div>
@@ -671,51 +787,56 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
-      <PageHeader 
-        title={profile.name ? `${profile.name}'s move at a glance` : "Your move at a glance"}
-        description={hasDestination 
-          ? `Track your relocation to ${targetCountry} and stay on top of important tasks.`
-          : "Track your relocation progress and stay on top of important tasks."
-        }
-        action={
-          <div className="flex items-center gap-3">
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8 mb-8 gm-animate-in gm-delay-1">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+              {profile.name ? `${profile.name}'s move at a glance` : "Your move at a glance"}
+            </h1>
+            <p className="text-white/60 mt-1.5 max-w-xl text-pretty text-sm md:text-base">
+              {dashboardState.description}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
             {isLocked && (
-              <Badge variant="secondary" className="gap-1.5 bg-primary/10 text-primary border-primary/20">
+              <Badge variant="secondary" className="gap-1.5 bg-white/10 text-white/90 border-white/20">
                 <Shield className="w-3.5 h-3.5" />
                 Plan locked
               </Badge>
             )}
-            {progressPercent === 100 && !isLocked && (
-              <Button 
-                onClick={handleLockPlan} 
-                variant="outline" 
-                className="gap-2 rounded-xl bg-transparent"
+            {dashboardState.showLockAction && (
+              <Button
+                onClick={handleLockPlan}
+                variant="outline"
+                className="gap-2 rounded-xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
                 disabled={lockLoading}
               >
                 <Lock className="w-4 h-4" />
                 {lockLoading ? "Locking..." : "Lock plan"}
               </Button>
             )}
-            {isLocked && (
-              <Button 
-                onClick={handleUnlockPlan} 
-                variant="outline" 
-                className="gap-2 rounded-xl bg-transparent"
+            {dashboardState.showUnlockAction && (
+              <Button
+                onClick={handleUnlockPlan}
+                variant="outline"
+                className="gap-2 rounded-xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
                 disabled={lockLoading}
               >
                 <Unlock className="w-4 h-4" />
                 {lockLoading ? "Unlocking..." : "Unlock to edit"}
               </Button>
             )}
-            <Button asChild className="gap-2 rounded-xl">
+            <Button asChild className="gap-2 rounded-xl bg-white text-[#1B3A2D] hover:bg-white/90">
               <Link href="/chat">
                 <MessageSquare className="w-4 h-4" />
-                {isLocked ? "Ask questions" : "Continue planning"}
+                {dashboardState.chatActionLabel}
               </Link>
             </Button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {/* Plan Switcher - shows plan name with rename option, dropdown for Pro+ */}
       <div className="mb-6">
@@ -744,6 +865,34 @@ export default function DashboardPage() {
         </div>
       )}
       
+      {researchStatus === "completed" && plan?.research_completed_at && (() => {
+        const daysSince = Math.floor((Date.now() - new Date(plan.research_completed_at).getTime()) / (1000 * 60 * 60 * 24))
+        if (daysSince < 7) return null
+        return (
+          <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/10 border border-amber-500/30 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/30">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Research may be outdated</p>
+              <p className="text-xs text-muted-foreground">Last researched {daysSince} days ago. Consider re-running research for the latest information.</p>
+            </div>
+          </div>
+        )
+      })()}
+
+      {researchStatus === "partial" && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/10 border border-amber-500/30 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/30">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Research completed with limited results</p>
+            <p className="text-xs text-muted-foreground">Some research areas returned limited data. You can manually re-run research from the sections below for better results.</p>
+          </div>
+        </div>
+      )}
+
       {researchStatus === "failed" && (
         <div className="mb-6 p-4 rounded-xl bg-destructive/5 border border-destructive/20 flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/10">
@@ -775,6 +924,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 gm-animate-in gm-delay-2">
         <StatCard
           title="Destination"
+          variant="primary"
           value={
             hasDestination ? (
               <span className="flex items-center gap-2">
@@ -788,23 +938,26 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Purpose"
-          value={profile.purpose ? profile.purpose.charAt(0).toUpperCase() + profile.purpose.slice(1) : "Not set"}
-          subtitle={profile.sub_purpose || "Set in chat"}
+          variant="blue"
+          value={formatEnumLabel(profile.purpose)}
+          subtitle={profile.visa_role ? `Visa role: ${formatEnumLabel(profile.visa_role)}` : "Set in chat"}
           icon={<Calendar className="w-5 h-5" />}
         />
         <StatCard
           title="Profile"
-          value={`${progressPercent}%`}
-          subtitle={`${filledCount} of ${requiredFields.length} fields`}
+          variant="emerald"
+          value={dashboardState.profileProgressLabel}
+          subtitle={dashboardState.profileProgressSubtitle}
           trend={progressPercent > 50 ? "up" : undefined}
           icon={<TrendingUp className="w-5 h-5" />}
         />
-<StatCard
-                title="Timeline"
-                value={hasTimeline ? formatTimeUntilMove(monthsUntilMove) : "Not set"}
-                subtitle={hasTimeline ? profile.timeline : "Set in chat"}
-                icon={<Clock className="w-5 h-5" />}
-              />
+        <StatCard
+          title="Timeline"
+          variant="amber"
+          value={hasTimeline ? formatTimeUntilMove(monthsUntilMove) : "Not set"}
+          subtitle={profile.timeline || "Set in chat"}
+          icon={<Clock className="w-5 h-5" />}
+        />
       </div>
 
       {/* Main Content Grid */}
@@ -931,7 +1084,7 @@ export default function DashboardPage() {
               planId={plan?.id}
               destination={targetCountry}
               citizenship={citizenship}
-              purpose={profile.purpose}
+              purpose={profile.purpose || undefined}
               cachedResearch={visaResearch}
               researchStatus={researchStatus}
               onResearchComplete={(data) => {
@@ -970,7 +1123,7 @@ export default function DashboardPage() {
             <LocalRequirementsCard
               planId={plan?.id}
               destination={targetCountry}
-              city={profile.target_city}
+              city={profile.target_city || undefined}
               cachedResearch={localRequirements}
               researchStatus={researchStatus}
               onResearchComplete={(data) => {
@@ -991,20 +1144,31 @@ export default function DashboardPage() {
               targetCountry={targetCountry}
               currentSavings={parseFloat(profile.savings_available || "0") || 0}
               onUpdateSavings={async (amount) => {
+                if (!plan) return
+                const previousPlan = plan
                 // Update local state
-                if (plan) {
-                  const updatedProfile = { ...profile, savings_available: amount.toString() }
-                  setPlan({ ...plan, profile_data: updatedProfile })
-                }
+                const updatedProfile = { ...profile, savings_available: amount.toString() }
+                setPlan({ ...plan, profile_data: updatedProfile })
                 
                 // Persist to backend
                 try {
-                  await fetch("/api/profile", {
+                  const response = await fetch("/api/profile", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ profileData: { savings_available: amount.toString() } }),
+                    body: JSON.stringify({
+                      profileData: { savings_available: amount.toString() },
+                      expectedVersion: plan.plan_version,
+                    }),
                   })
+
+                  if (response.ok) {
+                    const data = await response.json()
+                    setPlan(data.plan)
+                  } else {
+                    setPlan(previousPlan)
+                  }
                 } catch (error) {
+                  setPlan(previousPlan)
                   console.error("[GoMate] Error saving savings:", error)
                 }
               }}
@@ -1018,9 +1182,10 @@ export default function DashboardPage() {
               city={profile.target_city || undefined}
               compareFromCity={profile.current_location || undefined}
               compareFromCountry={profile.citizenship || undefined}
+              citizenship={profile.citizenship || undefined}
               householdSize={
                 profile.moving_alone === "yes" ? "single" :
-                profile.partner_coming === "yes" && !profile.children_count ? "couple" :
+                profile.spouse_joining === "yes" && !profile.children_count ? "couple" :
                 profile.children_count ? "family4" : "single"
               }
             />
@@ -1031,7 +1196,7 @@ export default function DashboardPage() {
       {/* Post-Relocation: Arrival Transition or Settling-In link */}
       {plan && hasDestination && (
         <TierGate tier={tier} feature="post_relocation" onUpgrade={goToUpgrade}>
-          {plan.stage === "complete" && (
+          {dashboardState.showArrivalBanner && (
             <ArrivalBanner
               stage={plan.stage}
               tier={tier}
@@ -1042,7 +1207,29 @@ export default function DashboardPage() {
               }}
             />
           )}
-          {plan.stage === "arrived" && <SettlingInDashboardCard />}
+          {dashboardState.showArrivedSummary && (
+            <SettlingInDashboardCard
+              summary={{
+                headline: dashboardState.arrivedSummary || "Settling-In Checklist",
+                detail: dashboardState.arrivedDetail || "Track your post-arrival tasks and deadlines",
+                actionLabel: dashboardState.arrivedActionLabel || "Open settling-in",
+                progressPercent:
+                  settlingSummary?.stats.progressPercent ??
+                  progressData?.post_arrival_progress.percentage ??
+                  0,
+                completed:
+                  settlingSummary?.stats.completed ??
+                  progressData?.post_arrival_progress.completed ??
+                  0,
+                total:
+                  settlingSummary?.stats.total ??
+                  progressData?.post_arrival_progress.total ??
+                  0,
+                overdue: settlingSummary?.stats.overdue ?? 0,
+                available: settlingSummary?.stats.available ?? 0,
+              }}
+            />
+          )}
         </TierGate>
       )}
 

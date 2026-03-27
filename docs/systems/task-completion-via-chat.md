@@ -151,7 +151,7 @@ Source: `app/api/settling-in/[id]/route.ts`
 | Tier | `getUserTier()` — 403 if not pro_plus |
 | Task ownership | `.eq("user_id", user.id)` — 404 if not owned |
 | Locked check | `task.status === "locked" && newStatus === "completed"` → 400 |
-| Plan stage check | **Not performed** — PATCH does not verify `plan.stage === "arrived"` |
+| Plan stage check | Performed — PATCH loads the owning plan and returns 400 unless `plan.stage === "arrived"` |
 | Idempotency | Task is found with status `!= "completed"` by client before calling; server does not block double-complete |
 
 ---
@@ -207,7 +207,7 @@ Final protection layer: the server's ownership verification and locked-status ch
 |---|---|---|---|
 | G-10.2-A | Marker format `[TASK_DONE:<uuid>]` using task UUID | `[TASK_DONE:<title>]` using title string | **V1 design decision — intentional.** CLAUDE.md declares the title-based format canonical for v1 ("This is intentional. Do not change the format without updating both the system prompt and the frontend parser."). The UUID target is V2+ only. Not a defect to fix in v1. |
 | G-10.2-B | Explicit trigger phrase list in prompt | General comprehension instruction only | P2 — LLM may miss some completion confirmations |
-| G-10.2-C | Plan stage check in PATCH endpoint | Not performed | P1 — Task completion possible before arrival |
+| G-10.2-C | Plan stage check in PATCH endpoint | Route now verifies the owning plan is `arrived` before applying the status change | Resolved |
 | G-10.2-D | `processedRef` reset on remount | Per-component-lifetime only; resets on navigation | P3 — Duplicate completion on remount (server-side benign but wasteful) |
 | G-10.2-E | `optional completion_confirmation` flag (contract v1.1) | Not implemented | N/A — Optional |
 | G-10.2-F | Silent failure on network error in fire-and-forget | No user feedback if GET or PATCH fails | P2 — User sees badge but task may not be updated |

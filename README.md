@@ -53,6 +53,7 @@ GoMate is approximately 70–75% implemented. See [`CLAUDE.md`](./CLAUDE.md) and
 | Document | Purpose |
 |---|---|
 | [`CLAUDE.md`](./CLAUDE.md) | Start here — architecture, rules, phase execution |
+| [`docs/system-architecture.md`](./docs/system-architecture.md) | High-level readable architecture overview |
 | [`docs/build-protocol.md`](./docs/build-protocol.md) | Phase specifications (what to build) |
 | [`docs/phase-status.md`](./docs/phase-status.md) | Current phase completion status |
 | [`docs/audit.md`](./docs/audit.md) | System state classification and gap register |

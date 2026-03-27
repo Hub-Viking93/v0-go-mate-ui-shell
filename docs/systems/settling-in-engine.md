@@ -26,9 +26,9 @@ Auto-trigger after arrival is not implemented. The arrival endpoint (`POST /api/
 
 ### 2.2 Stage check at generation time
 
-The generate endpoint does **not** verify `plan.stage === "arrived"` before generating. A user whose plan is in `complete` stage (pre-arrival) can request generation and it will succeed.
+The generate endpoint **does** verify `plan.stage === "arrived"` before generating. A user whose plan is in `complete` stage (pre-arrival) receives a 400 response.
 
-The contract requires the endpoint to verify `plan.stage == 'arrived'` and return `STAGE_NOT_ARRIVED` if not. This check is absent.
+The contract requires the endpoint to verify `plan.stage == 'arrived'` and return `STAGE_NOT_ARRIVED` if not. The check now exists, but it is route-local rather than shared through a central helper.
 
 ---
 
@@ -74,7 +74,7 @@ Fields passed to the generator:
 | `movingWithFamily` | `profile_data.movingWithFamily` | Defaults to `false` |
 | `budget` | `profile_data.budget` | Defaults to `""` |
 
-The `user_id`, `plan_id`, `arrival_date`, `nationality`, `occupation`, and `household info` fields specified by the contract's `GenerationContext` are not all passed to the generator. `arrival_date` in particular is not used during generation, despite deadline calculations depending on it.
+The `user_id`, `plan_id`, `nationality`, `occupation`, and `household info` fields specified by the contract's `GenerationContext` are not all passed to the generator. `arrival_date` is not passed into the generator function itself, but the route uses it immediately after generation to compute and persist `deadline_at`.
 
 ---
 
@@ -132,7 +132,7 @@ If the AI response cannot be parsed, `getDefaultSettlingTasks(input)` is returne
 
 ### Stage 4 — Merge & validation
 
-**Not implemented.** There is no separate merge or deduplication step. The AI output (or default tasks) is used directly. There is no schema validation beyond per-field type checks during array mapping. There is no DAG validation at this stage (see 9.4).
+**Partially implemented.** There is still no separate merge or deduplication step. The AI output (or default tasks) is used directly, and validation remains shallow. However, the route now validates DAG acyclicity with `isValidDAG()` before insert and strips all dependencies if a cycle is detected.
 
 ### Stage 5 — Persist
 
@@ -204,11 +204,11 @@ Note: the cached response returns fewer fields (`id, title, category, status, de
 
 | Gap | Contract specification | Current implementation | Severity |
 |---|---|---|---|
-| G-9.3-A | Verify `plan.stage === 'arrived'` before generating | No stage check — any Pro+ user can generate | P1 — Pre-arrival generation possible |
+| G-9.3-A | Verify `plan.stage === 'arrived'` before generating | Route now returns 400 unless the current plan is `arrived` | Resolved |
 | G-9.3-B | Auto-trigger after arrival | Not triggered — entirely manual | P2 — UX friction; checklist not ready on arrival |
 | G-9.3-C | `country_baselines` table as Stage 1 primary source | Does not exist; hardcoded TypeScript fallback only | P2 — No country-specific baseline coverage |
 | G-9.3-D | `job_key` idempotency in `settling_in_generation_runs` | Boolean flag only; no run table | P2 — No generation audit or replay capability |
-| G-9.3-E | Stage 4 (merge/dedup/validate) | Not implemented | P2 — AI duplicates or schema errors pass through |
+| G-9.3-E | Stage 4 (merge/dedup/validate) | Merge/dedup still absent; DAG validation exists but is only a narrow safety check | P2 — AI duplicates and non-cycle structural issues still pass through |
 | G-9.3-F | Stage 6 (event emission) | Not implemented | P2 — No observability |
 | G-9.3-G | Structured output mode for AI response | Regex JSON extraction from freeform text | P2 — Parse failures possible |
 | G-9.3-H | Separate merge of baseline + web + AI tasks | Single path: web research feeds AI directly; no merge | P2 — Architectural divergence from contract |

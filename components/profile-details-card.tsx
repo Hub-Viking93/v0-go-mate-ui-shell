@@ -1,11 +1,11 @@
 "use client"
 
 import React, { useState } from "react"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CountryFlag } from "@/components/country-flag"
-import type { Profile } from "@/lib/gomate/profile-schema"
+import type { Profile, AllFieldKey } from "@/lib/gomate/profile-schema"
+import { getRequiredFields } from "@/lib/gomate/profile-schema"
 import { 
   User, 
   MapPin, 
@@ -178,7 +178,7 @@ function FieldItem({
   }
   
   return (
-    <div className="flex items-start gap-3 py-2">
+    <div className="flex items-start gap-3 py-2.5">
       {content}
     </div>
   )
@@ -203,23 +203,31 @@ function CategorySection({
   const progress = fieldsCount > 0 ? Math.round((filledCount / fieldsCount) * 100) : 0
   
   return (
-    <div className="border border-border rounded-xl overflow-hidden">
+    <div className="gm-card-static overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-secondary/30 transition-colors"
+        className="w-full flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors"
       >
-        <div className={`p-2 rounded-lg ${category.bgColor}`}>
-          <Icon className={`w-4 h-4 ${category.color}`} />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${category.bgColor}`}>
+          <Icon className={`w-5 h-5 ${category.color}`} />
         </div>
         <div className="flex-1 text-left">
-          <p className="font-medium text-foreground text-sm">{category.label}</p>
-          <p className="text-xs text-muted-foreground">
-            {filledCount} of {fieldsCount} fields completed
-          </p>
+          <p className="font-semibold text-foreground text-sm">{category.label}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-muted-foreground font-mono">
+              {filledCount}/{fieldsCount}
+            </span>
+            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${progress === 100 ? "bg-emerald-500" : "bg-primary"}`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
         </div>
-        <Badge 
-          variant={progress === 100 ? "default" : "secondary"} 
-          className={`text-xs ${progress === 100 ? "bg-green-500/20 text-green-600 border-green-500/30" : ""}`}
+        <Badge
+          variant={progress === 100 ? "default" : "secondary"}
+          className={`text-xs ${progress === 100 ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/25" : ""}`}
         >
           {progress}%
         </Badge>
@@ -230,7 +238,7 @@ function CategorySection({
         )}
       </button>
       {expanded && (
-        <div className="px-4 pb-4 border-t border-border bg-secondary/10">
+        <div className="px-4 pb-4 border-t border-border">
           <div className="divide-y divide-border/50">
             {children}
           </div>
@@ -240,85 +248,155 @@ function CategorySection({
   )
 }
 
+// Field display config: label, icon, highlight, and custom value formatter
+const FIELD_DISPLAY: Record<string, { label: string; icon?: React.ElementType; highlight?: boolean; formatValue?: (profile: Profile) => string | null }> = {
+  name: { label: "Full Name", icon: User, highlight: true },
+  citizenship: { label: "Citizenship", icon: Globe },
+  current_location: { label: "Current Location", icon: MapPin },
+  destination: { label: "Destination Country", icon: MapPin, highlight: true },
+  target_city: { label: "Target City", icon: MapPin },
+  purpose: { label: "Purpose", formatValue: (p) => p.purpose ? PURPOSE_LABELS[p.purpose] : null },
+  duration: { label: "Duration", icon: Calendar },
+  timeline: { label: "Timeline", icon: Clock },
+  visa_role: { label: "Visa Role", icon: Globe },
+  study_type: { label: "Type of Study", icon: GraduationCap },
+  study_field: { label: "Field of Study", icon: BookOpen },
+  study_funding: { label: "Funding Source", icon: Wallet },
+  job_offer: { label: "Job Offer Status", icon: Briefcase },
+  job_field: { label: "Job Field", icon: Briefcase },
+  employer_sponsorship: { label: "Employer Sponsorship", icon: FileText },
+  highly_skilled: { label: "Highly Skilled Professional", icon: GraduationCap },
+  years_experience: { label: "Work Experience", icon: Clock },
+  remote_income: { label: "Remote Income", icon: Laptop },
+  income_source: { label: "Income Source", icon: Banknote },
+  monthly_income: { label: "Monthly Income", icon: Wallet },
+  income_consistency: { label: "Income Consistency", icon: Wallet },
+  income_history_months: { label: "Income History", icon: Clock },
+  settlement_reason: { label: "Settlement Reason", icon: Home },
+  family_ties: { label: "Family Ties in Destination", icon: Users },
+  moving_alone: { label: "Moving Alone", icon: User, formatValue: (p) => p.moving_alone === "yes" ? "Yes, alone" : p.moving_alone === "no" ? "No, with others" : null },
+  spouse_joining: { label: "Spouse/Partner Joining", icon: Users },
+  children_count: { label: "Number of Children", icon: Baby },
+  children_ages: { label: "Children's Ages", icon: Baby },
+  partner_citizenship: { label: "Partner's Citizenship", icon: Globe },
+  partner_visa_status: { label: "Partner's Visa Status", icon: FileText },
+  partner_residency_duration: { label: "Partner's Time in Country", icon: Clock },
+  relationship_type: { label: "Relationship Type", icon: Users },
+  relationship_duration: { label: "Relationship Duration", icon: Clock },
+  savings_available: { label: "Available Savings", icon: Wallet, highlight: true },
+  monthly_budget: { label: "Monthly Budget", icon: Banknote },
+  need_budget_help: { label: "Need Budget Help" },
+  language_skill: { label: "Language Skills", icon: Languages },
+  education_level: { label: "Education Level", icon: GraduationCap },
+  prior_visa: { label: "Prior Visa for Destination", icon: FileText },
+  visa_rejections: { label: "Previous Visa Rejections", icon: FileText },
+  healthcare_needs: { label: "Healthcare Needs", icon: Stethoscope },
+  pets: { label: "Pets", icon: PawPrint },
+  special_requirements: { label: "Special Requirements", icon: Heart },
+}
+
+// Map each field to a category ID
+const FIELD_TO_CATEGORY: Record<string, string> = {
+  name: "journey", citizenship: "journey", current_location: "journey",
+  destination: "journey", target_city: "journey", purpose: "journey",
+  duration: "journey", timeline: "journey", visa_role: "journey",
+  study_type: "purpose", study_field: "purpose", study_funding: "purpose",
+  job_offer: "purpose", job_field: "purpose", employer_sponsorship: "purpose",
+  highly_skilled: "purpose", years_experience: "purpose",
+  remote_income: "purpose", income_source: "purpose", monthly_income: "purpose",
+  income_consistency: "purpose", income_history_months: "purpose",
+  settlement_reason: "purpose", family_ties: "purpose",
+  moving_alone: "family", spouse_joining: "family", children_count: "family", children_ages: "family",
+  partner_citizenship: "family", partner_visa_status: "family",
+  partner_residency_duration: "family", relationship_type: "family", relationship_duration: "family",
+  savings_available: "financial", monthly_budget: "financial", need_budget_help: "financial",
+  language_skill: "background", education_level: "background",
+  prior_visa: "legal", visa_rejections: "legal",
+  healthcare_needs: "special", pets: "special", special_requirements: "special",
+}
+
 export function ProfileDetailsCard({ profile, showAllCategories = true, onFieldClick }: ProfileDetailsCardProps) {
-  // Count filled fields for each category
-  const countFilled = (fields: (keyof Profile)[]) => {
-    return fields.filter(f => profile[f] && profile[f] !== "Not specified").length
+  const requiredFields = getRequiredFields(profile)
+  const requiredSet = new Set<string>(requiredFields)
+
+  // Group required fields by category
+  const categoryFields: Record<string, AllFieldKey[]> = {}
+  for (const field of requiredFields) {
+    const cat = FIELD_TO_CATEGORY[field] || "special"
+    if (!categoryFields[cat]) categoryFields[cat] = []
+    categoryFields[cat].push(field)
   }
 
-  // Journey overview fields
-  const journeyFields: (keyof Profile)[] = ["name", "citizenship", "current_location", "destination", "target_city", "purpose", "duration", "timeline"]
-  
-  // Purpose-specific fields based on purpose
-  const getPurposeFields = (): (keyof Profile)[] => {
-    switch (profile.purpose) {
-      case "study":
-        return ["study_type", "study_field", "study_funding"]
-      case "work":
-        return ["job_offer", "job_field", "employer_sponsorship", "highly_skilled", "years_experience"]
-      case "digital_nomad":
-        return ["remote_income", "income_source", "monthly_income"]
-      case "settle":
-        return ["settlement_reason", "family_ties"]
-      default:
-        return []
-    }
+  const countFilled = (fields: AllFieldKey[]) => {
+    return fields.filter(f => {
+      const value = profile[f as keyof Profile]
+      return value !== null && value !== undefined && value !== ""
+    }).length
   }
-  
-  // Family fields
-  const familyFields: (keyof Profile)[] = ["moving_alone", "spouse_joining", "children_count", "children_ages"]
-  const relevantFamilyFields = profile.moving_alone === "no" ? familyFields : ["moving_alone"] as (keyof Profile)[]
-  
-  // Financial fields
-  const financialFields: (keyof Profile)[] = ["savings_available", "monthly_budget", "need_budget_help"]
-  
-  // Background fields
-  const backgroundFields: (keyof Profile)[] = ["language_skill", "education_level", "years_experience"]
-  const relevantBackgroundFields = profile.purpose === "work" ? backgroundFields : backgroundFields.filter(f => f !== "years_experience")
-  
-  // Legal fields
-  const legalFields: (keyof Profile)[] = ["prior_visa", "visa_rejections"]
-  
-  // Special fields
-  const specialFields: (keyof Profile)[] = ["healthcare_needs", "pets", "special_requirements"]
-  
-  const purposeFields = getPurposeFields()
+
+  // Dynamic purpose category label
+  const purposeCategoryLabel = profile.purpose === "study" ? "Study Details"
+    : profile.purpose === "work" ? "Work Details"
+    : profile.purpose === "digital_nomad" ? "Remote Work Details"
+    : profile.purpose === "settle" ? "Settlement Details"
+    : "Purpose Details"
+
+  const renderField = (field: AllFieldKey) => {
+    if (!requiredSet.has(field)) return null
+    const display = FIELD_DISPLAY[field]
+    if (!display) return null
+    const value = display.formatValue
+      ? display.formatValue(profile)
+      : profile[field as keyof Profile] as string | null
+    return (
+      <FieldItem
+        key={field}
+        label={display.label}
+        value={value}
+        icon={display.icon}
+        highlight={display.highlight}
+        fieldKey={field}
+        onClick={onFieldClick}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">
       {/* Header with overview */}
-      <Card className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-        <div className="flex items-start gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-5 md:p-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.12),transparent_60%)]" />
+        <div className="relative flex items-start gap-4">
           {profile.destination && (
             <CountryFlag country={profile.destination} size="lg" />
           )}
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-foreground">
+            <h2 className="text-lg md:text-xl font-bold text-white">
               {profile.name ? `${profile.name}'s Relocation Profile` : "Your Relocation Profile"}
             </h2>
             {profile.current_location && profile.destination && (
-              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+              <p className="text-sm text-white/50 mt-1 flex items-center gap-2">
                 <span>{profile.current_location}</span>
                 <Plane className="w-3.5 h-3.5 rotate-45" />
-                <span className="font-medium text-foreground">
+                <span className="font-medium text-white/80">
                   {profile.target_city ? `${profile.target_city}, ${profile.destination}` : profile.destination}
                 </span>
               </p>
             )}
             {profile.purpose && (
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant="secondary" className="gap-1.5">
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                <Badge className="gap-1.5 bg-white/15 text-white border-white/20 backdrop-blur-sm">
                   {PURPOSE_ICONS[profile.purpose]}
                   {PURPOSE_LABELS[profile.purpose]}
                 </Badge>
                 {profile.timeline && (
-                  <Badge variant="outline" className="gap-1.5">
+                  <Badge className="gap-1.5 bg-white/10 text-white/80 border-white/15 backdrop-blur-sm">
                     <Clock className="w-3 h-3" />
                     {profile.timeline}
                   </Badge>
                 )}
                 {profile.duration && (
-                  <Badge variant="outline" className="gap-1.5">
+                  <Badge className="gap-1.5 bg-white/10 text-white/80 border-white/15 backdrop-blur-sm">
                     <Calendar className="w-3 h-3" />
                     {formatValue(profile.duration)}
                   </Badge>
@@ -327,134 +405,30 @@ export function ProfileDetailsCard({ profile, showAllCategories = true, onFieldC
             )}
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Category sections */}
+      {/* Category sections — only show categories that have required fields */}
       <div className="space-y-3">
-        {/* Journey Overview */}
-        <CategorySection 
-          category={CATEGORIES[0]} 
-          fieldsCount={journeyFields.length}
-          filledCount={countFilled(journeyFields)}
-        >
-          <FieldItem label="Full Name" value={profile.name} icon={User} highlight fieldKey="name" onClick={onFieldClick} />
-          <FieldItem label="Citizenship" value={profile.citizenship} icon={Globe} fieldKey="citizenship" onClick={onFieldClick} />
-          <FieldItem label="Current Location" value={profile.current_location} icon={MapPin} fieldKey="current_location" onClick={onFieldClick} />
-          <FieldItem label="Destination Country" value={profile.destination} icon={MapPin} highlight fieldKey="destination" onClick={onFieldClick} />
-          <FieldItem label="Target City" value={profile.target_city} icon={MapPin} fieldKey="target_city" onClick={onFieldClick} />
-          <FieldItem label="Purpose" value={profile.purpose ? PURPOSE_LABELS[profile.purpose] : null} fieldKey="purpose" onClick={onFieldClick} />
-          <FieldItem label="Duration" value={profile.duration} icon={Calendar} fieldKey="duration" onClick={onFieldClick} />
-          <FieldItem label="Timeline" value={profile.timeline} icon={Clock} fieldKey="timeline" onClick={onFieldClick} />
-        </CategorySection>
+        {CATEGORIES.map((category) => {
+          const fields = categoryFields[category.id]
+          if (!fields || fields.length === 0) return null
 
-        {/* Purpose-specific section - only show if there are purpose fields */}
-        {purposeFields.length > 0 && (
-          <CategorySection 
-            category={{
-              ...CATEGORIES[1],
-              label: profile.purpose === "study" ? "Study Details" 
-                   : profile.purpose === "work" ? "Work Details"
-                   : profile.purpose === "digital_nomad" ? "Remote Work Details"
-                   : "Settlement Details"
-            }} 
-            fieldsCount={purposeFields.length}
-            filledCount={countFilled(purposeFields)}
-          >
-            {profile.purpose === "study" && (
-              <>
-                <FieldItem label="Type of Study" value={profile.study_type} icon={GraduationCap} fieldKey="study_type" onClick={onFieldClick} />
-                <FieldItem label="Field of Study" value={profile.study_field} icon={BookOpen} fieldKey="study_field" onClick={onFieldClick} />
-                <FieldItem label="Funding Source" value={profile.study_funding} icon={Wallet} fieldKey="study_funding" onClick={onFieldClick} />
-              </>
-            )}
-            {profile.purpose === "work" && (
-              <>
-                <FieldItem label="Job Offer Status" value={profile.job_offer} icon={Briefcase} fieldKey="job_offer" onClick={onFieldClick} />
-                <FieldItem label="Job Field" value={profile.job_field} icon={Briefcase} fieldKey="job_field" onClick={onFieldClick} />
-                <FieldItem label="Employer Sponsorship" value={profile.employer_sponsorship} icon={FileText} fieldKey="employer_sponsorship" onClick={onFieldClick} />
-                <FieldItem label="Highly Skilled Professional" value={profile.highly_skilled} icon={GraduationCap} fieldKey="highly_skilled" onClick={onFieldClick} />
-                <FieldItem label="Years of Experience" value={profile.years_experience} icon={Clock} fieldKey="years_experience" onClick={onFieldClick} />
-              </>
-            )}
-            {profile.purpose === "digital_nomad" && (
-              <>
-                <FieldItem label="Remote Income" value={profile.remote_income} icon={Laptop} fieldKey="remote_income" onClick={onFieldClick} />
-                <FieldItem label="Income Source" value={profile.income_source} icon={Banknote} fieldKey="income_source" onClick={onFieldClick} />
-                <FieldItem label="Monthly Income" value={profile.monthly_income} icon={Wallet} fieldKey="monthly_income" onClick={onFieldClick} />
-              </>
-            )}
-            {profile.purpose === "settle" && (
-              <>
-                <FieldItem label="Settlement Reason" value={profile.settlement_reason} icon={Home} fieldKey="settlement_reason" onClick={onFieldClick} />
-                <FieldItem label="Family Ties in Destination" value={profile.family_ties} icon={Users} fieldKey="family_ties" onClick={onFieldClick} />
-              </>
-            )}
-          </CategorySection>
-        )}
+          const catConfig = category.id === "purpose"
+            ? { ...category, label: purposeCategoryLabel }
+            : category
 
-        {/* Family & Dependents */}
-        <CategorySection 
-          category={CATEGORIES[2]} 
-          fieldsCount={relevantFamilyFields.length}
-          filledCount={countFilled(relevantFamilyFields)}
-        >
-          <FieldItem label="Moving Alone" value={profile.moving_alone === "yes" ? "Yes, alone" : profile.moving_alone === "no" ? "No, with others" : null} icon={User} fieldKey="moving_alone" onClick={onFieldClick} />
-          {profile.moving_alone === "no" && (
-            <>
-              <FieldItem label="Spouse/Partner Joining" value={profile.spouse_joining} icon={Users} fieldKey="spouse_joining" onClick={onFieldClick} />
-              <FieldItem label="Number of Children" value={profile.children_count} icon={Baby} fieldKey="children_count" onClick={onFieldClick} />
-              {profile.children_count && profile.children_count !== "0" && (
-                <FieldItem label="Children's Ages" value={profile.children_ages} icon={Baby} fieldKey="children_ages" onClick={onFieldClick} />
-              )}
-            </>
-          )}
-        </CategorySection>
-
-        {/* Financial Planning */}
-        <CategorySection 
-          category={CATEGORIES[3]} 
-          fieldsCount={financialFields.length}
-          filledCount={countFilled(financialFields)}
-        >
-          <FieldItem label="Available Savings" value={profile.savings_available} icon={Wallet} highlight fieldKey="savings_available" onClick={onFieldClick} />
-          <FieldItem label="Monthly Budget" value={profile.monthly_budget} icon={Banknote} fieldKey="monthly_budget" onClick={onFieldClick} />
-          <FieldItem label="Need Budget Help" value={profile.need_budget_help} fieldKey="need_budget_help" onClick={onFieldClick} />
-        </CategorySection>
-
-        {/* Background */}
-        <CategorySection 
-          category={CATEGORIES[4]} 
-          fieldsCount={relevantBackgroundFields.length}
-          filledCount={countFilled(relevantBackgroundFields)}
-        >
-          <FieldItem label="Language Skills" value={profile.language_skill} icon={Languages} fieldKey="language_skill" onClick={onFieldClick} />
-          <FieldItem label="Education Level" value={profile.education_level} icon={GraduationCap} fieldKey="education_level" onClick={onFieldClick} />
-          {profile.purpose === "work" && (
-            <FieldItem label="Work Experience" value={profile.years_experience} icon={Briefcase} fieldKey="years_experience" onClick={onFieldClick} />
-          )}
-        </CategorySection>
-
-        {/* Visa & Legal */}
-        <CategorySection 
-          category={CATEGORIES[5]} 
-          fieldsCount={legalFields.length}
-          filledCount={countFilled(legalFields)}
-        >
-          <FieldItem label="Prior Visa for Destination" value={profile.prior_visa} icon={FileText} fieldKey="prior_visa" onClick={onFieldClick} />
-          <FieldItem label="Previous Visa Rejections" value={profile.visa_rejections} icon={FileText} fieldKey="visa_rejections" onClick={onFieldClick} />
-        </CategorySection>
-
-        {/* Special Considerations */}
-        <CategorySection 
-          category={CATEGORIES[6]} 
-          fieldsCount={specialFields.length}
-          filledCount={countFilled(specialFields)}
-          defaultExpanded={false}
-        >
-          <FieldItem label="Healthcare Needs" value={profile.healthcare_needs} icon={Stethoscope} fieldKey="healthcare_needs" onClick={onFieldClick} />
-          <FieldItem label="Pets" value={profile.pets} icon={PawPrint} fieldKey="pets" onClick={onFieldClick} />
-          <FieldItem label="Special Requirements" value={profile.special_requirements} icon={Heart} fieldKey="special_requirements" onClick={onFieldClick} />
-        </CategorySection>
+          return (
+            <CategorySection
+              key={category.id}
+              category={catConfig}
+              fieldsCount={fields.length}
+              filledCount={countFilled(fields)}
+              defaultExpanded={category.id !== "special"}
+            >
+              {fields.map(renderField)}
+            </CategorySection>
+          )
+        })}
       </div>
     </div>
   )

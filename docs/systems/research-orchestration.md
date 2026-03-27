@@ -14,7 +14,7 @@
 
 ## 1. Overview
 
-GoMate's research system consists of **four independent API routes** that are fired together by a single trigger endpoint after the user confirms their profile. There is no formal orchestration layer — each route independently scrapes sources, calls OpenAI for analysis, and writes results to a `relocation_plans` JSONB column.
+GoMate's research system consists of **four independent API routes** backed by shared service helpers. They are coordinated by a single trigger endpoint after the user confirms their profile. There is still no formal orchestration layer — each research type independently scrapes sources, calls AI for analysis, and writes results to a `relocation_plans` JSONB column.
 
 The system is functional and produces real research results, but it is architecturally flat: each research type is fully self-contained with its own Firecrawl integration, its own AI prompt, its own response-shape normalization, and its own DB write path. No shared orchestration, retry, or quality-scoring layer exists.
 
@@ -24,7 +24,7 @@ The system is functional and produces real research results, but it is architect
 
 | Route | Method | Description |
 |---|---|---|
-| `POST /api/research/trigger` | POST | Fires all three research types in parallel via self-HTTP calls |
+| `POST /api/research/trigger` | POST | Fires all three research types in parallel via direct helper calls |
 | `GET /api/research/trigger` | GET | Returns current research status for user's active plan |
 | `POST /api/research/visa` | POST | Visa research (Firecrawl + GPT-4o-mini) |
 | `GET /api/research/visa` | GET | Retrieves cached visa research |
@@ -50,13 +50,10 @@ POST /api/research/trigger
 ├── If status === "in_progress" → return early (dedup guard)
 ├── Set research_status = "pending"
 │
-├── Get base URL from request headers or NEXT_PUBLIC_APP_URL
-│
-├── Fire three parallel HTTP self-calls via Promise.allSettled:
-│   ├── POST /api/research/visa          { planId }
-│   ├── POST /api/research/local-requirements  { planId }
-│   └── POST /api/research/checklist     { planId }
-│   (All three get forwarded Cookie header for auth)
+├── Fire three parallel helper calls via Promise.allSettled:
+│   ├── performVisaResearch(supabase, planId, user.id)
+│   ├── performLocalRequirementsResearch(supabase, planId, user.id)
+│   └── performChecklistResearch(supabase, user.id, planId)
 │
 ├── Await Promise.allSettled (all three must resolve)
 │
@@ -71,11 +68,13 @@ POST /api/research/trigger
 
 **maxDuration:** 60 seconds (double the chat route's 30s).
 
-### 3.2 Self-HTTP Call Pattern
+### 3.2 Direct Helper Call Pattern
 
-The trigger calls its sibling endpoints via `fetch()` with the same `Cookie` header forwarded for authentication. This is an unusual pattern where a server-side route calls itself via HTTP rather than importing and calling the handler functions directly.
+The trigger now imports shared research helpers directly. This removes the self-HTTP pattern, but the orchestration layer is still flat:
 
-**Gap:** This pattern requires `NEXT_PUBLIC_APP_URL` to be set, or falls back to `request.headers.get("origin")`. In production, if neither is set correctly, all three research calls will fail silently (the catch blocks return `{ ok: false }` without throwing).
+- each sub-research flow independently mutates the same `research_status` field
+- partial success still collapses to `status = "completed"`
+- no per-artifact state, retry policy, or quality gate exists
 
 ### 3.3 GET /api/research/trigger
 
@@ -304,15 +303,15 @@ Four of the five research columns are undocumented in the database schema. See P
 
 ```
 trigger/route.ts
-├── → fetch /api/research/visa           (self-HTTP)
-├── → fetch /api/research/local-requirements  (self-HTTP)
-└── → fetch /api/research/checklist      (self-HTTP)
+├── → performVisaResearch()
+├── → performLocalRequirementsResearch()
+└── → performChecklistResearch()
 
 Each route:
 ├── auth check
 ├── Firecrawl scrape/search (inline)
-├── AI analysis (inline)
-├── DB write (inline)
+├── AI analysis (inline helper logic)
+├── DB write (inline helper logic)
 └── Return result
 ```
 

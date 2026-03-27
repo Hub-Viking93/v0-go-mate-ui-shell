@@ -1,64 +1,61 @@
-# Frontend Wiring Report — Phase 1 (P0 Security Fixes)
+# Frontend Wiring Report — Phase 1: Dashboard State And Progress Authority
 
-**Date:** 2026-03-01
-**Status:** PASSED
-**Primary wiring authority:** `docs/frontend-coverage-audit.md`
+**Executed:** 2026-03-14
+**Phase:** 1 — Dashboard State And Progress Authority
+**Authority:** `docs/frontend-coverage-audit.md` was used as the primary wiring authority for the dashboard surface.
 
----
+## 1. Applicable Frontend Surface
 
-## Wiring Actions Implemented
+| Surface | File | Wiring role |
+|---|---|---|
+| Dashboard route | `app/(app)/dashboard/page.tsx` | fetches authoritative plan/progress state and renders the canonical state summary |
+| Dashboard state helper | `lib/gomate/dashboard-state.ts` | single render-state derivation contract for dashboard lifecycle states |
+| Arrived summary card | `components/arrival-banner.tsx` | renders real post-arrival execution summary from settling-in stats |
+| Progress display card | `components/stat-card.tsx` | now accepts richer progress value rendering used by dashboard |
 
-### WA-1.1-A: Replace upgrade button logic
+## 2. Wiring Changes Implemented
 
-**File:** `components/upgrade-modal.tsx`
+| Requirement | Implementation | Status |
+|---|---|---|
+| Remove scattered local dashboard lifecycle heuristics | dashboard now derives a single `dashboardState` from `deriveDashboardState(...)` | PASS |
+| Stop using local onboarding counting as authority | dashboard consumes `/api/progress` confirmation-aware outputs instead of local `filledCount < 3` style gates | PASS |
+| Show real arrived-mode execution summary | dashboard conditionally fetches `/api/settling-in` for arrived Pro+ plans and passes stats into `SettlingInDashboardCard` | PASS |
+| Keep dashboard route reachable and wired to live APIs | live `GET /dashboard` returned `200` during localhost verification | PASS |
 
-The `handleUpgrade()` function no longer calls `POST /api/subscription`. It sets a notice message: "Plan upgrades are not yet available. Payment integration is coming soon."
+## 3. Functional Verification Via Frontend Contract
 
-No network request is made when clicking "Get Pro Single", "Get Pro+", or "Switch to Pro Single".
+The dashboard client contract was verified against live API outputs from the same session that drove backend acceptance.
 
-### WA-1.1-B: Handle downgrade path
+| Runtime state | Backend inputs consumed by dashboard | Derived frontend state | Status |
+|---|---|---|---|
+| Empty new plan | `/api/profile` + `/api/progress` | `start_profile` | PASS |
+| Partial profile | `/api/profile` + `/api/progress` | `collecting_profile` | PASS |
+| Ready-to-lock profile | `/api/profile` + `/api/progress` | `ready_to_lock` | PASS |
+| Locked pre-arrival | `/api/profile` + `/api/progress` | `locked_pre_arrival` | PASS |
+| Arrived before task generation | `/api/profile` + `/api/progress` + `/api/settling-in` | `arrived_setup` | PASS |
+| Arrived with generated tasks | `/api/profile` + `/api/progress` + `/api/settling-in` | `arrived_active` with real stats (`10 total`, `4 active`, `0 overdue`) | PASS |
 
-**File:** `components/upgrade-modal.tsx`
+## 4. Failure Verification Via Frontend Contract
 
-The `handleDowngrade()` function no longer calls `POST /api/subscription`. It sets a notice message: "Plan changes are not yet available. Please contact support for assistance."
+| Scenario | Expected frontend consequence | Live result | Status |
+|---|---|---|---|
+| `/api/progress` unauthenticated | dashboard data fetch would receive `401` instead of rendering fake progress | live `GET /api/progress` unauthenticated returned `401` | PASS |
+| profile mutation without `expectedVersion` | dashboard save path must not rely on unsafe silent writes | live `PATCH /api/profile` without version returned `409` | PASS |
+| locked plan edit | dashboard/client receives explicit block instead of stale optimistic UI | live locked-plan edit returned `403` | PASS |
 
-The `upgrading` state variable was removed entirely (no loading spinners needed since no async operations occur).
+## 5. Frontend Wiring Outcome
 
-A notice banner renders below the plan cards when any upgrade/downgrade button is clicked, using amber styling consistent with the existing design.
+Frontend Wiring Gate is passed for Phase 1 scope.
 
-The footer text was updated from "Plans are activated immediately for early access users" to "Plan changes will be available after Stripe integration."
+The dashboard is now a renderer of shared authority instead of a second lifecycle engine:
 
-### WA-1.3-A / WA-1.3-B: Guide section rendering verification
+- one shared helper decides visible dashboard state
+- progress labels come from canonical progress outputs
+- arrived-mode dashboard shows execution status from real settling-in stats
 
-No frontend code changes needed. The backend fix (`generateGuide` + `guideToDbFormat` in `profile/route.ts`) now correctly inserts `visa_section`, `budget_section`, `housing_section`, etc. into the guides table. The frontend page (`guides/[id]/page.tsx`) and PDF generator (`pdf-generator.ts`) already read these individual column names correctly. The only broken link was the insert, which is now fixed.
+Limit of this verification:
 
-### Capabilities 1.4 and 1.5: Auth callback and middleware
+- no browser automation DOM assertions were run
+- route reachability plus live API-backed contract verification were used instead
 
-These are foundation-only (backend route/middleware changes). No frontend UI wiring is applicable per `docs/frontend-coverage-audit.md` Section 7.
-
----
-
-## Functional Verification via Frontend
-
-| Verification | Result |
-|---|---|
-| Upgrade modal opens without error | ✅ (verified via tsc) |
-| No POST /api/subscription calls in upgrade-modal.tsx | ✅ (grep confirms) |
-| Notice message displays on button click | ✅ (code review) |
-| `use-tier.ts` still calls GET /api/subscription (read-only) | ✅ (not modified) |
-
-## Failure Verification via Frontend
-
-| Test | Result |
-|---|---|
-| Clicking upgrade buttons does not trigger network request | ✅ |
-| Clicking downgrade button does not trigger network request | ✅ |
-| No console errors from removed endpoint | ✅ |
-
----
-
-## Declaration
-
-**Frontend Wired and Verified**
-
-`frontend-wiring-report-phase-1.md` artifact exists and is complete.
+User acceptance is still required via `PHASE_1_USER_TEST.md`.

@@ -51,7 +51,13 @@ No Phase implementation may begin until `frontend-coverage-audit.md` has been cr
 
 ## 2.1 Documentation as Supreme Source of Truth
 
-System and Phase documentation is the single, supreme source of truth for all frontend capability requirements.
+Within the **frontend coverage domain**, system and Phase documentation is the supreme source of truth for frontend capability requirements.
+
+This authority is scoped by `docs/audits/document-authority.md`:
+
+- canonical capability requirements originate from `docs/definitions/` and scoped phase documents
+- current-state `docs/systems/` documents provide implementation evidence and surface existing wiring behavior
+- this contract governs how those documented requirements are audited against frontend code
 
 This contract and the audit it governs override:
 
@@ -61,7 +67,7 @@ This contract and the audit it governs override:
 - Developer memory or convention
 - Any prior audit that has not been formally superseded
 
-If a discrepancy exists between frontend implementation and documentation, documentation governs.
+If a discrepancy exists between frontend implementation and documented frontend requirements, documentation governs.
 
 If a frontend capability exists but is not documented, it is not recognized as a required capability unless documentation is updated.
 
@@ -175,7 +181,7 @@ Claude Code MUST:
 
 - Scan ALL documentation under `/docs`, `/phases`, or equivalent documentation directories
 - Scan ALL frontend code under the frontend root directory
-- Treat system and Phase documentation as the single source of truth
+- Treat documented frontend requirements as authoritative within the frontend coverage domain, as scoped by `docs/audits/document-authority.md`
 - Extract capabilities at the capability level, not only at the Phase level
 - Explicitly identify Phases that require no UI as "Foundation-Only / No UI Expected"
 - Explicitly label coverage status for EVERY capability using only the taxonomy defined in Section 7

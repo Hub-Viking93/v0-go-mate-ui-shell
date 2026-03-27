@@ -1,61 +1,49 @@
-# Regression Report — Phase 1 (P0 Security Fixes)
+# Regression Report — Phase 1: Dashboard State And Progress Authority
 
-**Date:** 2026-03-01
-**Status:** PASSED — Regression Safe
+**Executed:** 2026-03-14
+**Phase:** 1 — Dashboard State And Progress Authority
 
----
+## 1. Regression Scope
 
-## Phase 0 Regression (Schema Integrity)
+Phase 1 touched these areas:
 
-Phase 0 was schema-only (migrations 011/012/013). No code changes were made in Phase 0, so no code regressions are possible. The schema columns added in Phase 0 are unaffected by Phase 1 changes.
+- `app/(app)/dashboard/page.tsx`
+- `components/arrival-banner.tsx`
+- `components/stat-card.tsx`
+- `lib/gomate/dashboard-state.ts`
+- `lib/gomate/progress.ts`
+- `app/api/progress/route.ts`
 
----
+Adjacent behavior reviewed for regression risk:
 
-## Phase 1 Regression (P0 Security Fixes)
+- Phase 0 core-state authority and optimistic-concurrency profile writes
+- dashboard lock/unlock flow
+- arrival transition flow
+- settling-in generation flow
+- plan switching / current-plan authority
 
-### API Route Health
+## 2. Regression Verification
 
-| Route | Method | Expected | Actual | Status |
-|---|---|---|---|---|
-| `/api/subscription` | GET | 401 (no auth) | 401 | ✅ |
-| `/api/subscription` | POST | 405 (removed) | 405 | ✅ |
-| `/api/profile` | GET | 401 (no auth) | 401 | ✅ |
-| `/api/guides` | GET | 401 (no auth) | 401 | ✅ |
-| `/api/chat` | GET | 405 (POST only) | 405 | ✅ |
+| Surface | Verification | Status |
+|---|---|---|
+| Phase 0 current-plan authority | new dashboard flow used real current-plan switching without breaking ownership/state | SAFE |
+| Versioned profile writes | missing-version mutation still fails with `409`; no regression to silent last-write-wins | SAFE |
+| Lock flow | lock still returned the expected `{ plan }` contract and transitioned to pre-arrival locked state | SAFE |
+| Arrival flow | arrival still transitioned the locked plan to `arrived` and enabled settling-in flows | SAFE |
+| Settling-in generation | generated task stats were returned and consumed without breaking the API contract | SAFE |
+| Dashboard route | live `GET /dashboard` returned `200` after the Phase 1 changes | SAFE |
 
-### Auth Flow Health
+## 3. TypeScript Regression Check
 
-| Test | Expected | Actual | Status |
-|---|---|---|---|
-| `/auth/error?message=test` | 200 | 200 | ✅ |
-| `/auth/callback?next=//evil.com` | Redirect to `/auth/error` (not evil.com) | `/auth/error` | ✅ |
-| Root `/` unauthenticated | 307 redirect | 307 | ✅ |
+Scoped TypeScript verification for Phase 1-touched files produced no matching errors.
 
-### User Acceptance (All Tests)
+Repo-wide `pnpm tsc --noEmit` remains red on unrelated baseline files outside this phase scope. That baseline issue remains open and is logged in `bug-phase-1.md`.
 
-| Test | Result |
-|---|---|
-| Test 1: GET /api/subscription returns data | ✅ PASSED |
-| Test 2: Guide sections render correctly | ✅ PASSED (after params.id → use(params) fix) |
-| Test 3: Upgrade modal shows notice | ✅ PASSED |
-| Test 4: Downgrade shows notice | ✅ PASSED |
-| Negative Test 1: POST /api/subscription → 405 | ✅ PASSED |
-| Negative Test 2: Malicious redirect blocked | ✅ PASSED |
-| Negative Test 3: JavaScript URL blocked | ✅ PASSED |
-| Negative Test 4: All non-GET methods → 405 | ✅ PASSED |
+## 4. Regression Outcome
 
-### Bug Fix During Phase 1
+No scoped regression was found during the Phase 1 implementation pass.
 
-One bug was discovered and fixed during User Acceptance:
+Regression Gate is satisfied for Phase 1 scope.
 
-- **`app/(app)/guides/[id]/page.tsx`**: `params.id` accessed synchronously. Next.js 16 requires `params` to be unwrapped with `React.use()`. Fixed by changing type to `Promise<{ id: string }>` and destructuring with `use(params)`.
-
-This was a pre-existing latent bug (not introduced by Phase 1 changes) that surfaced when the guide page was tested with real data for the first time.
-
----
-
-## Declaration
-
-**Regression Safe**
-
-All phases from Phase 0 through Phase 1 were tested. All regression tests passed. No regressions were found. System is declared regression-safe.
+- repo-wide TypeScript baseline is still red outside Phase 1 ownership
+- User Acceptance Gate passed on `2026-03-14`

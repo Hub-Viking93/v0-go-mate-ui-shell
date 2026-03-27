@@ -15,25 +15,25 @@ interface ComplianceAlert {
   type: "overdue" | "urgent"
 }
 
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
-}
-
-function daysBetween(a: Date, b: Date): number {
-  return Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24))
-}
-
 interface ComplianceAlertsProps {
   planStage?: string
   className?: string
 }
 
+const DISMISS_KEY = 'gomate:compliance-alerts-dismissed'
+
 export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps) {
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([])
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(DISMISS_KEY) === 'true'
+  })
   const { toast } = useToast()
+
+  function handleDismiss() {
+    localStorage.setItem(DISMISS_KEY, 'true')
+    setDismissed(true)
+  }
 
   useEffect(() => {
     if (planStage !== "arrived") return
@@ -44,33 +44,35 @@ export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps
         if (!res.ok) return
         const data = await res.json()
 
-        if (!data.tasks || !data.arrivalDate) return
+        if (!data.tasks) return
 
-        const arrival = new Date(data.arrivalDate)
-        const today = new Date()
         const foundAlerts: ComplianceAlert[] = []
 
         for (const task of data.tasks) {
           if (
-            !task.is_legal_requirement ||
-            !task.deadline_days ||
+            task.compliance_scope !== "required" ||
             task.status === "completed" ||
             task.status === "skipped"
           ) continue
 
-          const deadlineDate = addDays(arrival, task.deadline_days)
-          const daysLeft = daysBetween(today, deadlineDate)
+          // Use server-computed compliance status from the settling-in read model.
+          const urgency = task.compliance_status as string | undefined
+          const daysLeft = task.days_until_deadline as number | null
 
-          if (daysLeft <= 7) {
+          if (urgency === "overdue" || urgency === "urgent") {
+            const deadlineDate = task.deadline_at
+              ? new Date(task.deadline_at).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })
+              : ""
+
             foundAlerts.push({
               id: task.id,
               title: task.title,
-              daysLeft,
-              deadlineDate: deadlineDate.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-              }),
-              type: daysLeft < 0 ? "overdue" : "urgent",
+              daysLeft: daysLeft ?? 0,
+              deadlineDate,
+              type: urgency === "overdue" ? "overdue" : "urgent",
             })
           }
         }
@@ -139,7 +141,7 @@ export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps
                   </Link>
                 </Button>
                 <button
-                  onClick={() => setDismissed(true)}
+                  onClick={handleDismiss}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Dismiss alerts"
                 >
@@ -183,7 +185,7 @@ export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps
                   </Link>
                 </Button>
                 <button
-                  onClick={() => setDismissed(true)}
+                  onClick={handleDismiss}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Dismiss alerts"
                 >

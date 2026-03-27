@@ -119,9 +119,9 @@ create unique index relocation_plans_current_per_user
   on public.relocation_plans (user_id) where (is_current = true);
 ```
 
-This enforces the invariant that a user can have at most one plan where `is_current = true`. Switching plans is a two-step UPDATE: set all to false, then set the target to true. If these two updates are not atomic, a user could briefly have zero current plans.
+This enforces the invariant that a user can have at most one plan where `is_current = true`. The active API path now switches plans through the `switch_current_plan` RPC, which performs the clear-and-set sequence server-side.
 
-**Gap:** The two-step switch is not wrapped in a transaction in `plan-factory.ts` or `app/api/plans/route.ts`. A failure between the two UPDATE statements could leave all plans as `is_current = false`.
+**Gap:** `app/api/plans/route.ts` uses the RPC and is atomic at the request boundary, but the unused helper in `plan-factory.ts` still performs a two-step non-atomic switch. If that helper is reintroduced without the RPC, it can leave all plans as `is_current = false`.
 
 ---
 
@@ -133,7 +133,7 @@ All functions are server-side (`"use server"`), creating a Supabase server clien
 |---|---|---|
 | `getCurrentPlan()` | `() → Promise<RelocationPlan \| null>` | Gets `is_current = true` plan; falls back to most recent if none found, auto-sets it as current |
 | `createPlan(profile?, title?)` | `(Partial<Profile>?, string?) → Promise<RelocationPlan \| null>` | Clears all `is_current`, inserts new plan as current |
-| `switchCurrentPlan(planId)` | `(string) → Promise<RelocationPlan \| null>` | Two-step non-atomic switch |
+| `switchCurrentPlan(planId)` | `(string) → Promise<RelocationPlan \| null>` | Two-step non-atomic switch in dead helper code; active API path uses RPC instead |
 | `listUserPlans()` | `() → Promise<RelocationPlan[]>` | Returns all plans ordered by is_current DESC, created_at DESC |
 | `renamePlan(planId, title)` | `(string, string) → Promise<boolean>` | Updates title + updated_at |
 | `archivePlan(planId)` | `(string) → Promise<boolean>` | Sets status=archived, is_current=false |
@@ -242,9 +242,9 @@ The TypeScript type and the DB schema diverged at some point. The interface refl
 
 ## 8. Gap Analysis — Critical Findings
 
-### G-4.2-A: Two-step is_current switch is non-atomic
+### G-4.2-A: Dead helper still contains non-atomic is_current switch logic
 
-Both `plan-factory.ts:switchCurrentPlan()` and `app/api/plans/route.ts` PATCH switch action perform two UPDATE statements without a transaction: first `is_current = false` for all, then `is_current = true` for the target. A failure between the two leaves the user with no current plan.
+`app/api/plans/route.ts` PATCH now delegates switching to the `switch_current_plan` RPC, so the active request path is atomic at the database boundary. The remaining non-atomic risk is confined to the unused `plan-factory.ts:switchCurrentPlan()` helper, which still performs two UPDATE statements without a transaction.
 
 ### G-4.2-B: RelocationPlan interface has 4 unused or shadow fields
 
@@ -272,7 +272,7 @@ Plans can be archived but not permanently deleted via API. The DB has `on delete
 
 | Item | Current | Target |
 |---|---|---|
-| is_current switch | Two-step, non-atomic | Wrapped in a database transaction |
+| is_current switch | RPC-backed in the active API path; two-step non-atomic in dead helper code | Explicit current_plan pointer or keep RPC as the only switch path |
 | Plan status "completed" | Unreachable | Wire stage="complete" → status="completed" |
 | Interface vs schema alignment | 4 shadow/unused fields | Align RelocationPlan interface with actual DB columns |
 | Archived plans in limit count | Yes | Exclude archived plans from plan limit count |

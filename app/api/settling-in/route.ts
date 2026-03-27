@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { getUserTier } from "@/lib/gomate/tier"
-import { computeAvailableTasks } from "@/lib/gomate/settling-in-generator"
+import {
+  buildSettlingView,
+  isPostArrivalStage,
+  summarizeHiddenPostArrivalState,
+  zeroSettlingStats,
+} from "@/lib/gomate/post-arrival"
 
 // GET: List all settling-in tasks for the current plan
 export async function GET() {
@@ -35,11 +40,24 @@ export async function GET() {
     return NextResponse.json({ error: "No active plan found" }, { status: 404 })
   }
 
-  if (plan.stage !== 'arrived') {
+  if (!isPostArrivalStage(plan.stage)) {
+    const { data: hiddenTasks } = await supabase
+      .from("settling_in_tasks")
+      .select("status, is_legal_requirement")
+      .eq("plan_id", plan.id)
+
     return NextResponse.json({
       tasks: [],
       stage: plan.stage,
-      arrivalDate: null
+      arrivalDate: null,
+      generated: false,
+      executionEnabled: false,
+      stats: zeroSettlingStats(),
+      legacyTaskState: summarizeHiddenPostArrivalState({
+        tasks: hiddenTasks || [],
+        generatedFlag: Boolean(plan.post_relocation_generated),
+        arrivalDate: plan.arrival_date,
+      }),
     })
   }
 
@@ -54,53 +72,37 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 })
   }
 
-  const allTasks = tasks || []
+  const now = new Date()
+  const view = buildSettlingView({
+    tasks: tasks || [],
+    arrivalDate: plan.arrival_date,
+    now,
+  })
 
-  // Auto-unlock tasks whose dependencies are all completed
-  const nowAvailable = computeAvailableTasks(
-    allTasks.map((t) => ({
-      id: t.id,
-      status: t.status,
-      depends_on: (t.depends_on as string[]) || [],
-    }))
-  )
-
-  // Batch update newly available tasks
-  if (nowAvailable.length > 0) {
+  // Persist OVERDUE status changes
+  if (view.overdueIds.length > 0) {
     await supabase
       .from("settling_in_tasks")
-      .update({ status: "available", updated_at: new Date().toISOString() })
-      .in("id", nowAvailable)
-
-    // Reflect in response
-    for (const t of allTasks) {
-      if (nowAvailable.includes(t.id)) {
-        t.status = "available"
-      }
-    }
+      .update({ status: "overdue", updated_at: now.toISOString() })
+      .in("id", view.overdueIds)
   }
 
-  // Compute stats
-  const total = allTasks.length
-  const completed = allTasks.filter((t) => t.status === "completed").length
-  const available = allTasks.filter((t) => t.status === "available" || t.status === "in_progress").length
-  const legalTasks = allTasks.filter((t) => t.is_legal_requirement)
-  const legalCompleted = legalTasks.filter((t) => t.status === "completed").length
+  // Auto-unlock tasks whose dependencies are all completed
+  // Batch update newly available tasks
+  if (view.nowAvailableIds.length > 0) {
+    await supabase
+      .from("settling_in_tasks")
+      .update({ status: "available", updated_at: now.toISOString() })
+      .in("id", view.nowAvailableIds)
+  }
 
   return NextResponse.json({
-    tasks: allTasks,
+    tasks: view.tasks,
     planId: plan.id,
     arrivalDate: plan.arrival_date,
     stage: plan.stage,
     generated: plan.post_relocation_generated || false,
-    stats: {
-      total,
-      completed,
-      available,
-      locked: total - completed - available,
-      legalTotal: legalTasks.length,
-      legalCompleted,
-      progressPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
-    },
+    executionEnabled: true,
+    stats: view.stats,
   })
 }

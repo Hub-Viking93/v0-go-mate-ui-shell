@@ -1,80 +1,93 @@
-# Backend Acceptance — Phase 2 (Settling-In Stage Integrity)
+# Backend Acceptance — Phase 2: Research And Checklist Integrity
 
-**Date:** 2026-03-01
-**Status:** PASSED
-
----
-
-## 4.1 Contract Verification
-
-All changes specified in `docs/build-protocol.md` § Phase 2 are implemented:
-
-| File | Change | Verified |
-|---|---|---|
-| `lib/gomate/dag-validator.ts` | Created; exports `isValidDAG()` with DFS three-color marking | ✅ |
-| `app/api/settling-in/generate/route.ts` | Stage check at line 43; DAG validation at line 128; `isValidDAG` import at line 9 | ✅ |
-| `app/api/settling-in/[id]/route.ts` | Plan lookup + stage check at lines 58-71 | ✅ |
-| `app/api/settling-in/route.ts` | Stage check at line 38 returning `{ tasks: [], stage, arrivalDate: null }` | ✅ |
-| `app/(app)/settling-in/page.tsx` | Frontend wiring: `planStage` state, pre-arrival locked card (WA-2.3-A/B) | ✅ |
-
-TypeScript compilation: `tsc --noEmit` produces zero new errors in Phase 2 files.
+**Phase:** Master-audit Phase 2
+**Master gaps:** B2-002, B2-004, B2-005, B2-007, B2-008, B2-010, B2-011, B2-012
+**Date:** 2026-03-14
+**Status:** BACKEND ACCEPTED
 
 ---
 
-## 4.2 Functional Verification (Authenticated Runtime Tests)
+## 1. Contract Verification — PASSED
 
-Tested via `curl` against `localhost:3000` with authenticated Pro+ user session (plan.stage = 'complete', pre-arrival).
+### B2-002: Research Status Integrity
+- Added `research_meta` JSONB column (migration 021) for per-artifact quality tracking
+- `POST /api/research/trigger` computes honest aggregate status: `"completed"` / `"partial"` / `"failed"`
+- Per-artifact metadata stored: `{ visa: { status, quality, optionCount }, localRequirements: { status }, checklist: { status, isFallback, itemCount, hadVisaResearch } }`
+- `GET /api/research/trigger` returns `meta` field
+- Verified: research_meta column exists and is queryable
 
-### Stage Check Tests
+### B2-004/B2-012: Visa Authority Consolidation
+- `visa_research` JSONB is the canonical downstream visa contract
+- `performChecklistResearch()` reads `visa_research` as canonical input
+- `generateChecklistFromPlan()` selects first/selected visa option as canonical input
 
-| Test | Method | URL | Expected | Actual | Status |
-|---|---|---|---|---|---|
-| GET settling-in (pre-arrival) | GET | /api/settling-in | `{tasks:[],stage:"complete",arrivalDate:null}` | Exact match | ✅ |
-| POST generate (pre-arrival) | POST | /api/settling-in/generate | 400 + "Settling-in features require arrival confirmation" | 400 + exact message | ✅ |
-| PATCH task (pre-arrival, fake ID) | PATCH | /api/settling-in/{uuid} | 404 (task not found before stage check) | 404 | ✅ |
+### B2-005/B2-011: Visa Explainability and Source Granularity
+- `VisaOption` extended with `factors[]`, `assumptions[]`, `sourceUrls[]`
+- LLM prompt requests per-option factors, assumptions, and source URLs
+- `VisaResearchResult` extended with `quality` and `sourceCount`
+- `GET /api/research/visa` returns `quality` field
 
-### DAG Validator Unit Tests (via `npx tsx`)
+### B2-007: Checklist Downstream Binding
+- `GeneratedChecklist` extended with `isFallback` boolean and `generatorInputs` metadata
+- `generatePersonalizedChecklist()` tracks whether fallback was used
+- `performChecklistResearch()` returns `ChecklistResearchMeta`
+- `GET /api/research/checklist` returns `isFallback` field
 
-| Test | Input | Expected | Actual | Status |
-|---|---|---|---|---|
-| Simple cycle (a↔b) | `[{a→b},{b→a}]` | `false` | `false` | ✅ |
-| Valid chain (a→b) | `[{a→[]},{b→[a]}]` | `true` | `true` | ✅ |
-| Empty graph | `[]` | `true` | `true` | ✅ |
-| Self-cycle | `[{x→x}]` | `false` | `false` | ✅ |
-| Diamond DAG | 4 nodes | `true` | `true` | ✅ |
-| 3-node indirect cycle | `a→c→b→a` | `false` | `false` | ✅ |
+### B2-008: Document Identity Coupling
+- Exported `canonicalDocumentId()` function from `checklist-generator.ts`
+- All checklist items normalized to canonical IDs
+- `PATCH /api/documents` validates documentId against checklist items
+- Document status entries include `documentName` for traceability
 
----
-
-## 4.3 Failure Verification
-
-| Test | Expected | Actual | Status |
-|---|---|---|---|
-| Auth required (no cookie) on GET | 401 | 401 | ✅ |
-| Auth required (no cookie) on POST generate | 401 | 401 | ✅ |
-| Auth required (no cookie) on PATCH | 401 | 401 | ✅ |
-| Cycle in task graph triggers fallback | Dependencies stripped to [] | Code review confirmed (generate/route.ts:128-132) | ✅ |
-
----
-
-## Phase 1 Regression
-
-| Test | Expected | Actual | Status |
-|---|---|---|---|
-| POST /api/subscription | 405 | 405 | ✅ |
-| GET /api/subscription (authed) | 200 with subscription data | 200 | ✅ |
-| Auth callback ?next=//evil.com | Redirect to /auth/error | /auth/error | ✅ |
+### B2-010: Extraction Consistency
+- Replaced regex JSON extraction with `generateObject()` + Zod schema
+- Added `sourceUrl` optional field to `ChecklistItem`
 
 ---
 
-## Bugs Discovered
+## 2. Functional Verification — PASSED
 
-None.
+Runtime verification against localhost:3000 with authenticated test user:
+
+| Test | Result |
+|---|---|
+| `research_meta` column accessible | PASS |
+| Visa research has canonical structure | PASS |
+| Checklist has 7 items, all canonical snake_case IDs | PASS |
+| Document status PATCH with documentName | PASS |
+| `canonicalDocumentId()` normalization: 4/4 cases | PASS |
+| No new TypeScript errors | PASS |
 
 ---
 
-## Declaration
+## 3. Failure Verification — PASSED
+
+| Test | Result |
+|---|---|
+| Pre-existing data without new fields → no runtime crash | PASS |
+| canonicalDocumentId edge cases | PASS |
+| PATCH /api/documents with invalid documentId → 400 | PASS (code-verified) |
+
+---
+
+## 4. Files Changed
+
+| File | Gap |
+|---|---|
+| `supabase/scripts/021_add_research_meta.sql` | B2-002 |
+| `lib/gomate/research-visa.ts` | B2-002, B2-005, B2-011 |
+| `lib/gomate/checklist-generator.ts` | B2-007, B2-008, B2-010, B2-011 |
+| `lib/gomate/research-checklist.ts` | B2-002, B2-007, B2-004 |
+| `app/api/research/trigger/route.ts` | B2-002 |
+| `app/api/research/visa/route.ts` | B2-002, B2-005 |
+| `app/api/research/checklist/route.ts` | B2-007 |
+| `app/api/documents/route.ts` | B2-008 |
+| `supabase/scripts/022_add_partial_research_status.sql` | B2-002 |
+
+---
+
+## 5. Bug Resolution
+
+All bugs in `bug-phase-2.md` — no new bugs introduced by Phase 2.
 
 **Backend Accepted**
-
-All contract, functional, and failure verification stages passed with authenticated runtime testing. No bugs discovered.

@@ -2,8 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "./profile-schema"
+import { switchCurrentPlan as setCurrentPlan } from "./core-state"
 
-export type PlanStage = "collecting" | "generating" | "complete"
+export type PlanStage = "collecting" | "complete" | "arrived"
 
 export interface RelocationPlan {
   id: string
@@ -28,34 +29,13 @@ export async function getCurrentPlan(): Promise<RelocationPlan | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   
-  // Try to find the current plan (is_current = true)
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("relocation_plans")
     .select("*")
     .eq("user_id", user.id)
     .eq("is_current", true)
     .maybeSingle()
-  
-  if (data) return data as RelocationPlan
-  
-  // Fallback: get most recent plan and set it as current
-  const { data: latest } = await supabase
-    .from("relocation_plans")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  
-  if (!latest) return null
-  
-  // Mark it as current
-  await supabase
-    .from("relocation_plans")
-    .update({ is_current: true })
-    .eq("id", latest.id)
-  
-  return { ...latest, is_current: true } as RelocationPlan
+  return (data as RelocationPlan | null) || null
 }
 
 // Create a new plan for the user, marking it as current
@@ -64,12 +44,6 @@ export async function createPlan(initialProfile?: Partial<Profile>, title?: stri
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  
-  // Clear is_current from all existing plans
-  await supabase
-    .from("relocation_plans")
-    .update({ is_current: false })
-    .eq("user_id", user.id)
   
   // Auto-generate title if not provided
   const autoTitle = title || generatePlanTitle(initialProfile)
@@ -82,7 +56,7 @@ export async function createPlan(initialProfile?: Partial<Profile>, title?: stri
       stage: "collecting",
       title: autoTitle,
       status: "active",
-      is_current: true,
+      is_current: false,
     })
     .select()
     .single()
@@ -92,7 +66,21 @@ export async function createPlan(initialProfile?: Partial<Profile>, title?: stri
     return null
   }
   
-  return data as RelocationPlan
+  const switchResult = await setCurrentPlan(supabase, user.id, data.id)
+
+  if (!switchResult.ok) {
+    console.error("[GoMate] Failed to mark new plan current:", switchResult.error)
+    return null
+  }
+
+  const { data: currentPlan } = await supabase
+    .from("relocation_plans")
+    .select("*")
+    .eq("id", data.id)
+    .eq("user_id", user.id)
+    .single()
+
+  return currentPlan as RelocationPlan
 }
 
 // Generate a default title from profile data
@@ -124,25 +112,19 @@ export async function switchCurrentPlan(planId: string): Promise<RelocationPlan 
   
   if (!targetPlan) return null
   
-  // Clear is_current from all plans
-  await supabase
-    .from("relocation_plans")
-    .update({ is_current: false })
-    .eq("user_id", user.id)
-  
-  // Set the target plan as current
-  const { data, error } = await supabase
-    .from("relocation_plans")
-    .update({ is_current: true })
-    .eq("id", planId)
-    .eq("user_id", user.id)
-    .select()
-    .single()
-  
-  if (error) {
-    console.error("[GoMate] Failed to switch plan:", error)
+  const switchResult = await setCurrentPlan(supabase, user.id, planId)
+
+  if (!switchResult.ok) {
+    console.error("[GoMate] Failed to switch plan:", switchResult.error)
     return null
   }
+
+  const { data } = await supabase
+    .from("relocation_plans")
+    .select("*")
+    .eq("id", planId)
+    .eq("user_id", user.id)
+    .single()
   
   return data as RelocationPlan
 }

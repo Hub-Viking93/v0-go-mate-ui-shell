@@ -1,90 +1,88 @@
-# Backend Acceptance — Phase 3 (Data Integrity)
+# Backend Acceptance — Phase 3: Post-Arrival Execution Consistency
 
-**Date:** 2026-03-02
-**Status:** PASSED
+**Executed:** 2026-03-14  
+**Phase:** 3 — Post-Arrival Execution Consistency  
+**Master gaps:** `B3-001`, `B3-002`, `B3-003`, `B3-005`, `B3-006`, `B3-008`, `B3-009`, `B3-010`  
+**Verification mode:** Real localhost runtime verification against `http://127.0.0.1:3000` with the configured Supabase-backed test account, plus targeted TypeScript verification on Phase 3-touched files.
 
----
+## 1. Contract Verification
 
-## 4.1 Contract Verification
-
-All changes specified in `docs/build-protocol.md` § Phase 3 are implemented:
-
-| File | Change | Verified |
+| Requirement | Verification | Status |
 |---|---|---|
-| `scripts/014_add_plan_switch_rpc.sql` | Created; defines `switch_current_plan(p_user_id, p_plan_id)` PL/pgSQL function with `security definer` | ✅ |
-| `app/api/plans/route.ts` | Switch action (lines 144–162) replaced: two sequential writes → `supabase.rpc("switch_current_plan", ...)` + re-fetch | ✅ |
-| `app/api/profile/route.ts` | Plan creation race condition (lines 30–48): on `createError`, re-fetches existing plan via `maybeSingle()` instead of returning 500 | ✅ |
-| `app/api/settling-in/generate/route.ts` | `task_key` populated from deterministic title slug (line 115): `title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64)` | ✅ |
+| Post-arrival surfaces use one coherent arrived authority | Shared `isPostArrivalStage()` gate now drives progress suppression, settling-in reads, generate, PATCH, and why-it-matters | PASS |
+| Pre-arrival plans do not surface meaningful post-arrival progress | `GET /api/progress` now returns `post_arrival_progress = 0/0` and `compliance_progress = 0/0` unless the authoritative stage is `arrived` | PASS |
+| Hidden legacy task state is surfaced honestly without enabling execution | `GET /api/progress` and `GET /api/settling-in` now return hidden-task metadata for non-arrived plans instead of leaking execution progress | PASS |
+| Compliance rendering is computed server-side from one canonical path | `lib/gomate/post-arrival.ts` computes deadlines, urgency, blocker info, `compliance_scope`, and `compliance_status` for the API response consumed by UI surfaces | PASS |
+| Why-it-matters respects execution-stage authority | `POST /api/settling-in/[id]/why-it-matters` now rejects non-arrived plans and locked tasks with `400` | PASS |
+| Task mutation surface does not allow client-forced derived states | `PATCH /api/settling-in/[id]` no longer accepts `status: "overdue"` from clients | PASS |
+| Existing arrived task sets are reused coherently | `POST /api/settling-in/generate` now heals legacy `post_relocation_generated` drift and returns cached canonical task/state output when rows already exist | PASS |
 
-TypeScript compilation: `tsc --noEmit` produces zero new errors in Phase 3 files.
+## 2. Functional Verification
 
----
+Authenticated localhost flow executed on `2026-03-14`:
 
-## 4.2 Functional Verification (Authenticated Runtime Tests)
-
-Tested via `curl` against `localhost:3000` with authenticated Pro+ user session.
-
-### Plan Switch (Atomic RPC)
-
-| Test | Method | URL | Expected | Actual | Status |
-|---|---|---|---|---|---|
-| PATCH /api/plans switch (pre-migration) | PATCH | /api/plans | 500 (RPC not found) | 500 "Failed to switch plan" | ✅ (expected — migration 014 not yet applied) |
-| Code review: RPC call structure | Static | plans/route.ts:145-148 | `supabase.rpc("switch_current_plan", { p_user_id, p_plan_id })` | Exact match | ✅ |
-| Code review: re-fetch after RPC | Static | plans/route.ts:154-159 | `.select().eq("id", planId).eq("user_id", user.id).single()` | Exact match | ✅ |
-
-**Note:** Full runtime verification of plan switching requires migration 014 to be applied in the Supabase SQL editor. The code is verified correct; the RPC function definition in `scripts/014_add_plan_switch_rpc.sql` matches the spec exactly.
-
-### Profile Race Condition Fix
-
-| Test | Method | URL | Expected | Actual | Status |
-|---|---|---|---|---|---|
-| GET /api/profile (normal path) | GET | /api/profile | 200 with plan data | 200, plan returned | ✅ |
-| Code review: createError fallback | Static | profile/route.ts:42-52 | On error: re-fetch with `maybeSingle()`, return existing plan | Exact match | ✅ |
-| Code review: hard failure path | Static | profile/route.ts:48-50 | If re-fetch also fails: `console.error` + return 500 | Exact match | ✅ |
-
-### task_key Population
-
-| Test | Method | Expected | Actual | Status |
-|---|---|---|---|---|
-| Slug generation: "Register at City Hall (Anmeldung)" | Unit test | `register-at-city-hall-anmeldung` | `register-at-city-hall-anmeldung` | ✅ |
-| Slug generation: "Open a German Bank Account" | Unit test | `open-a-german-bank-account` | `open-a-german-bank-account` | ✅ |
-| Slug generation: "Get Health Insurance — Mandatory" | Unit test | `get-health-insurance-mandatory` | `get-health-insurance-mandatory` | ✅ |
-| Slug generation: leading/trailing special chars | Unit test | Trimmed, no leading/trailing hyphens | Clean slugs | ✅ |
-| URL-safe characters only (a-z, 0-9, hyphens) | Unit test | `true` for all test cases | `true` | ✅ |
-| Max length ≤ 64 chars | Unit test | All ≤ 64 | All ≤ 64 | ✅ |
-
----
-
-## 4.3 Failure Verification
-
-| Test | Expected | Actual | Status |
+| Flow | Expected behavior | Live result | Status |
 |---|---|---|---|
-| Auth required (no cookie) on GET /api/settling-in | 401 | 401 | ✅ |
-| Auth required (no cookie) on POST /api/settling-in/generate | 401 | 401 | ✅ |
-| POST /api/subscription removed | 405 | 405 | ✅ |
+| Current collecting plan with hidden settling rows | no visible post-arrival progress; hidden state only | `GET /api/progress` returned `post_arrival_progress=0/0`, `compliance_progress=0/0`, plus `post_arrival_state.hidden={ hiddenTaskCount: 9, hiddenCompletedCount: 3 }` | PASS |
+| Same collecting plan on settling-in read | no execution surface, but honest hidden-state summary | `GET /api/settling-in` returned `tasks=[]`, `executionEnabled=false`, zero stats, and `legacyTaskState={ hiddenTaskCount: 9, generatedFlag: true, arrivalDatePresent: true }` | PASS |
+| Switch to existing arrived plan | execution surface becomes active | `PATCH /api/plans` switch succeeded and `GET /api/settling-in` returned `executionEnabled=true`, `taskCount=10`, `stats={ total:10, available:4, locked:6, legalTotal:3 }` | PASS |
+| Arrived plan compliance fields | server provides canonical compliance state to UI | first returned task included `compliance_scope="required"`, `compliance_status="upcoming"`, `urgency="normal"` | PASS |
+| Cached generation on arrived plan | existing task rows reused consistently | `POST /api/settling-in/generate` returned `200`, `cached=true`, and canonical stats matching `GET /api/settling-in` | PASS |
+| Why-it-matters on arrived active task | allowed | `POST /api/settling-in/{availableTask}/why-it-matters` returned `200` | PASS |
+| Why-it-matters on hidden task from collecting plan | blocked | direct POST against a collecting-plan task ID returned `400 { error: "Task enrichment requires arrival confirmation" }` | PASS |
+| Restore original current plan | user state restored | `PATCH /api/plans` switch restored plan `04e28c30-dd79-4067-be41-7ea0059e0f94` as current | PASS |
 
----
+## 3. Failure Verification
 
-## Phase 1 + Phase 2 Regression
-
-| Test | Expected | Actual | Status |
+| Scenario | Expected behavior | Live result | Status |
 |---|---|---|---|
-| POST /api/subscription | 405 | 405 | ✅ |
-| GET /api/subscription (authed) | 200 with subscription data | 200, tier: pro_plus | ✅ |
-| Auth callback ?next=//evil.com | Redirect to /auth/error | /auth/error | ✅ |
-| GET /api/settling-in (pre-arrival) | `{tasks:[], stage, arrivalDate:null}` | `{tasks:[], stage:"collecting", arrivalDate:null}` | ✅ |
-| POST /api/settling-in/generate (pre-arrival) | 400 | 400 | ✅ |
+| Client attempts `status: "overdue"` | safe rejection | arrived-plan `PATCH /api/settling-in/{id}` with `{ status: "overdue" }` returned `400` | PASS |
+| Hidden task enrichment on non-arrived plan | safe rejection | direct POST on hidden task from collecting plan returned `400` | PASS |
+| Pre-arrival settling-in read | no accidental task leakage | `GET /api/settling-in` returned zero visible tasks and zero execution stats | PASS |
 
----
+## 4. Bugs Documented During Backend Acceptance
 
-## Bugs Discovered
+See `bug-phase-3.md`.
 
-None.
+All Phase 3-scoped bugs discovered during this pass were fixed in-session.
 
----
+## 5. TypeScript Verification
 
-## Declaration
+Targeted verification for the Phase 3-touched files produced no matching errors:
 
-**Backend Accepted**
+```bash
+pnpm tsc --noEmit --pretty false 2>&1 | rg 'lib/gomate/post-arrival\.ts|lib/gomate/progress\.ts|app/api/progress/route\.ts|app/api/settling-in/route\.ts|app/api/settling-in/generate\.ts|app/api/settling-in/\[id\]/route\.ts|app/api/settling-in/\[id\]/why-it-matters\.ts|app/\(app\)/settling-in/page\.tsx|components/compliance-alerts\.tsx|components/compliance-timeline\.tsx|components/settling-in-task-card\.tsx'
+```
 
-All contract, functional, and failure verification stages passed. Migration 014 requires user application in Supabase SQL editor before plan switch can be tested at runtime.
+Result:
+
+- no Phase 3 file matched a TypeScript error
+- repo-wide `pnpm tsc --noEmit` still has unrelated baseline failures outside Phase 3 scope
+
+## 6. Gap Resolution Summary
+
+| Gap | Result in Phase 3 |
+|---|---|
+| `B3-001` | resolved at v1 scope: one shared arrived gate now drives progress suppression and settling-in/enrichment execution checks |
+| `B3-002` | resolved at v1 scope: pre-arrival plans no longer expose post-arrival progress |
+| `B3-003` | materially narrowed: hidden legacy execution state is surfaced as hidden metadata instead of contradictory visible progress |
+| `B3-005` | materially narrowed: blocker state is now derived once on the server and surfaced consistently to UI consumers |
+| `B3-006` | materially narrowed: compliance progress is separated from general post-arrival progress via `compliance_progress` and `compliancePercent` |
+| `B3-008` | materially narrowed: generate now heals flag drift and reuses existing task sets coherently instead of relying on the boolean flag alone |
+| `B3-009` | resolved at v1 scope: why-it-matters now obeys execution-stage authority and tighter legal-safety wording |
+| `B3-010` | resolved at v1 scope: compliance UI now consumes one canonical server-computed deadline/status path |
+
+## 7. Backend Acceptance Outcome
+
+Backend Acceptance Gate is passed for the scoped Phase 3 contract.
+
+Phase 3 backend is accepted for:
+
+- suppressing pre-arrival execution progress while still surfacing hidden legacy state honestly
+- aligning settling-in reads, mutations, generation, and enrichment under one arrived execution model
+- centralizing compliance/blocker/deadline computation on the server
+
+Full project-level phase closure still requires:
+
+- user-side execution of `PHASE_3_USER_TEST.md`
+- final phase-completion decision after the user acceptance and regression gates are accepted

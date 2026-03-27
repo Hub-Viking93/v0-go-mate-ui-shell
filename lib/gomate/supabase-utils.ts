@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "./profile-schema"
+import { derivePlanAuthority } from "./core-state"
 
 // Save profile data to Supabase
 export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<boolean> {
@@ -12,35 +13,39 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
       return false
     }
     
-    // Get the user's current plan (is_current = true)
     const { data: existingPlan } = await supabase
       .from("relocation_plans")
-      .select("id, profile_data")
+      .select("id, profile_data, title, status, stage, locked, plan_version")
       .eq("user_id", user.id)
       .eq("is_current", true)
       .maybeSingle()
     
     if (existingPlan) {
+      const currentAuthority = derivePlanAuthority(existingPlan)
+      if (!currentAuthority.canEditProfile) {
+        return false
+      }
+
       // Update existing plan with merged profile
       const mergedProfile = {
         ...(existingPlan.profile_data || {}),
         ...profile,
       }
+      const nextAuthority = derivePlanAuthority({
+        ...existingPlan,
+        profile_data: mergedProfile,
+      })
       
       // Auto-generate title when destination/purpose are first set
       const updateData: Record<string, unknown> = {
         profile_data: mergedProfile,
+        stage: nextAuthority.stage,
+        plan_version: ((existingPlan.plan_version as number) || 1) + 1,
         updated_at: new Date().toISOString(),
       }
-      
-      // Get current plan title to check if it needs auto-generation
-      const { data: fullPlan } = await supabase
-        .from("relocation_plans")
-        .select("title")
-        .eq("id", existingPlan.id)
-        .single()
-      
-      const hasAutoTitle = !fullPlan?.title || fullPlan.title.startsWith("Plan ")
+
+      const hasAutoTitle =
+        !existingPlan.title || existingPlan.title.startsWith("Plan ")
       const dest = mergedProfile.destination as string | undefined
       const purp = mergedProfile.purpose as string | undefined
       
@@ -57,6 +62,7 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
         .from("relocation_plans")
         .update(updateData)
         .eq("id", existingPlan.id)
+        .eq("plan_version", (existingPlan.plan_version as number) || 1)
       
       if (error) {
         console.error("[GoMate] Failed to update profile:", error)
@@ -73,6 +79,7 @@ export async function saveProfileToSupabase(profile: Partial<Profile>): Promise<
           profile_data: profile,
           stage: "collecting",
           is_current: true,
+          plan_version: 1,
         })
       
       if (error) {

@@ -5,13 +5,15 @@
  * Uses jsPDF to generate downloadable PDF guides
  */
 
-import jsPDF from "jspdf"
+import jsPDF, { GState } from "jspdf"
+import { getCurrencySymbol } from "./currency"
 
 interface GuideData {
   title: string
   destination: string
   destination_city?: string
   purpose: string
+  currency?: string
   overview?: {
     title: string
     subtitle: string
@@ -20,66 +22,93 @@ interface GuideData {
     lastUpdated: string
   }
   visa_section?: {
-    recommendedVisa: string
-    visaType: string
-    eligibility: string
-    processingTime: string
-    estimatedCost: string
-    requirements: string[]
-    applicationSteps: string[]
-    tips: string[]
-    warnings: string[]
+    recommendedVisa?: string
+    visaType?: string
+    eligibility?: string
+    processingTime?: string
+    estimatedCost?: string
+    requirements?: string[]
+    applicationSteps?: string[]
+    tips?: string[]
+    warnings?: string[]
     officialLink?: string
+    detailedProcess?: string
   }
   budget_section?: {
-    monthlyBudget: { minimum: number; comfortable: number; breakdown: Record<string, number> }
-    savingsTarget: { emergencyFund: number; movingCosts: number; initialSetup: number; visaFees: number; total: number; timeline: string }
+    monthlyBudget: { minimum: number; comfortable: number; breakdown?: Record<string, number> }
+    savingsTarget?: { emergencyFund: number; movingCosts: number; initialSetup: number; visaFees: number; total: number; timeline?: string }
     costComparison?: string
-    tips: string[]
+    savingStrategy?: string
+    tips?: string[]
   }
   housing_section?: {
     overview: string
-    averageRent: { studio: string; oneBed: string; twoBed: string }
-    rentalPlatforms: { name: string; url: string; description: string }[]
-    depositInfo: string
-    tips: string[]
-    warnings: string[]
+    averageRent?: { studio: string; oneBed: string; twoBed: string }
+    rentalPlatforms?: { name: string; url: string; description: string }[]
+    depositInfo?: string
+    tips?: string[]
+    warnings?: string[]
+    neighborhoodGuide?: string
+    rentalProcess?: string
   }
   banking_section?: {
     overview: string
-    recommendedBanks: { name: string; type: string; features: string[] }[]
-    requirements: string[]
-    tips: string[]
+    recommendedBanks?: { name: string; type: string; features: string[] }[]
+    requirements?: string[]
+    tips?: string[]
+    accountOpeningGuide?: string
   }
   healthcare_section?: {
     overview: string
     systemType: string
-    insuranceRequired: boolean
-    averageCost: string
+    insuranceRequired?: boolean
+    insuranceRequirements?: string
+    averageCost?: string
     emergencyInfo: string
+    registrationSteps?: string[]
     tips: string[]
+    registrationGuide?: string
+    insuranceAdvice?: string
   }
   culture_section?: {
     overview: string
-    doAndDont: { do: string[]; dont: string[] }
-    languageTips: string[]
-    socialNorms: string[]
+    doAndDont?: { do: string[]; dont: string[] }
+    languageTips?: string[]
+    socialNorms?: string[]
+    deepDive?: string
+    workplaceCulture?: string
+    socialIntegration?: string
   }
   timeline_section?: {
-    phases: { 
+    totalMonths?: number
+    phases: {
       name: string
-      timeframe: string
-      tasks: { task: string; priority: string; completed?: boolean }[]
+      timeframe?: string
+      duration?: string
+      tasks: (string | { task: string; priority: string; completed?: boolean })[]
+      tips?: string[]
     }[]
   }
   checklist_section?: {
     categories: {
       name: string
-      items: { item: string; priority: string; completed?: boolean }[]
+      items: ({ item: string; priority: string; completed?: boolean } | { task: string; priority: string; timeframe?: string })[]
     }[]
+  }
+  jobs_section?: {
+    overview?: string
+    jobMarket?: string
+    jobPlatforms?: { name: string; url: string; description: string }[]
+    salaryExpectations?: string
+    workPermitInfo?: string
+    networkingTips?: string[]
+    marketOverview?: string
+    searchStrategy?: string
   }
   official_links?: { name: string; url: string; category: string }[]
   useful_tips?: string[]
+  hero_image_url?: string
+  hero_image_attribution?: { photographerName: string; photographerUrl: string }
 }
 
 // Colors
@@ -106,6 +135,9 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
   const margin = 20
   const contentWidth = pageWidth - margin * 2
   let yPos = margin
+
+  // Dynamic currency symbol from guide data (defaults to € for existing guides)
+  const sym = guide.currency ? getCurrencySymbol(guide.currency) : "€"
 
   // Helper functions
   const addNewPageIfNeeded = (requiredSpace: number) => {
@@ -156,6 +188,15 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
     yPos += 2
   }
 
+  /** Render multi-paragraph enriched text (paragraphs split by double-newline) */
+  const drawEnrichedContent = (text: string | undefined, indent = 0) => {
+    if (!text) return
+    const paragraphs = text.split(/\n\n+/).filter(Boolean)
+    for (const para of paragraphs) {
+      drawParagraph(para.trim(), indent)
+    }
+  }
+
   const drawBulletList = (items: string[], indent = 5) => {
     doc.setFontSize(10)
     doc.setFont("helvetica", "normal")
@@ -182,7 +223,8 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
     doc.text(label + ":", margin, yPos)
     
     doc.setFont("helvetica", "normal")
-    doc.setTextColor(highlight ? COLORS.primary : COLORS.text)
+    const color = highlight ? COLORS.primary : COLORS.text
+    doc.setTextColor(...color)
     doc.text(value, margin + 45, yPos)
     doc.setTextColor(...COLORS.text)
     yPos += 6
@@ -229,24 +271,50 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
   }
 
   // ============ COVER PAGE ============
-  // Background gradient effect (simulated with rectangles)
-  doc.setFillColor(...COLORS.primary)
-  doc.rect(0, 0, pageWidth, pageHeight * 0.4, "F")
-  
+  const coverHeight = pageHeight * 0.4
+
+  // Try to load hero image for the cover
+  let heroImageDataUrl: string | null = null
+  if (guide.hero_image_url && !guide.hero_image_url.startsWith("/")) {
+    try {
+      const res = await fetch(guide.hero_image_url)
+      const blob = await res.blob()
+      heroImageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch { /* fallback to blue rectangle */ }
+  }
+
+  if (heroImageDataUrl) {
+    // Hero image cover with dark overlay for text readability
+    doc.addImage(heroImageDataUrl, "JPEG", 0, 0, pageWidth, coverHeight)
+    doc.setFillColor(0, 0, 0)
+    doc.setGState(new GState({ opacity: 0.4 }))
+    doc.rect(0, 0, pageWidth, coverHeight, "F")
+    doc.setGState(new GState({ opacity: 1 }))
+  } else {
+    // Fallback: solid blue rectangle
+    doc.setFillColor(...COLORS.primary)
+    doc.rect(0, 0, pageWidth, coverHeight, "F")
+  }
+
   // Destination name
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(36)
   doc.setFont("helvetica", "bold")
-  const destinationText = guide.destination_city 
+  const destinationText = guide.destination_city
     ? `${guide.destination_city}, ${guide.destination}`
     : guide.destination
   doc.text(destinationText, pageWidth / 2, 60, { align: "center" })
-  
+
   // Subtitle
   doc.setFontSize(14)
   doc.setFont("helvetica", "normal")
   doc.text("RELOCATION GUIDE", pageWidth / 2, 75, { align: "center" })
-  
+
   // Purpose badge
   const purposeLabels: Record<string, string> = {
     work: "Working Abroad",
@@ -256,6 +324,18 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
   }
   doc.setFontSize(12)
   doc.text(purposeLabels[guide.purpose] || guide.purpose, pageWidth / 2, 90, { align: "center" })
+
+  // Unsplash attribution in PDF cover
+  if (heroImageDataUrl && guide.hero_image_attribution?.photographerName) {
+    doc.setFontSize(7)
+    doc.setTextColor(255, 255, 255)
+    doc.text(
+      `Photo by ${guide.hero_image_attribution.photographerName} on Unsplash`,
+      pageWidth - margin,
+      coverHeight - 5,
+      { align: "right" }
+    )
+  }
   
   // Overview section on cover
   if (guide.overview) {
@@ -301,34 +381,47 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
     yPos = margin
     
     drawSectionHeader("Visa & Immigration")
-    
-    drawKeyValuePair("Recommended Visa", guide.visa_section.recommendedVisa, true)
-    drawKeyValuePair("Visa Type", guide.visa_section.visaType)
-    drawKeyValuePair("Processing Time", guide.visa_section.processingTime)
-    drawKeyValuePair("Estimated Cost", guide.visa_section.estimatedCost)
-    
+
+    if (guide.visa_section.recommendedVisa) {
+      drawKeyValuePair("Recommended Visa", guide.visa_section.recommendedVisa, true)
+    }
+    if (guide.visa_section.visaType) {
+      drawKeyValuePair("Visa Type", guide.visa_section.visaType)
+    }
+    if (guide.visa_section.processingTime) {
+      drawKeyValuePair("Processing Time", guide.visa_section.processingTime)
+    }
+    if (guide.visa_section.estimatedCost) {
+      drawKeyValuePair("Estimated Cost", guide.visa_section.estimatedCost)
+    }
+
     yPos += 5
-    
+
     if (guide.visa_section.eligibility) {
       drawSubHeader("Eligibility")
       drawParagraph(guide.visa_section.eligibility)
     }
-    
-    if (guide.visa_section.requirements.length > 0) {
+
+    if (guide.visa_section.detailedProcess) {
+      drawSubHeader("Detailed Visa Process")
+      drawEnrichedContent(guide.visa_section.detailedProcess)
+    }
+
+    if (guide.visa_section.requirements && guide.visa_section.requirements.length > 0) {
       drawSubHeader("Requirements")
       drawBulletList(guide.visa_section.requirements)
     }
-    
-    if (guide.visa_section.applicationSteps.length > 0) {
+
+    if (guide.visa_section.applicationSteps && guide.visa_section.applicationSteps.length > 0) {
       drawSubHeader("Application Steps")
       drawBulletList(guide.visa_section.applicationSteps)
     }
-    
-    if (guide.visa_section.tips.length > 0) {
+
+    if (guide.visa_section.tips && guide.visa_section.tips.length > 0) {
       drawTipBox(guide.visa_section.tips, "tip")
     }
-    
-    if (guide.visa_section.warnings.length > 0) {
+
+    if (guide.visa_section.warnings && guide.visa_section.warnings.length > 0) {
       drawTipBox(guide.visa_section.warnings, "warning")
     }
   }
@@ -341,34 +434,34 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
     drawSectionHeader("Budget & Finances")
     
     drawSubHeader("Monthly Budget Estimates")
-    drawKeyValuePair("Minimum", `€${guide.budget_section.monthlyBudget.minimum.toLocaleString()}/month`)
-    drawKeyValuePair("Comfortable", `€${guide.budget_section.monthlyBudget.comfortable.toLocaleString()}/month`, true)
-    
+    drawKeyValuePair("Minimum", `${sym}${guide.budget_section.monthlyBudget.minimum.toLocaleString()}/month`)
+    drawKeyValuePair("Comfortable", `${sym}${guide.budget_section.monthlyBudget.comfortable.toLocaleString()}/month`, true)
+
     yPos += 5
-    
+
     if (guide.budget_section.monthlyBudget.breakdown) {
       drawSubHeader("Cost Breakdown")
       for (const [category, amount] of Object.entries(guide.budget_section.monthlyBudget.breakdown)) {
         const formattedCategory = category.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())
-        drawKeyValuePair(formattedCategory, `€${amount.toLocaleString()}`)
+        drawKeyValuePair(formattedCategory, `${sym}${amount.toLocaleString()}`)
       }
     }
-    
+
     yPos += 5
-    
+
     if (guide.budget_section.savingsTarget) {
       drawSubHeader("Savings Target Before Move")
-      drawKeyValuePair("Emergency Fund", `€${guide.budget_section.savingsTarget.emergencyFund.toLocaleString()}`)
-      drawKeyValuePair("Moving Costs", `€${guide.budget_section.savingsTarget.movingCosts.toLocaleString()}`)
-      drawKeyValuePair("Initial Setup", `€${guide.budget_section.savingsTarget.initialSetup.toLocaleString()}`)
-      drawKeyValuePair("Visa Fees", `€${guide.budget_section.savingsTarget.visaFees.toLocaleString()}`)
-      drawKeyValuePair("Total Target", `€${guide.budget_section.savingsTarget.total.toLocaleString()}`, true)
+      drawKeyValuePair("Emergency Fund", `${sym}${guide.budget_section.savingsTarget.emergencyFund.toLocaleString()}`)
+      drawKeyValuePair("Moving Costs", `${sym}${guide.budget_section.savingsTarget.movingCosts.toLocaleString()}`)
+      drawKeyValuePair("Initial Setup", `${sym}${guide.budget_section.savingsTarget.initialSetup.toLocaleString()}`)
+      drawKeyValuePair("Visa Fees", `${sym}${guide.budget_section.savingsTarget.visaFees.toLocaleString()}`)
+      drawKeyValuePair("Total Target", `${sym}${guide.budget_section.savingsTarget.total.toLocaleString()}`, true)
       if (guide.budget_section.savingsTarget.timeline) {
         drawParagraph(`Timeline: ${guide.budget_section.savingsTarget.timeline}`)
       }
     }
     
-    if (guide.budget_section.tips.length > 0) {
+    if (guide.budget_section.tips && guide.budget_section.tips.length > 0) {
       drawTipBox(guide.budget_section.tips, "tip")
     }
   }
@@ -402,15 +495,33 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
       drawSubHeader("Rental Platforms")
       for (const platform of guide.housing_section.rentalPlatforms) {
         drawKeyValuePair(platform.name, platform.description)
+        if (platform.url && platform.url !== "#") {
+          addNewPageIfNeeded(6)
+          doc.setFontSize(8)
+          doc.setTextColor(...COLORS.primary)
+          doc.text(platform.url, margin + 5, yPos)
+          doc.setTextColor(...COLORS.text)
+          yPos += 5
+        }
       }
     }
     
-    if (guide.housing_section.tips.length > 0) {
+    if (guide.housing_section.tips && guide.housing_section.tips.length > 0) {
       drawTipBox(guide.housing_section.tips, "tip")
     }
-    
-    if (guide.housing_section.warnings.length > 0) {
+
+    if (guide.housing_section.warnings && guide.housing_section.warnings.length > 0) {
       drawTipBox(guide.housing_section.warnings, "warning")
+    }
+
+    if (guide.housing_section.neighborhoodGuide) {
+      drawSubHeader("Neighborhood Guide")
+      drawEnrichedContent(guide.housing_section.neighborhoodGuide)
+    }
+
+    if (guide.housing_section.rentalProcess) {
+      drawSubHeader("Rental Process")
+      drawEnrichedContent(guide.housing_section.rentalProcess)
     }
   }
 
@@ -442,8 +553,13 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
       drawBulletList(guide.banking_section.requirements)
     }
     
-    if (guide.banking_section.tips.length > 0) {
+    if (guide.banking_section.tips && guide.banking_section.tips.length > 0) {
       drawTipBox(guide.banking_section.tips, "tip")
+    }
+
+    if (guide.banking_section.accountOpeningGuide) {
+      drawSubHeader("How to Open a Bank Account")
+      drawEnrichedContent(guide.banking_section.accountOpeningGuide)
     }
   }
 
@@ -455,20 +571,42 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
     drawSectionHeader("Healthcare")
     
     drawParagraph(guide.healthcare_section.overview)
-    
+
     yPos += 5
     drawKeyValuePair("System Type", guide.healthcare_section.systemType)
-    drawKeyValuePair("Insurance Required", guide.healthcare_section.insuranceRequired ? "Yes" : "No")
-    drawKeyValuePair("Average Cost", guide.healthcare_section.averageCost)
-    
+    if (guide.healthcare_section.insuranceRequired !== undefined) {
+      drawKeyValuePair("Insurance Required", guide.healthcare_section.insuranceRequired ? "Yes" : "No")
+    } else if (guide.healthcare_section.insuranceRequirements) {
+      drawKeyValuePair("Insurance", guide.healthcare_section.insuranceRequirements)
+    }
+    if (guide.healthcare_section.averageCost) {
+      drawKeyValuePair("Average Cost", guide.healthcare_section.averageCost)
+    }
+
+    if (guide.healthcare_section.registrationSteps && guide.healthcare_section.registrationSteps.length > 0) {
+      yPos += 5
+      drawSubHeader("Registration Steps")
+      drawBulletList(guide.healthcare_section.registrationSteps)
+    }
+
     if (guide.healthcare_section.emergencyInfo) {
       yPos += 5
       drawSubHeader("Emergency Information")
       drawParagraph(guide.healthcare_section.emergencyInfo)
     }
-    
-    if (guide.healthcare_section.tips.length > 0) {
+
+    if (guide.healthcare_section.tips && guide.healthcare_section.tips.length > 0) {
       drawTipBox(guide.healthcare_section.tips, "tip")
+    }
+
+    if (guide.healthcare_section.registrationGuide) {
+      drawSubHeader("Registration Guide")
+      drawEnrichedContent(guide.healthcare_section.registrationGuide)
+    }
+
+    if (guide.healthcare_section.insuranceAdvice) {
+      drawSubHeader("Insurance Advice")
+      drawEnrichedContent(guide.healthcare_section.insuranceAdvice)
     }
   }
 
@@ -503,6 +641,56 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
       drawSubHeader("Social Norms")
       drawBulletList(guide.culture_section.socialNorms)
     }
+
+    if (guide.culture_section.deepDive) {
+      drawSubHeader("Cultural Deep Dive")
+      drawEnrichedContent(guide.culture_section.deepDive)
+    }
+
+    if (guide.culture_section.workplaceCulture) {
+      drawSubHeader("Workplace Culture")
+      drawEnrichedContent(guide.culture_section.workplaceCulture)
+    }
+
+    if (guide.culture_section.socialIntegration) {
+      drawSubHeader("Social Integration")
+      drawEnrichedContent(guide.culture_section.socialIntegration)
+    }
+  }
+
+  // ============ JOBS SECTION ============
+  if (guide.jobs_section?.jobPlatforms && guide.jobs_section.jobPlatforms.length > 0) {
+    doc.addPage()
+    yPos = margin
+
+    drawSectionHeader("Job Search Platforms")
+
+    if (guide.jobs_section.overview) {
+      drawParagraph(guide.jobs_section.overview)
+      yPos += 5
+    }
+
+    for (const platform of guide.jobs_section.jobPlatforms) {
+      drawKeyValuePair(platform.name, platform.description)
+      if (platform.url && platform.url !== "#") {
+        addNewPageIfNeeded(6)
+        doc.setFontSize(8)
+        doc.setTextColor(...COLORS.primary)
+        doc.text(platform.url, margin + 5, yPos)
+        doc.setTextColor(...COLORS.text)
+        yPos += 5
+      }
+    }
+
+    if (guide.jobs_section.marketOverview) {
+      drawSubHeader("Market Analysis")
+      drawEnrichedContent(guide.jobs_section.marketOverview)
+    }
+
+    if (guide.jobs_section.searchStrategy) {
+      drawSubHeader("Search Strategy")
+      drawEnrichedContent(guide.jobs_section.searchStrategy)
+    }
   }
 
   // ============ TIMELINE SECTION ============
@@ -521,29 +709,35 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
       doc.setFont("helvetica", "bold")
       doc.setFontSize(11)
       doc.setTextColor(...COLORS.primary)
-      doc.text(`${phase.name} (${phase.timeframe})`, margin + 5, yPos + 5.5)
+      const phaseLabel = phase.timeframe || phase.duration || ""
+      doc.text(`${phase.name}${phaseLabel ? ` (${phaseLabel})` : ""}`, margin + 5, yPos + 5.5)
       yPos += 12
-      
+
       doc.setTextColor(...COLORS.text)
-      
+
       if (phase.tasks && phase.tasks.length > 0) {
         for (const task of phase.tasks) {
           addNewPageIfNeeded(8)
-          
+
           // Checkbox
           doc.setDrawColor(...COLORS.textLight)
           doc.rect(margin + 5, yPos - 3, 4, 4)
-          
-          // Priority indicator
-          const priorityColor = task.priority === "critical" ? COLORS.danger : 
-                                task.priority === "high" ? COLORS.warning : COLORS.textLight
-          doc.setFillColor(...priorityColor)
-          doc.circle(margin + 15, yPos - 1, 1.5, "F")
-          
+
+          const taskText = typeof task === "string" ? task : task.task
+          const taskPriority = typeof task === "string" ? null : task.priority
+
+          // Priority indicator (only for structured tasks)
+          if (taskPriority) {
+            const priorityColor = taskPriority === "critical" ? COLORS.danger :
+                                  taskPriority === "high" ? COLORS.warning : COLORS.textLight
+            doc.setFillColor(...priorityColor)
+            doc.circle(margin + 15, yPos - 1, 1.5, "F")
+          }
+
           // Task text
           doc.setFont("helvetica", "normal")
           doc.setFontSize(10)
-          doc.text(task.task, margin + 20, yPos)
+          doc.text(taskText, margin + (taskPriority ? 20 : 15), yPos)
           yPos += 7
         }
       }
@@ -567,15 +761,18 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
       if (category.items && category.items.length > 0) {
         for (const item of category.items) {
           addNewPageIfNeeded(8)
-          
+
           // Checkbox
           doc.setDrawColor(...COLORS.textLight)
           doc.rect(margin + 5, yPos - 3, 4, 4)
-          
+
+          // Handle both { item: ... } and { task: ... } shapes
+          const itemText = "item" in item ? item.item : "task" in item ? item.task : ""
+
           // Task text
           doc.setFont("helvetica", "normal")
           doc.setFontSize(10)
-          doc.text(item.item, margin + 15, yPos)
+          doc.text(itemText, margin + 15, yPos)
           yPos += 7
         }
       }
@@ -626,15 +823,14 @@ export async function generateGuidePDF(guide: GuideData): Promise<Blob> {
   return doc.output("blob")
 }
 
-export function downloadGuidePDF(guide: GuideData, filename?: string) {
-  generateGuidePDF(guide).then((blob) => {
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = filename || `${guide.destination.replace(/\s+/g, "-").toLowerCase()}-guide.pdf`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  })
+export async function downloadGuidePDF(guide: GuideData, filename?: string) {
+  const blob = await generateGuidePDF(guide)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename || `${guide.destination.replace(/\s+/g, "-").toLowerCase()}-guide.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }

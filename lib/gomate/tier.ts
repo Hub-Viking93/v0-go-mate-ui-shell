@@ -269,17 +269,23 @@ export async function ensureSubscription(userId?: string): Promise<UserSubscript
 }
 
 /**
+ * Derive the effective tier from the stored subscription row.
+ *
+ * We intentionally key off `status` here instead of `expires_at`. In this
+ * codebase the billing lifecycle updates `status`, while `expires_at` can lag
+ * behind in local/dev environments and create UI/backend mismatches.
+ */
+export function getEffectiveTier(subscription: Pick<UserSubscription, "tier" | "status"> | null | undefined): Tier {
+  if (!subscription) return "free"
+  return subscription.status === "active" ? subscription.tier : "free"
+}
+
+/**
  * Get the user's current tier. Returns "free" if no subscription found.
  */
 export async function getUserTier(userId?: string): Promise<Tier> {
   const sub = await ensureSubscription(userId)
-  if (!sub) return "free"
-
-  // Check if subscription is still active
-  if (sub.status !== "active") return "free"
-  if (sub.expires_at && new Date(sub.expires_at) < new Date()) return "free"
-
-  return sub.tier
+  return getEffectiveTier(sub)
 }
 
 /**
@@ -318,7 +324,7 @@ export async function canCreatePlan(userId?: string): Promise<{ allowed: boolean
     .eq("user_id", sub.user_id)
 
   const currentCount = count ?? 0
-  const tier = sub.status === "active" ? sub.tier : "free" as Tier
+  const tier = getEffectiveTier(sub)
 
   return {
     allowed: currentCount < sub.plan_limit,

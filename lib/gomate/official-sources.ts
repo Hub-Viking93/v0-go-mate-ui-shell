@@ -1927,6 +1927,9 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
  */
 function normalizeCountryName(country: string): string {
   const normalized = country.trim();
+  const asciiNormalized = normalized
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
   
   // Common variations mapping
   const variations: Record<string, string> = {
@@ -1944,17 +1947,28 @@ function normalizeCountryName(country: string): string {
     "dubai": "UAE",
     "holland": "Netherlands",
     "czech": "Czech Republic",
-    "czechia": "Czech Republic"
+    "czechia": "Czech Republic",
+    "japao": "Japan",
+    "nippon": "Japan",
+    "deutschland": "Germany",
+    "espana": "Spain",
+    "italia": "Italy",
+    "brasil": "Brazil",
+    "mexico": "Mexico",
   };
   
-  const lowerNormalized = normalized.toLowerCase();
+  const lowerNormalized = asciiNormalized.toLowerCase();
   if (variations[lowerNormalized]) {
     return variations[lowerNormalized];
   }
   
   // Try to find exact match (case-insensitive)
   for (const key of Object.keys(OFFICIAL_SOURCES)) {
-    if (key.toLowerCase() === lowerNormalized) {
+    const lowerKey = key
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    if (lowerKey === lowerNormalized) {
       return key;
     }
   }

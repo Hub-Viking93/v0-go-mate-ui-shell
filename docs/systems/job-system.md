@@ -2,7 +2,7 @@
 
 **Phase:** 5.1
 **Status:** Placeholder — system does not exist
-**Current substitute:** `app/api/research/trigger/route.ts` (synchronous inline trigger)
+**Current substitute:** `app/api/research/trigger/route.ts` (synchronous inline helper orchestrator)
 **Target contract:** Batch 4 Contracts (Stability Layer) — Job System / Queue Contract
 **Last audited:** 2026-02-25
 
@@ -12,7 +12,7 @@
 
 **This system does not exist.**
 
-No job queue, no job persistence table, no worker process, no idempotency keys, and no retry logic are implemented anywhere in the GoMate codebase. The closest analogue is the research trigger endpoint, which fires inline HTTP requests synchronously rather than enqueuing work.
+No job queue, no job persistence table, no worker process, no idempotency keys, and no retry logic are implemented anywhere in the GoMate codebase. The closest analogue is the research trigger endpoint, which executes research helpers synchronously inside the request instead of enqueuing work.
 
 ---
 
@@ -23,16 +23,17 @@ The only mechanism that resembles background job execution is `POST /api/researc
 ```
 POST /api/research/trigger { planId }
 │
-├── Set research_status = "pending"
+├── Reject if plan is not already locked and in complete/arrived stage
+├── Set research_status = "in_progress"
 │
-├── Fire 3 parallel HTTP self-calls (Promise.allSettled):
-│   ├── POST /api/research/visa
-│   ├── POST /api/research/local-requirements
-│   └── POST /api/research/checklist
+├── Fire 3 parallel helper calls (Promise.allSettled):
+│   ├── `runVisaResearch()`
+│   ├── `runLocalRequirementsResearch()`
+│   └── `runChecklistResearch()`
 │
 ├── Await all three (maxDuration: 60s)
 │
-├── Set research_status = "completed" (if any succeeded) or "failed"
+├── Set research_status = "completed" (if all succeeded) or "failed"
 └── Return results
 ```
 
@@ -41,17 +42,18 @@ POST /api/research/trigger { planId }
 | Property | Value |
 |---|---|
 | Execution model | Synchronous — caller waits for all three to finish |
-| Idempotency | None — a second call while the first is running sets status = "pending" again |
-| Dedup guard | Weak — returns early if `research_status === "in_progress"`, but "in_progress" is set by sub-routes mid-execution |
+| Eligibility guard | Locked plans only — returns `409` before work starts if the plan is not `locked=true` and `stage in ("complete","arrived")` |
+| Idempotency | None — a completed/failed run can always be re-triggered |
+| Dedup guard | Weak — returns early only if `research_status === "in_progress"` |
 | Retry | None — each sub-route runs once |
 | Failure recovery | None — failed sub-routes produce empty/fallback data silently |
 | Persistence | Status written to `relocation_plans.research_status` (undocumented column) |
 | Timeout | 60 seconds (Vercel function limit) |
-| Failure visibility | `someSucceeded` maps to `"completed"` — partial failures are invisible |
+| Failure visibility | Partial failures now return aggregate `status = "failed"` plus per-subresult booleans, but no persisted per-task failure ledger exists |
 
-### 2.2 Self-HTTP Call Pattern
+### 2.2 Inline Helper Orchestration
 
-The trigger calls its sibling routes via `fetch()` with the forwarded `Cookie` header for auth. This requires a valid `NEXT_PUBLIC_APP_URL` or `origin` header. If neither is available, all three research calls fail silently (the catch block returns `{ ok: false }`).
+The trigger imports the research helpers directly and runs them inside the same request. This removes the old self-HTTP dependency, but it does not change the architectural limitation: work is still synchronous, inline, and coupled to request latency.
 
 This pattern is documented fully in Phase 3.1 (Research Orchestration SystemDoc).
 

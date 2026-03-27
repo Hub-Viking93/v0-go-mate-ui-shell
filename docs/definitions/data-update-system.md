@@ -1,0 +1,1174 @@
+GoMate — Data Update System
+Complete System Definition Contract (Authoritative Specification)
+
+============================================================
+V1 IMPLEMENTATION SCOPE (REBASELINE)
+============================================================
+
+V1 Status: NOT_IMPLEMENTED
+
+V1 Implementation Reality:
+- No Data Update System, orchestration engine, or job queue exists in v1
+- No update_jobs table, artifact versioning registry, or cascade scheduler
+- No artifact DAG is evaluated at runtime — each API route generates its
+  artifact independently without dependency awareness
+- No profile_version_id binding (profile is a single JSONB column, not versioned)
+- No trigger type classification or field-to-artifact dependency mapping
+
+V1 Deviations from Canonical Spec:
+- The entire spec (Sections A–S) describes a target orchestration system with
+  zero v1 code
+- Artifact generation is triggered directly by API routes:
+  - Guide: POST /api/guides calls generation pipeline inline
+  - Tasks: POST /api/settling-in/generate calls generation inline
+  - Research: called inline during guide generation
+  - Cost of living: fetched on-demand via Numbeo scraper
+- No cascade propagation — changing a profile field does not trigger any
+  downstream artifact regeneration
+- No versioning model — artifacts are overwritten, not versioned
+- No lock/freeze behavior — plan stage controls access, not LifecycleState
+- Trigger types (DESTINATION_CHANGED, PROFILE_UPDATED, etc.) are not
+  classified or routed — profile changes are saved directly to the JSONB column
+
+V1 Cross-Reference Adjustments:
+- Event System (Section B.2 trigger origins) does not exist — see
+  event-trigger-system.md V1 Scope Block
+- Profile versioning (Section A.4) does not exist — profile is a single JSONB
+  column on relocation_plans with no snapshots or version history
+- LifecycleState (referenced throughout) does not exist in v1 — plan uses
+  stage enum (collecting → generating → complete → arrived) and status
+  (active/archived)
+- All "artifact version" references should be read as "the current value in
+  the database, overwritten on regeneration"
+
+V1 Fallback Behavior:
+- When a user changes destination: they restart the interview (new plan or
+  continue existing), and regenerate guide/tasks manually
+- When external data changes: no propagation; user sees whatever was last
+  generated
+- No stale detection, no "outdated" markers, no regeneration suggestions
+- Guide and task regeneration are user-initiated actions, not system-triggered
+
+============================================================
+
+================================================================
+A. PURPOSE, RESPONSIBILITY & SCOPE BOUNDARIES
+================================================================
+
+
+A.1 Core Purpose
+
+PRIMARY PURPOSE:
+
+The Data Update System is the canonical orchestration and regeneration engine responsible for maintaining correctness, freshness, and version integrity of all derived artifacts within a plan.
+
+It is NOT a source-of-truth system for user input.
+
+It guarantees:
+
+MANDATORY GUARANTEES:
+
+1. Derived artifact regeneration when source inputs change
+2. Dependency propagation across artifact DAG
+3. Version consistency across all systems
+4. Artifact version history management (for versioned artifacts)
+5. Prevention of stale artifact usage
+6. Deterministic update execution
+7. Repair of stale, failed, or inconsistent artifacts
+8. Profile version binding (every generated artifact binds to the profile_version_id that produced it)
+
+BEST EFFORT:
+
+- Performance optimization
+- Pre-emptive regeneration before user access
+- External data refresh propagation timing optimization
+
+
+A.2 Data Ownership Boundary
+
+
+IN SCOPE (owned and updated by Data Update System):
+
+Derived, user-plan-scoped artifacts:
+
+- cost of living projections (user-specific)
+- research outputs
+- visa recommendations
+- budget recommendations
+- timeline projections
+- local requirements lists
+- tasks
+- guide artifacts
+- dashboard projections
+- dashboard summary state
+
+
+OUT OF SCOPE:
+
+Never modified by this system:
+
+- profile inputs (owned by Profile System)
+- chat messages (owned by Chat History System)
+- plan identity or plan container metadata (owned by Plan System)
+- raw external datasets (owned by external data providers)
+- static country reference data (reference data, not user-scoped)
+- user preferences not affecting derived artifacts
+
+
+A.3 Derived vs Source Data Responsibility
+
+
+SOURCE DATA (immutable to this system):
+
+Owned by Profile System and Plan System:
+
+- destination_country (Plan Anchor Field)
+- move_date (Plan Anchor Field)
+- profile attributes (Plan Profile Layer 2 + User Profile Layer 1)
+- user identity
+- plan metadata (lifecycle_state, stage)
+
+EXTERNAL SOURCE DATA (read-only to this system):
+
+- cost of living reference data
+- visa requirement databases
+- legal requirement databases
+- country reference data
+
+
+DERIVED DATA (fully regenerated by Data Update System):
+
+- recommendations (visa, housing, budget)
+- requirements (local compliance, permits)
+- timeline (milestone schedule)
+- tasks (settling-in task graph)
+- research outputs (Firecrawl-sourced intelligence)
+- guide (compiled relocation blueprint)
+- dashboard projections (summary metrics, progress)
+
+
+System NEVER mutates source data.
+
+System ONLY regenerates derived data.
+
+
+A.4 Profile Version Binding (Critical)
+
+Every artifact regeneration job MUST:
+1. Trigger a PRE_GENERATION_SNAPSHOT in the Profile System (if one does not already exist for the current profile state).
+2. Record the profile_version_id in the generated artifact version.
+3. Ensure that all artifacts generated in the same update cycle bind to the SAME profile_version_id.
+
+This guarantees:
+- Reproducibility: any artifact version can be traced to the exact profile state that produced it.
+- Consistency: artifacts within the same generation cycle are internally coherent.
+- Audit: "what inputs produced this?" is always answerable.
+
+Reference: Profile System Definition G (Versioning & History).
+
+
+================================================================
+B. UPDATE TRIGGER CONTRACT
+================================================================
+
+
+B.1 Trigger Types
+
+There are THREE categories of triggers with different cascade scopes:
+
+PLAN ANCHOR FIELD TRIGGERS (full or near-full cascade):
+
+DESTINATION_CHANGED — Structural plan change that redefines the entire relocation context.
+  Cascade scope: FULL plan regeneration of ALL destination-dependent artifacts.
+  This is the broadest trigger. Everything is potentially invalidated.
+
+MOVE_DATE_CHANGED — Structural time-anchor change that redefines all time-based projections.
+  Cascade scope: All time-dependent artifacts (timeline, tasks, guide timing, dashboard).
+  MAY trigger full cascade depending on plan type (e.g., if visa eligibility depends on timing).
+
+PROFILE UPDATE TRIGGERS (partial cascade):
+
+PROFILE_UPDATED — Any non-anchor profile field change (family_size, budget, employment_status, citizenship detail updates, etc.).
+  Cascade scope: MAY be partial, dependency-gated, and optimized based on which fields changed.
+  The system SHOULD analyze which fields changed and limit regeneration to affected artifact branches.
+
+PLAN_CREATED — New plan created. Triggers initial generation of all artifacts.
+  Cascade scope: Full generation (not regeneration — artifacts don't exist yet).
+
+SYSTEM / EXTERNAL TRIGGERS (targeted cascade):
+
+PLAN_LOCKED — Plan LifecycleState transitions to LOCKED.
+  Cascade scope: Creates PLAN_LOCK_SNAPSHOT. Freezes all core artifacts. Dashboard may update.
+
+EXTERNAL_DATA_REFRESHED — External reference data has changed (cost of living, visa rules, legal requirements).
+  Cascade scope: Triggers research and recommendation updates. May cascade to requirements, timeline, guide.
+
+MANUAL_REFRESH_REQUESTED — User explicitly requests regeneration.
+  Cascade scope: Depends on what the user requested (single artifact or full plan).
+
+SYSTEM_REPAIR — Admin or system initiates repair of failed/inconsistent artifacts.
+  Cascade scope: Targeted to the broken artifact and its dependents.
+
+VERSION_UPGRADE — System schema or model version upgrade requires regeneration.
+  Cascade scope: Full plan regeneration with new version semantics.
+
+Updates without a recognized trigger are forbidden.
+
+Trigger invariants:
+- PROFILE_UPDATED MUST NEVER silently behave like DESTINATION_CHANGED or MOVE_DATE_CHANGED.
+- DESTINATION_CHANGED and MOVE_DATE_CHANGED MUST NOT be merged into PROFILE_UPDATED for deduplication or idempotency keys.
+- Each trigger type has its own idempotency and cascade policy.
+
+
+B.2 Trigger Origin Systems
+
+
+Authorized trigger sources:
+
+Profile System:
+  PROFILE_UPDATED (non-anchor field changes)
+  DESTINATION_CHANGED (destination_country changed — this is a Plan Anchor Field)
+  MOVE_DATE_CHANGED (move_date changed — this is a Plan Anchor Field)
+
+Plan System:
+  PLAN_CREATED
+  PLAN_LOCKED
+
+External Data Sync System:
+  EXTERNAL_DATA_REFRESHED
+
+User Actions (via API):
+  MANUAL_REFRESH_REQUESTED
+
+Admin System:
+  VERSION_UPGRADE
+  SYSTEM_REPAIR
+
+Event System:
+  All above, as routing layer (Event System routes triggers to Data Update System; it does not originate them)
+
+Unauthorized systems cannot trigger updates.
+
+Trigger routing:
+- The Profile System detects which fields changed and emits the appropriate trigger type:
+  - If destination_country changed → emit DESTINATION_CHANGED
+  - If move_date changed → emit MOVE_DATE_CHANGED
+  - If any other field changed → emit PROFILE_UPDATED with changed_fields metadata
+- This routing logic lives in the Profile System, NOT in the Data Update System.
+
+
+B.3 Automatic vs Manual Trigger Rules
+
+
+Guide:
+  MUST auto-generate on PLAN_CREATED (first generation)
+  MUST auto-regenerate on DESTINATION_CHANGED, MOVE_DATE_CHANGED (full cascade)
+  MAY auto-regenerate on PROFILE_UPDATED (if affected fields impact guide content)
+  MUST NEVER auto-update after plan lock (LifecycleState=LOCKED)
+
+Recommendations:
+  MUST auto-generate on PLAN_CREATED
+  MUST auto-regenerate on DESTINATION_CHANGED
+  MAY auto-regenerate on PROFILE_UPDATED
+  MUST NEVER auto-update after plan lock
+
+Requirements:
+  MUST auto-generate on PLAN_CREATED
+  MUST auto-regenerate on DESTINATION_CHANGED
+  MAY update after lock only if explicitly versioned and the update is from EXTERNAL_DATA_REFRESHED
+
+Timeline:
+  MUST auto-generate on PLAN_CREATED
+  MUST auto-regenerate on DESTINATION_CHANGED, MOVE_DATE_CHANGED
+  MUST NOT auto-update after plan lock
+
+Tasks:
+  MUST auto-generate on PLAN_CREATED
+  MUST auto-regenerate on DESTINATION_CHANGED
+  MAY auto-regenerate on requirement changes
+  Task STATUS updates (mark complete) are NOT managed by Data Update System — those are user actions via Task System
+
+Dashboard projections:
+  MUST auto-update always (including after lock — dashboard reflects current aggregate state)
+
+Cost projections:
+  MAY auto-update before lock
+  Versioned after lock
+  MAY update on EXTERNAL_DATA_REFRESHED
+
+
+Manual refresh allowed:
+  Dashboard
+  Cost projections
+  Research outputs
+  Single artifact regeneration (user-triggered)
+
+Manual refresh forbidden (after lock):
+  Guide
+  Timeline
+  Recommendations
+
+
+B.4 Trigger Timing Guarantees
+
+
+Execution timing model:
+
+Trigger received → Job created immediately (synchronous job creation)
+
+Execution:
+
+Queued → Asynchronous execution via job queue
+
+Critical blocking artifacts (guide generation during PLAN_CREATED):
+  May execute with elevated priority to reduce time-to-first-output
+
+Priority assignment:
+- PLAN_CREATED → CRITICAL (first-time generation, user waiting)
+- DESTINATION_CHANGED → HIGH (fundamental context change)
+- MOVE_DATE_CHANGED → HIGH (structural time change)
+- PROFILE_UPDATED → NORMAL
+- EXTERNAL_DATA_REFRESHED → LOW
+- MANUAL_REFRESH_REQUESTED → NORMAL
+- SYSTEM_REPAIR → HIGH
+- VERSION_UPGRADE → LOW (batch operation)
+
+B.5 Trigger Validation
+
+Before creating a job, the Data Update System MUST validate:
+1. The trigger source is authorized (B.2).
+2. The plan exists and is owned by the user.
+3. The plan's LifecycleState permits the triggered update (e.g., no artifact regeneration on LOCKED plans except dashboard).
+4. The trigger is not a duplicate of an already-queued or running job (idempotency check).
+5. Rate limits are not exceeded (L.1).
+
+If validation fails, the trigger is rejected with a specific error. No job is created.
+
+
+================================================================
+C. UPDATE JOB IDENTITY MODEL
+================================================================
+
+
+C.1 Update Job Definition
+
+
+Each job contains:
+
+update_job_id (UUID)
+plan_id (UUID)
+user_id (UUID)
+artifact_type (enum: research | recommendations | requirements | timeline | tasks | guide | dashboard | cost_projections)
+artifact_id (nullable — null if new artifact, set if regenerating existing)
+source_event_id (UUID — the domain event that caused this job; see event-trigger-system.md V.3)
+trigger_type (enum: see B.1 — normalized TriggerType derived from source domain event)
+trigger_source (string: which system emitted the trigger)
+trigger_payload_pointers (JSONB — IDs/pointers only from the source event payload)
+changed_fields (JSONB, nullable — for PROFILE_UPDATED, lists which fields changed)
+profile_version_id (UUID — the profile snapshot this job generates against)
+created_at (timestamptz)
+started_at (timestamptz, nullable)
+completed_at (timestamptz, nullable)
+status (enum: see D.3)
+idempotency_key (string)
+version_target (int — the version number this job will produce)
+priority (enum: CRITICAL | HIGH | NORMAL | LOW)
+parent_job_id (UUID, nullable — if this job was spawned as part of a cascade)
+error_message (text, nullable — populated on failure)
+retry_count (int, default 0)
+
+
+C.2 Artifact Scope
+
+
+Update job scope types:
+
+Single artifact — regenerate one specific artifact type
+Artifact tree — regenerate an artifact and all its dependents
+Full plan regeneration — regenerate all artifacts for the plan
+
+Full plan regeneration occurs when:
+  DESTINATION_CHANGED
+  PLAN_CREATED
+  VERSION_UPGRADE
+
+Artifact tree regeneration occurs when:
+  MOVE_DATE_CHANGED (time-dependent branch)
+  PROFILE_UPDATED (affected branch, determined by changed_fields analysis)
+
+Single artifact regeneration occurs when:
+  MANUAL_REFRESH_REQUESTED (user targets specific artifact)
+  SYSTEM_REPAIR (admin targets specific artifact)
+  EXTERNAL_DATA_REFRESHED (specific data source updated)
+
+
+C.3 Job Ownership
+
+
+Every update job belongs to:
+
+exactly one plan
+
+exactly one user
+
+Never global.
+
+Jobs are always scoped to (plan_id, user_id). No cross-plan jobs exist.
+
+
+================================================================
+D. UPDATE MODES & EXECUTION MODEL
+================================================================
+
+
+D.1 Update Modes
+
+AUTOMATIC — triggered by system events (profile changes, plan creation, etc.)
+MANUAL — triggered by user action (refresh button)
+SCHEDULED — triggered by cron/timer (external data refresh)
+REPAIR — triggered by admin or system integrity checks
+MIGRATION — triggered by system version upgrade
+
+
+D.2 Execution Model
+
+Canonical execution model:
+
+Fully asynchronous job queue.
+
+Queue priority levels:
+
+CRITICAL — first-time generation (user waiting for Aha moment)
+HIGH — structural changes (destination, repair)
+NORMAL — profile updates, manual refresh
+LOW — scheduled refreshes, version upgrades
+
+In serverless environment (Vercel):
+- Jobs execute as API route handlers or background functions.
+- Long-running generation (guide, research) may need to be split into sub-tasks with continuation.
+- Each sub-task must be independently resumable.
+
+
+D.3 Job Lifecycle States
+
+
+created — job record created, not yet queued
+queued — job placed in execution queue
+running — job is actively executing
+completed — job finished successfully, artifact activated
+failed — job failed after all retries
+cancelled — job superseded by a newer job for the same artifact
+
+
+Allowed transitions:
+
+created → queued
+queued → running
+running → completed
+running → failed
+queued → cancelled (superseded by newer trigger)
+running → cancelled (superseded by newer trigger, if safe to abort)
+failed → queued (manual retry or SYSTEM_REPAIR)
+
+
+================================================================
+E. IDEMPOTENCY & DEDUPLICATION GUARANTEES
+================================================================
+
+
+E.1 Idempotency Contract
+
+Idempotency key composition:
+
+(plan_id + artifact_type + trigger_event + version_target)
+
+If duplicate trigger received:
+  Existing job reused.
+  No duplicate job created.
+
+Note: DESTINATION_CHANGED, MOVE_DATE_CHANGED, and PROFILE_UPDATED have SEPARATE idempotency namespaces because they are independent trigger types. A PROFILE_UPDATED trigger does not deduplicate against a DESTINATION_CHANGED trigger, even if they affect the same artifact_type.
+
+
+E.2 Duplicate Prevention
+
+Enforced at:
+
+Job creation layer (check before insert)
+Database uniqueness constraint (on idempotency_key)
+Queue insertion layer (reject duplicates)
+
+Conflicting versions impossible — version_target is monotonically increasing per (plan_id, artifact_type).
+
+
+E.3 Supersession Rules
+
+When a new trigger arrives for an artifact that already has a queued or running job:
+
+Queued job → cancelled. New job takes its place.
+Running job → depends on artifact type:
+  - If the running job can be safely aborted (no side effects committed): cancel and replace.
+  - If the running job has committed partial work: let it complete, then queue the new job immediately after.
+
+Supersession ensures the user always gets results based on the LATEST inputs, not stale intermediate states.
+
+
+================================================================
+F. VERSIONING & HISTORY CONTRACT
+================================================================
+
+
+F.1 Versioning Model
+
+| Artifact        | Pre-lock behavior | Post-lock behavior   |
+|-----------------|-------------------|----------------------|
+| Guide           | Versioned         | Immutable (frozen)   |
+| Requirements    | Versioned         | Versioned (external) |
+| Timeline        | Versioned         | Immutable (frozen)   |
+| Research        | Versioned         | Immutable (frozen)   |
+| Recommendations | Overwrite         | Immutable (frozen)   |
+| Tasks           | Versioned         | Immutable (frozen)*  |
+| Dashboard       | Overwrite         | Overwrite (always)   |
+| Cost projections| Overwrite         | Versioned            |
+
+* Task STATUS updates (mark complete) are managed by the Task System, not Data Update System. Task CONTENT/STRUCTURE is frozen after lock.
+
+
+F.2 Version Identity Model
+
+Each artifact version contains:
+
+version_id (UUID)
+version_number (int, monotonically increasing per plan_id + artifact_type)
+artifact_type
+plan_id
+profile_version_id (UUID — the profile snapshot used to generate this version)
+source_update_job_id (UUID — the job that created this version)
+created_at (timestamptz)
+status (enum: generating | active | superseded | failed)
+
+
+F.3 Active Version Contract
+
+Active version defined as:
+
+Latest completed version with status = active.
+
+Except when plan locked:
+
+The version that was active at lock time becomes the immutable locked version.
+No new versions can be activated for frozen artifact types (see F.1).
+
+Version activation is atomic:
+1. New version status set to active.
+2. Previous active version status set to superseded.
+3. Cache invalidation triggered.
+All three steps are atomic (single transaction).
+
+
+F.4 Version Retention Policy
+
+Guide: All versions retained (full history for audit and comparison)
+Timeline: All versions retained
+Requirements: All versions retained
+Research: Last 5 versions retained (older versions may be purged)
+Recommendations: Last 10 retained
+Tasks: All versions retained (task graph history is important for DAG integrity)
+Dashboard: Latest only (overwrite model)
+Cost projections: Last 5 retained
+
+
+================================================================
+G. DEPENDENCY GRAPH & UPDATE CASCADE CONTRACT
+================================================================
+
+
+G.1 Artifact Dependency DAG
+
+The Data Update System models artifact dependencies as a directed acyclic graph (DAG) per plan.
+
+Canonical dependency structure:
+
+```
+Profile (source — not owned by Data Update System)
+  │
+  ├── Research
+  │     depends on: Profile + destination_country + move_date
+  │
+  ├── Recommendations
+  │     depends on: Profile + destination_country + (optional) Research
+  │
+  └── Cost Projections
+        depends on: Profile + destination_country + external cost data
+
+Requirements
+  depends on: Recommendations + (optional) Research
+
+Timeline
+  depends on: Requirements + move_date
+
+Tasks
+  depends on: Requirements + Timeline
+
+Guide
+  depends on: Recommendations + Requirements + Timeline + Tasks + (optional) Research
+
+Dashboard
+  depends on: latest active versions of all user-visible derived artifacts
+```
+
+This is a DAG, NOT a linear chain. Independent branches may execute in parallel.
+
+
+G.2 Parallelism Rules
+
+A job MAY execute in parallel with other jobs if and only if:
+- All of its declared upstream dependencies are completed for the same version_target cycle.
+- It does not require outputs from the other concurrently running jobs.
+
+Concrete parallelism opportunities:
+- Research and Recommendations MAY run concurrently IF Recommendations declares Research as optional and can produce a valid result without it.
+- Research and Cost Projections MAY run concurrently (independent branches).
+- If Recommendations quality REQUIRES Research output for the plan type, then Recommendations MUST depend on Research, and the system MUST enforce ordering (Research completes before Recommendations).
+
+The dependency declarations should be configurable per plan type or destination to allow optimization.
+
+
+G.3 Cascade Trigger Rules
+
+DESTINATION_CHANGED:
+  Triggers FULL cascade — all non-gated artifacts regenerated.
+  Order: Research + Recommendations (parallel if allowed) → Requirements → Timeline → Tasks → Dashboard
+  Guide: NOT auto-regenerated. Guide marked STALE via guide.outdated event. UI prompts user to regenerate.
+
+MOVE_DATE_CHANGED:
+  Triggers time-dependent cascade.
+  Minimum: Timeline → Tasks → Dashboard
+  MAY also trigger: Research, Recommendations (if time-sensitive visa windows are affected)
+  Guide: NOT auto-regenerated. Guide marked STALE via guide.outdated event.
+
+PROFILE_UPDATED:
+  Triggers partial cascade based on changed_fields analysis.
+  The system analyzes which fields changed and determines which artifact branches are affected:
+  - family_size changed → Housing recommendations, budget, requirements (if household-dependent), cascade to dependents
+  - citizenship changed → Visa recommendations, requirements, cascade to dependents
+  - budget changed → Cost projections, housing recommendations
+  - employment_context changed → Visa recommendations, requirements
+  Guide: NOT auto-regenerated. Guide marked STALE via guide.outdated event if affected fields impact guide content.
+
+PLAN_CREATED:
+  Triggers full initial generation — all non-gated artifacts generated for the first time.
+  Guide: NOT auto-generated on plan creation. Guide generation requires explicit user action.
+
+PLAN_LOCKED:
+  Triggers lock snapshot — no regeneration, just freezes current active versions.
+
+GUIDE GENERATION GATE (cross-reference: event-trigger-system.md F.1, guide-generation.md C.2):
+  Guide is NEVER part of the automatic cascade.
+  When all prerequisites are ready and the current guide is stale, the Data Update System emits guide.regenerate_suggested.
+  This signals the UI to show "Your guide is outdated. Regenerate?" but does NOT schedule generation.
+  Generation occurs ONLY when the user explicitly triggers guide.regenerate_requested.
+
+EXTERNAL_DATA_REFRESHED:
+  Triggers research and cost projections update. Cascades to recommendations if research results changed materially.
+
+
+G.4 Partial vs Full Regeneration Rules
+
+Full regeneration required:
+  DESTINATION_CHANGED
+  PLAN_CREATED
+  VERSION_UPGRADE
+
+Partial regeneration allowed:
+  PROFILE_UPDATED (scope limited by changed_fields analysis)
+  MOVE_DATE_CHANGED (time-dependent branch only)
+  EXTERNAL_DATA_REFRESHED (affected data sources only)
+
+Partial regeneration optimization:
+- The system MAY skip regeneration for an artifact if the changed fields do not affect it.
+- The system MUST document which fields affect which artifacts (field → artifact dependency map).
+- If unsure whether a field change affects an artifact, regenerate (safety over performance).
+
+
+G.5 Field → Artifact Dependency Map
+
+| Changed Field          | Affected Artifacts                                                  |
+|------------------------|---------------------------------------------------------------------|
+| destination_country    | ALL (full cascade)                                                  |
+| move_date              | Timeline, Tasks, Guide, Dashboard (+ possibly Research, Recs)       |
+| citizenship            | Recommendations (visa), Requirements, Timeline, Tasks, Guide, Dashboard |
+| purpose                | Recommendations, Requirements, Timeline, Tasks, Guide, Dashboard    |
+| family_size            | Recommendations (housing), Requirements, Cost, Guide, Dashboard     |
+| budget_monthly         | Cost Projections, Recommendations (housing), Guide, Dashboard       |
+| employment_context     | Recommendations (visa), Requirements, Guide, Dashboard              |
+| visa_type              | Requirements, Timeline, Tasks, Guide, Dashboard                     |
+| destination_city       | Cost Projections, Research, Recommendations (housing), Guide        |
+| housing_preferences    | Recommendations (housing), Guide                                    |
+
+This map is used by the trigger routing logic to determine cascade scope for PROFILE_UPDATED triggers.
+
+
+================================================================
+H. UPDATE ORDERING GUARANTEES
+================================================================
+
+
+H.1 Execution Order Rules
+
+Within a cascade, execution order is determined by the DAG (G.1):
+
+Mandatory ordering (dependency-gated):
+- An artifact MUST NOT begin generation until all its upstream dependencies in the current cycle are completed.
+- Dashboard MAY update incrementally as upstream artifacts complete.
+
+No mandatory ordering between independent branches:
+- Research and Cost Projections may run in any order or concurrently.
+- Research and Recommendations may run concurrently if Recommendations does not depend on Research for the current plan.
+
+Ordering is enforced via dependency-gated job queue:
+- Each job declares its dependencies (upstream artifact types + version_target).
+- The queue scheduler only dequeues a job when all declared dependencies are met.
+
+
+H.2 Concurrent Update Handling
+
+If concurrent triggers occur for the same plan:
+
+1. If triggers are for different artifact branches (independent): both jobs can run.
+2. If triggers are for the same artifact: supersession rules apply (E.3).
+3. If a broader trigger arrives while a narrower one is running:
+   - Example: DESTINATION_CHANGED arrives while a PROFILE_UPDATED job is running for recommendations.
+   - The running job completes (or is cancelled if safe).
+   - The DESTINATION_CHANGED trigger creates a full cascade that supersedes all narrower pending jobs.
+
+Merge policy:
+- Jobs for the same artifact_type and plan_id are NEVER merged. The newer trigger always wins.
+- Jobs for different artifact_types within the same cascade share the same profile_version_id to ensure consistency.
+
+
+================================================================
+I. ATOMICITY & CONSISTENCY GUARANTEES
+================================================================
+
+
+I.1 Atomicity Definition
+
+Artifact-level atomicity guaranteed.
+No partial artifact state visible to the user.
+
+Implementation:
+- Artifact generation writes to a staging area (draft version).
+- Activation (status = active) is atomic (single transaction swap).
+- If generation fails, the draft is discarded. Previous active version remains.
+
+
+I.2 Partial Failure Handling
+
+If a single artifact in a cascade fails:
+- The failed artifact retains its previous active version.
+- Downstream dependents of the failed artifact are NOT regenerated (they would be based on stale data).
+- The cascade is marked as partially failed.
+- A retry is scheduled for the failed artifact.
+- Downstream dependents are automatically queued after the retry succeeds.
+
+If the failed artifact is Research or Recommendations (early in the DAG):
+- Most of the cascade is blocked.
+- Dashboard shows "Update in progress — some data could not be refreshed."
+
+If the failed artifact is Guide (late in the DAG):
+- Earlier artifacts are already activated. Dashboard reflects them.
+- Guide shows "Regenerating..." until retry succeeds.
+
+
+I.3 Consistency Model
+
+Strong consistency for active version:
+- Once a new version is activated, all reads return it.
+- No stale reads after activation.
+
+Eventual consistency allowed during update execution only:
+- While a cascade is running, different artifacts may be at different version_targets.
+- Dashboard may show mixed versions temporarily.
+- This is acceptable because dashboard clearly indicates "Updating..." state.
+
+Cross-artifact version consistency:
+- Within a single cascade cycle, all artifacts bind to the same profile_version_id.
+- This ensures that if a user views artifacts from the same generation cycle, they are internally coherent.
+- Artifacts from different cycles may reference different profile_version_ids (this is expected and correct).
+
+
+================================================================
+J. USER EXPERIENCE & VISIBILITY CONTRACT
+================================================================
+
+
+J.1 Update Visibility
+
+Visible states to user:
+
+Updating — artifact is being regenerated (show spinner/progress)
+Updated — new version activated (show "Updated just now" indicator)
+Failed — regeneration failed (show "Could not update. Retry?" with retry button)
+Stale — artifact was generated from an older profile version (show "May be outdated" indicator)
+
+
+J.2 User-triggered Updates
+
+Allowed for user to manually trigger:
+
+Dashboard refresh
+Cost projections refresh
+Research refresh
+Single artifact regeneration (specific "Regenerate" button per artifact)
+
+Not allowed for user to manually trigger (after lock):
+  Guide regeneration
+  Timeline regeneration
+  Recommendations regeneration
+
+
+J.3 User Impact During Update
+
+User can view previous version while update is in progress.
+Cannot view incomplete version (staging area is not visible).
+
+If the previous version is significantly outdated (based on profile_version_id comparison), show "Data may be outdated — update in progress" indicator.
+
+
+================================================================
+K. CACHE INVALIDATION CONTRACT
+================================================================
+
+
+K.1 Cache Ownership
+
+Systems with caches that must be invalidated:
+
+Dashboard (client-side cache)
+Guide Viewer (client-side cache)
+Recommendation Viewer (client-side cache)
+Timeline Viewer (client-side cache)
+
+K.2 Cache Invalidation Rules
+
+Cache invalidated AFTER update completion (after version activation):
+- Cache key must include artifact version_id or updated_at timestamp.
+- Invalidation signal sent to client (via real-time subscription or next API response).
+
+K.3 Cache Consistency Guarantee
+
+Stale cache forbidden once new version is active.
+Client must re-fetch after receiving invalidation signal.
+If client misses invalidation signal, cache TTL ensures eventual refresh (max 60 seconds).
+
+
+================================================================
+L. PERFORMANCE, RATE LIMITS & RESOURCE CONTROL
+================================================================
+
+
+L.1 Rate Limits
+
+Max update cascades per plan per hour: 10
+Max manual refresh requests per user per day: 50
+Max concurrent running jobs per plan: 3
+
+Rate limit enforcement:
+- Checked at trigger validation (B.5).
+- Rate-limited triggers are queued with LOW priority rather than rejected (except MANUAL_REFRESH which returns "Too many requests, try again later").
+
+
+L.2 Resource Protection
+
+Loop detection:
+- If an artifact's active version is regenerated more than 5 times within 1 hour without any source data change, flag as potential loop.
+- Log alert and pause cascade for that artifact.
+
+Duplicate cascade prevention:
+- If a DESTINATION_CHANGED trigger is received while a previous DESTINATION_CHANGED cascade is still running for the same plan, the previous cascade is superseded (all pending jobs cancelled).
+
+Resource budgets:
+- Each generation job has a timeout (configurable per artifact type, e.g., guide=120s, research=60s, dashboard=10s).
+- Jobs exceeding timeout are failed and retried.
+
+Serverless considerations:
+- In Vercel serverless, function execution timeout applies.
+- Long-running generations (guide, research) must be designed to complete within serverless timeout or use continuation patterns.
+
+
+================================================================
+M. FAILURE HANDLING & RETRY CONTRACT
+================================================================
+
+
+M.1 Retry Policy
+
+Retry count: 3
+
+Retry interval: Exponential backoff (1s, 4s, 16s)
+
+Retry scope: Per artifact job, not per cascade. Each job retries independently.
+
+
+M.2 Permanent Failure Handling
+
+After 3 retries:
+- Job marked FAILED.
+- Admin/system alert generated.
+- Previous active version remains (user sees stale data with "Update failed" indicator).
+- User can manually retry via "Regenerate" button.
+- Downstream dependents are NOT regenerated (they would be based on stale upstream data).
+
+
+M.3 Crash Recovery
+
+Jobs are persisted in database.
+On system restart or serverless cold start:
+- Query for jobs in status=running that started more than timeout_ms ago.
+- Mark them as failed.
+- Schedule retry if retry_count < max_retries.
+
+Jobs in status=queued are re-enqueued automatically.
+
+M.4 External Service Failure
+
+If an external service fails (Firecrawl for research, OpenRouter for LLM generation):
+- The specific job fails and retries per M.1.
+- Other jobs in the cascade that do not depend on the failed service continue.
+- If the external service is consistently failing (circuit breaker): pause affected artifact generation and notify admin.
+
+
+================================================================
+N. CROSS-SYSTEM VERSION SYNC GUARANTEE
+================================================================
+
+
+N.1 Version Synchronization Rule
+
+All systems that display artifacts MUST reference the artifact version_id.
+
+Version resolution:
+- Dashboard → resolves latest active version per artifact type for the plan.
+- Guide Viewer → resolves specific guide version (may show historical versions).
+- Recommendation Viewer → resolves latest active recommendation version.
+
+N.2 Version Mismatch Prevention
+
+Cross-system version mismatch is prevented by:
+- All artifact viewers resolve versions through the Data Update System's version registry.
+- No system caches version_ids independently (always query or subscribe).
+- Dashboard shows a consistent snapshot: if any artifact is in "updating" state, the dashboard indicates this.
+
+
+================================================================
+O. ROLLBACK & RECOVERY CONTRACT
+================================================================
+
+
+O.1 Rollback Capability
+
+Rollback is supported for versioned artifacts:
+- Guide (restore previous version)
+- Timeline (restore previous version)
+- Requirements (restore previous version)
+- Tasks (restore previous task graph version)
+- Research (restore previous version)
+
+Rollback is NOT supported for:
+- Dashboard (overwrite model, no history)
+- Recommendations (overwrite pre-lock; versioned post-lock)
+
+O.2 Rollback Trigger
+
+Admin only (v1).
+
+Future: user-initiated rollback with confirmation dialog.
+
+O.3 Rollback Semantics
+
+Rollback means:
+1. Set the selected historical version as the new active version.
+2. Mark the current active version as superseded.
+3. Cascade cache invalidation.
+4. Downstream artifacts are NOT automatically rolled back (they may reference the newer upstream version).
+5. If downstream consistency is required, admin must trigger a targeted regeneration.
+
+Rollback creates an audit log entry (who, when, which version, reason).
+
+O.4 Rollback Restrictions
+
+Cannot rollback to a version generated from a different profile_version_id if the plan is LOCKED.
+Reason: locked artifacts must be consistent with the lock snapshot.
+
+
+================================================================
+P. EXTERNAL DATA REFRESH CONTRACT
+================================================================
+
+
+P.1 External Data Sources
+
+Cost of living data (Numbeo, etc.)
+Visa requirement data (government sources, legal databases)
+Legal/compliance requirements (local regulations)
+Country reference data (general country information)
+
+
+P.2 Refresh Frequency
+
+Scheduled: Daily (configurable)
+Manual: Allowed (admin or user-triggered)
+
+
+P.3 External Change Propagation
+
+When external data is refreshed:
+1. The External Data Sync System emits EXTERNAL_DATA_REFRESHED with metadata indicating which data source changed.
+2. The Data Update System identifies which artifacts depend on the changed data source:
+   - Cost of living data → Cost Projections
+   - Visa data → Research, Recommendations
+   - Legal requirements → Requirements
+3. Affected artifacts are queued for regeneration.
+4. Cascade propagates to dependents as per the DAG (G.1).
+
+External data refreshes do NOT affect locked plans' frozen artifacts (except Requirements, which may be versioned post-lock per F.1).
+
+
+P.4 External Data Staleness Detection
+
+Each artifact version records the external data version/timestamp used during generation.
+If external data has been refreshed since the artifact was generated, the artifact is marked as "potentially stale."
+Dashboard may show "Last updated: [date]. Newer data available." prompt.
+
+
+================================================================
+Q. PLAN LOCK INTERACTION CONTRACT
+================================================================
+
+
+Q.1 Lock Effect on Updates
+
+When a plan transitions to LifecycleState=LOCKED:
+
+1. PLAN_LOCK_SNAPSHOT created (Profile System creates the snapshot).
+2. All core artifact active versions are recorded as the locked baseline.
+3. No further regeneration of frozen artifacts (Guide, Timeline, Recommendations, Tasks, Research).
+4. Dashboard projections continue to update (they reflect execution progress, not plan content).
+5. Cost projections may be versioned post-lock (new external data can create new cost versions).
+6. Requirements may be versioned post-lock (new legal requirements from EXTERNAL_DATA_REFRESHED).
+
+Q.2 Post-lock Update Policy
+
+Artifact mutability after lock:
+
+| Artifact        | Regeneration allowed | Status updates allowed |
+|-----------------|---------------------|----------------------|
+| Guide           | NO                  | N/A                  |
+| Recommendations | NO                  | N/A                  |
+| Timeline        | NO                  | Completion marks YES |
+| Tasks           | NO (content)        | Status marks YES     |
+| Research        | NO                  | N/A                  |
+| Requirements    | Versioned only*     | N/A                  |
+| Cost projections| Versioned only      | N/A                  |
+| Dashboard       | YES (always)        | N/A                  |
+
+* Requirements versioned post-lock only from EXTERNAL_DATA_REFRESHED, not from profile changes.
+
+Q.3 Lock Validation
+
+Before executing any update job, the system checks the plan's LifecycleState:
+- If LOCKED: only dashboard updates and explicitly allowed versioned updates proceed.
+- All other jobs are rejected with "Plan is locked" error.
+- This check happens at job execution time (not just at trigger time) to handle race conditions where a plan is locked between trigger receipt and job execution.
+
+
+================================================================
+R. PLAN ISOLATION GUARANTEE
+================================================================
+
+
+R.1 Plan Isolation Rule
+
+Jobs are strictly scoped per plan.
+Cross-plan update is forbidden.
+
+No job may read data from plan A to update plan B.
+No job may share artifact versions across plans.
+Even forked plans are fully independent after creation — their artifacts are regenerated independently.
+
+
+================================================================
+S. LOGGING, AUDIT & DEBUGGING CONTRACT
+================================================================
+
+
+S.1 Logging Requirements
+
+All jobs log:
+- trigger (type, source, changed_fields)
+- artifact (type, version_target)
+- profile_version_id (the profile snapshot used)
+- status (each transition)
+- duration (started_at to completed_at)
+- error details (on failure)
+- dependency wait time (time spent waiting for upstream jobs)
+
+
+S.2 Audit Trail
+
+Full reconstruction supported:
+- For any artifact version, the system can reconstruct:
+  - Which trigger caused the update
+  - Which profile_version_id was used
+  - Which upstream artifact versions were inputs
+  - How long generation took
+  - Whether retries occurred
+
+S.3 Debugging Capability
+
+Job replay supported:
+- A failed job can be replayed with the same inputs for debugging.
+- Replay creates a new job with reference to the original (replay_of = original_job_id).
+
+Dependency visualization:
+- For any cascade, the system can produce a graph showing:
+  - Job DAG (which jobs ran, in what order, with what dependencies)
+  - Timing (parallel execution visualization)
+  - Failures and retries
+
+
+================================================================
+T. CROSS-SYSTEM REFERENCES
+================================================================
+
+Upstream (triggers and source data):
+- Profile System (profile-system.md) — profile_version_id, field change triggers
+- Plan System (plan-system.md) — plan creation, plan locking, LifecycleState
+- Event/Trigger System (event-trigger-system.md) — domain event routing layer
+
+Downstream (artifacts regenerated by Data Update System):
+- Research System (research-system.md) — research output regeneration
+- Recommendation System (recommendation-system.md) — recommendation regeneration
+- Cost of Living System (cost-of-living.md) — cost projection regeneration
+- Timeline System (timeline-system.md) — timeline regeneration
+- Settling-in Task System (settling-in-tasks.md) — task graph regeneration
+- Guide Generation System (guide-generation.md) — guide staleness signaling (never auto-regenerated)
+- Dashboard System (dashboard.md) — dashboard projection updates
+
+V1 Cross-Reference Status:
+| Referenced System | V1 Status |
+|---|---|
+| Profile System (profile-system.md) | PARTIAL |
+| Plan System (plan-system.md) | PARTIAL |
+| Event Trigger System (event-trigger-system.md) | NOT_IMPLEMENTED |
+| Research System (research-system.md) | PARTIAL |
+| Recommendation System (recommendation-system.md) | MINIMAL |
+| Cost of Living System (cost-of-living.md) | PARTIAL |
+| Timeline System (timeline-system.md) | NOT_IMPLEMENTED |
+| Settling-in Tasks (settling-in-tasks.md) | PARTIAL |
+| Guide Generation System (guide-generation.md) | PARTIAL |
+| Dashboard System (dashboard.md) | PARTIAL |
+
+================================================================
+END OF DATA UPDATE SYSTEM DEFINITION
+================================================================

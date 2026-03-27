@@ -1,59 +1,34 @@
-# Regression Report — Phase 3 (Data Integrity)
+# Regression Report — Phase 3: Post-Arrival Execution Consistency
 
-**Date:** 2026-03-02
-**Status:** PASSED — Zero regressions
+**Executed:** 2026-03-14  
+**Phase:** 3 — Post-Arrival Execution Consistency
 
----
+## 1. Regression Scope
 
-## Phase 1 Regression Suite
+Phase 3 changed shared progress and settling-in read paths, so regression focus covered:
 
-| Test | Method | URL | Expected | Actual | Status |
-|---|---|---|---|---|---|
-| POST /api/subscription removed | POST | /api/subscription | 405 | 405 | ✅ |
-| GET /api/subscription (authed) | GET | /api/subscription | 200 with tier data | 200, tier: pro_plus | ✅ |
-| Auth callback open redirect | GET | /auth/callback?next=//evil.com | Redirect to /auth/error | /auth/error | ✅ |
+- current-plan switching
+- pre-arrival dashboard/progress authority
+- arrived settling-in task reads
+- cached generation behavior
+- task mutation safety
 
----
+## 2. Regression Checks
 
-## Phase 2 Regression Suite
+| Regression check | Result | Status |
+|---|---|---|
+| `PATCH /api/plans` current-plan switching still works | switched from collecting plan to arrived plan and back successfully during runtime verification | PASS |
+| Interview progress on collecting plan remains intact | `GET /api/progress` kept `interview_progress={ percentage:100, confirmed:14, readyToLock:false }` on the restored current plan | PASS |
+| Settling-in read on arrived plan still returns task graph and stats | arrived plan returned 10 tasks plus dependency blockers and compliance fields | PASS |
+| Cached generate path still works on an already-generated arrived plan | `POST /api/settling-in/generate` returned `cached=true` with stats instead of failing or duplicating rows | PASS |
+| Existing why-it-matters cache still works for valid arrived tasks | arrived task returned cached enrichment successfully | PASS |
+| Client cannot mutate derived `overdue` state directly | invalid PATCH returned `400` | PASS |
 
-| Test | Method | URL | Expected | Actual | Status |
-|---|---|---|---|---|---|
-| GET /api/settling-in (pre-arrival) | GET | /api/settling-in | `{tasks:[], stage, arrivalDate:null}` | Correct (returns tasks for arrived plan, empty for pre-arrival) | ✅ |
-| POST /api/settling-in/generate (pre-arrival) | POST | /api/settling-in/generate | 400 for pre-arrival | 400 (when on pre-arrival plan) | ✅ |
+## 3. Residual Risk
 
----
+- Repo-wide TypeScript baseline remains red outside the Phase 3 file set.
+- Full browser-level acceptance on the settling-in page still depends on the user-side gate in `PHASE_3_USER_TEST.md`.
 
-## Phase 3 Tests
+## 4. Regression Outcome
 
-| Test | Method | Expected | Actual | Status |
-|---|---|---|---|---|
-| GET /api/profile (normal) | GET | 200 with plan | 200 | ✅ |
-| GET /api/plans (list) | GET | 200 with plans, exactly 1 current | 200, 2 plans, 1 current | ✅ |
-| PATCH /api/plans switch (atomic RPC) | PATCH | 200 | User Acceptance Test 1: APPROVED | ✅ |
-| Profile race condition fallback | Code review | Re-fetch on constraint error | Implemented at profile/route.ts:42-52 | ✅ |
-| task_key populated on generation | User test | Non-null, URL-safe slugs | User Acceptance Test 3: APPROVED (after migration 015) | ✅ |
-
----
-
-## Unauthorized Access
-
-| Test | Expected | Actual | Status |
-|---|---|---|---|
-| GET /api/settling-in (no cookie) | 401 | 401 | ✅ |
-| POST /api/settling-in/generate (no cookie) | 401 | 401 | ✅ |
-| GET /api/profile (no cookie) | 401 | 401 | ✅ |
-| GET /api/plans (no cookie) | 401 | 401 | ✅ |
-
----
-
-## Notes
-
-- Plan switch RPC (`switch_current_plan`) was updated from a single UPDATE to two sequential statements within one transactional function to avoid partial unique index violations. The atomicity guarantee is preserved because both statements execute in a single PL/pgSQL transaction — if either fails, the entire function rolls back.
-- Migration 015 was added to create the `task_key` column that was missing from the live database (migration 010's `CREATE TABLE IF NOT EXISTS` was a no-op since the table pre-existed).
-
----
-
-## Declaration
-
-**Zero regressions detected.** All Phase 1, Phase 2, and Phase 3 test suites pass. User Acceptance declared PASSED.
+Regression Gate is passed for the scoped Phase 3 changes.

@@ -33,6 +33,8 @@ Source: `app/api/settling-in/[id]/why-it-matters/route.ts`
 **URL parameter:** `id` — task UUID
 **Request body:** Empty (no body required or used)
 
+**Stage gate:** Not enforced. Unlike generate and task PATCH, this route does not verify that the owning plan is in `arrived` stage before generating enrichment.
+
 ---
 
 ## 4. Cache-Hit Path
@@ -152,7 +154,11 @@ HTTP 500.
 
 ## 9. Rate Limiting
 
-**Not implemented.** There is no per-user daily limit, per-task limit, or global rate limit on the enrichment endpoint. A user can request enrichment for all tasks in rapid succession.
+Implemented as a coarse per-plan cap.
+
+The endpoint counts existing non-null `why_it_matters` values for the same `plan_id` and returns 429 once the plan reaches 20 enriched tasks.
+
+This is not the canonical per-user daily rate limit from the contract, but it does bound spend for the current v1 path.
 
 ---
 
@@ -178,12 +184,13 @@ The second write overwrites the first. No error occurs. The result is two wasted
 
 | Gap | Contract specification | Current implementation | Severity |
 |---|---|---|---|
-| G-9.5-A | Per-user daily rate limit enforced at threshold | No rate limiting | P2 — Unconstrained LLM spend per user |
+| G-9.5-A | Per-user daily rate limit enforced at threshold | Route enforces a 20-enrichment cap per plan instead of the contract's per-user daily limit | Partial |
 | G-9.5-B | Hedging language in prompt to prevent hallucinated legal guarantees | No hedging enforced in prompt | P2 — Model may make implicit legal claims |
 | G-9.5-C | Audit events on generation and cache-hit | No audit events | P2 — No observability |
 | G-9.5-D | Idempotency protection against concurrent requests | No locking; concurrent requests both make LLM calls and both write | P3 — Double spend risk on rapid re-click |
 | G-9.5-E | `task_key` used as URL identifier | UUID used as URL parameter | P3 — Contract terminology divergence; UUID is more robust |
 | G-9.5-F | Partial text stored on generation failure | No partial storage; NULL remains on failure | P3 — User must retry with no persistence |
+| G-9.5-G | Post-arrival enrichment should obey the same arrival-stage gate as the rest of the settling-in execution surface | No stage check; pre-arrival plans with task IDs can still trigger enrichment | P1 — Execution semantics remain inconsistent inside the post-arrival feature set |
 
 ---
 

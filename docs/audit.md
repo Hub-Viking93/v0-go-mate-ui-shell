@@ -1,13 +1,17 @@
 # GoMate — Full System Audit
 
+> Historical baseline audit.
+> This document remains important as the original v1 classification and invariant baseline, but it is **not** the universal governance authority for ongoing work.
+> For document precedence and authority resolution, read `docs/audits/document-authority.md`.
+> For current system behavior, read `docs/audits/backend-audit.md`.
+> For current target-vs-reality gaps, read `docs/audits/definitions-vs-system-audit.md`.
+
 **Version:** 1.0
 **Status:** Authoritative baseline
 **Source:** Synthesis of 31 system documents in `docs/systems/` + direct code audit
 **Date:** 2026-02-25
 
-This document is the single source of truth for GoMate's system state. It defines what is working, what is broken, and what must be true for the system to be considered production-ready at v1.
-
-All build decisions derive from this document. When in doubt, this document wins over contracts, system docs, and aspirational specs.
+This document is the baseline record of what was working, broken, missing, and required for production readiness at the time of the original audit.
 
 ---
 

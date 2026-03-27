@@ -11,14 +11,15 @@
  */
 
 import type { Profile } from "./profile-schema"
+import { fetchWithRetry } from "./fetch-with-retry"
+import { getGenericFallbackData, type NumbeoData } from "./numbeo-scraper"
 
 // Firecrawl API configuration
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 
-// Cache for fetched data (in-memory, resets on server restart)
-const dataCache = new Map<string, { data: unknown; timestamp: number }>()
-const CACHE_TTL = 1000 * 60 * 60 * 24 // 24 hours
+// In-memory cache removed — non-functional in serverless (Vercel).
+// Each invocation fetches fresh data. For caching, use database persistence.
 
 /**
  * Scrape a URL using Firecrawl API
@@ -30,7 +31,7 @@ export async function scrapeUrl(url: string): Promise<string | null> {
   }
 
   try {
-    const response = await fetch(`${FIRECRAWL_BASE_URL}/scrape`, {
+    const response = await fetchWithRetry(`${FIRECRAWL_BASE_URL}/scrape`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -41,7 +42,7 @@ export async function scrapeUrl(url: string): Promise<string | null> {
         formats: ["markdown"],
         onlyMainContent: true,
       }),
-    })
+    }, 15_000)
 
     if (!response.ok) {
       console.error("[GoMate] Firecrawl scrape failed:", response.status)
@@ -66,7 +67,7 @@ export async function searchAndScrape(query: string, limit = 3): Promise<string[
 
   try {
     // Use Firecrawl's search endpoint
-    const response = await fetch(`${FIRECRAWL_BASE_URL}/search`, {
+    const response = await fetchWithRetry(`${FIRECRAWL_BASE_URL}/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -80,7 +81,7 @@ export async function searchAndScrape(query: string, limit = 3): Promise<string[
           onlyMainContent: true,
         },
       }),
-    })
+    }, 15_000)
 
     if (!response.ok) {
       console.error("[GoMate] Firecrawl search failed:", response.status)
@@ -102,13 +103,6 @@ export async function fetchLiveCostOfLiving(
   country: string,
   city?: string
 ): Promise<Partial<CostOfLivingData> | null> {
-  const cacheKey = `col_${country}_${city || "default"}`
-  const cached = dataCache.get(cacheKey)
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data as Partial<CostOfLivingData>
-  }
-
   const location = city ? `${city}, ${country}` : country
   const searchQuery = `cost of living ${location} rent utilities groceries transportation site:numbeo.com`
   
@@ -140,9 +134,6 @@ export async function fetchLiveCostOfLiving(
     extractedData.utilities = parseFloat(utilitiesMatch[1])
   }
 
-  // Cache the result
-  dataCache.set(cacheKey, { data: extractedData, timestamp: Date.now() })
-  
   return extractedData
 }
 
@@ -154,13 +145,6 @@ export async function fetchVisaInfo(
   toCountry: string,
   purpose: string
 ): Promise<VisaProcessingData | null> {
-  const cacheKey = `visa_${fromCountry}_${toCountry}_${purpose}`
-  const cached = dataCache.get(cacheKey)
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data as VisaProcessingData
-  }
-
   const purposeMap: Record<string, string> = {
     study: "student visa",
     work: "work visa work permit",
@@ -202,9 +186,6 @@ export async function fetchVisaInfo(
     visaData.applicationFee = feeMatch[0]
   }
 
-  // Cache the result
-  dataCache.set(cacheKey, { data: visaData, timestamp: Date.now() })
-  
   return visaData
 }
 
@@ -345,170 +326,41 @@ export interface ResearchResults {
   timestamp: string
 }
 
-// Pre-compiled cost of living estimates (fallback data)
-// These are approximate monthly costs in USD
-const COST_OF_LIVING_ESTIMATES: Record<string, Partial<CostOfLivingData>> = {
-  germany: {
-    monthlyRent1Bed: { city: 900, outside: 650 },
-    monthlyRent3Bed: { city: 1600, outside: 1100 },
-    utilities: 250,
-    internet: 35,
-    mealInexpensive: 12,
-    mealMidRange: 45,
-    groceries: 300,
-    transportation: 85,
-    overallIndex: 65,
-  },
-  netherlands: {
-    monthlyRent1Bed: { city: 1400, outside: 1000 },
-    monthlyRent3Bed: { city: 2200, outside: 1600 },
-    utilities: 200,
-    internet: 45,
-    mealInexpensive: 18,
-    mealMidRange: 55,
-    groceries: 350,
-    transportation: 100,
-    overallIndex: 75,
-  },
-  sweden: {
-    monthlyRent1Bed: { city: 1100, outside: 800 },
-    monthlyRent3Bed: { city: 1800, outside: 1300 },
-    utilities: 80,
-    internet: 30,
-    mealInexpensive: 15,
-    mealMidRange: 60,
-    groceries: 320,
-    transportation: 90,
-    overallIndex: 70,
-  },
-  spain: {
-    monthlyRent1Bed: { city: 850, outside: 550 },
-    monthlyRent3Bed: { city: 1400, outside: 900 },
-    utilities: 130,
-    internet: 35,
-    mealInexpensive: 12,
-    mealMidRange: 40,
-    groceries: 250,
-    transportation: 45,
-    overallIndex: 55,
-  },
-  portugal: {
-    monthlyRent1Bed: { city: 900, outside: 600 },
-    monthlyRent3Bed: { city: 1500, outside: 950 },
-    utilities: 120,
-    internet: 35,
-    mealInexpensive: 10,
-    mealMidRange: 35,
-    groceries: 230,
-    transportation: 40,
-    overallIndex: 50,
-  },
-  france: {
-    monthlyRent1Bed: { city: 1100, outside: 750 },
-    monthlyRent3Bed: { city: 2000, outside: 1300 },
-    utilities: 180,
-    internet: 30,
-    mealInexpensive: 15,
-    mealMidRange: 50,
-    groceries: 320,
-    transportation: 75,
-    overallIndex: 70,
-  },
-  italy: {
-    monthlyRent1Bed: { city: 800, outside: 550 },
-    monthlyRent3Bed: { city: 1400, outside: 900 },
-    utilities: 180,
-    internet: 30,
-    mealInexpensive: 15,
-    mealMidRange: 50,
-    groceries: 280,
-    transportation: 35,
-    overallIndex: 60,
-  },
-  japan: {
-    monthlyRent1Bed: { city: 700, outside: 450 },
-    monthlyRent3Bed: { city: 1500, outside: 900 },
-    utilities: 150,
-    internet: 40,
-    mealInexpensive: 8,
-    mealMidRange: 30,
-    groceries: 350,
-    transportation: 100,
-    overallIndex: 75,
-  },
-  canada: {
-    monthlyRent1Bed: { city: 1500, outside: 1100 },
-    monthlyRent3Bed: { city: 2500, outside: 1800 },
-    utilities: 150,
-    internet: 70,
-    mealInexpensive: 18,
-    mealMidRange: 65,
-    groceries: 400,
-    transportation: 110,
-    overallIndex: 72,
-  },
-  australia: {
-    monthlyRent1Bed: { city: 1600, outside: 1100 },
-    monthlyRent3Bed: { city: 2800, outside: 1900 },
-    utilities: 150,
-    internet: 60,
-    mealInexpensive: 20,
-    mealMidRange: 70,
-    groceries: 400,
-    transportation: 130,
-    overallIndex: 78,
-  },
-  "united kingdom": {
-    monthlyRent1Bed: { city: 1500, outside: 1000 },
-    monthlyRent3Bed: { city: 2500, outside: 1700 },
-    utilities: 200,
-    internet: 35,
-    mealInexpensive: 15,
-    mealMidRange: 55,
-    groceries: 350,
-    transportation: 150,
-    overallIndex: 72,
-  },
-  "united states": {
-    monthlyRent1Bed: { city: 1800, outside: 1300 },
-    monthlyRent3Bed: { city: 3000, outside: 2100 },
-    utilities: 180,
-    internet: 65,
-    mealInexpensive: 18,
-    mealMidRange: 65,
-    groceries: 400,
-    transportation: 70,
-    overallIndex: 75,
-  },
+// Convert NumbeoData (canonical authority from numbeo-scraper.ts) to CostOfLivingData
+// This ensures the chat/guide path uses the same data source as the API.
+function numbeoToCostOfLiving(data: NumbeoData): CostOfLivingData {
+  return {
+    city: data.city,
+    country: data.country,
+    monthlyRent1Bed: {
+      city: data.rent?.apartment1BedCity || 1000,
+      outside: data.rent?.apartment1BedOutside || 700,
+    },
+    monthlyRent3Bed: {
+      city: data.rent?.apartment3BedCity || 1800,
+      outside: data.rent?.apartment3BedOutside || 1200,
+    },
+    utilities: data.utilities?.basic || 150,
+    internet: data.utilities?.internet || 40,
+    mealInexpensive: data.food?.mealInexpensive || 12,
+    mealMidRange: data.food?.mealMidRange || 45,
+    groceries: (data.food?.mealInexpensive || 12) * 20, // estimated monthly groceries
+    transportation: data.transportation?.monthlyPass || 75,
+    overallIndex: data.costOfLivingIndex || 65,
+    source: data.source,
+    lastUpdated: data.lastUpdated,
+  }
 }
 
-// Get cost of living data for a country (uses fallback data)
+// Get cost of living data for a country/city.
+// Authority: delegates to numbeo-scraper.ts getGenericFallbackData() which is the
+// single canonical source for cost data across both the API and helper paths.
 export function getCostOfLivingData(
   country: string,
   city?: string
 ): CostOfLivingData | null {
-  const normalizedCountry = country.toLowerCase().trim()
-  const estimate = COST_OF_LIVING_ESTIMATES[normalizedCountry]
-
-  if (!estimate) {
-    return null
-  }
-
-  return {
-    city: city || "Major city",
-    country: country,
-    monthlyRent1Bed: estimate.monthlyRent1Bed || { city: 1000, outside: 700 },
-    monthlyRent3Bed: estimate.monthlyRent3Bed || { city: 1800, outside: 1200 },
-    utilities: estimate.utilities || 150,
-    internet: estimate.internet || 40,
-    mealInexpensive: estimate.mealInexpensive || 12,
-    mealMidRange: estimate.mealMidRange || 45,
-    groceries: estimate.groceries || 300,
-    transportation: estimate.transportation || 75,
-    overallIndex: estimate.overallIndex || 65,
-    source: "GoMate estimates based on Numbeo data",
-    lastUpdated: new Date().toISOString().split("T")[0],
-  }
+  const numbeoData = getGenericFallbackData(city, country)
+  return numbeoToCostOfLiving(numbeoData)
 }
 
 // Calculate monthly budget based on profile and cost of living

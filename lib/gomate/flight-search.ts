@@ -87,6 +87,8 @@ export interface FlightSearchResult {
   error?: string
 }
 
+export const MOCK_FLIGHT_SCRAPED_AT = "2026-01-01T00:00:00.000Z"
+
 // Build search URLs for each provider
 function buildSearchUrl(source: typeof FLIGHT_SOURCES[number], params: FlightSearchParams): string {
   const { from, to, departDate, returnDate, travelers, cabinClass } = params
@@ -104,10 +106,9 @@ function buildSearchUrl(source: typeof FLIGHT_SOURCES[number], params: FlightSea
       return `${source.baseUrl}${skyScannerPath}?adults=${travelers}&cabinclass=${cabinClass || "economy"}`
       
     case "google":
-      // Format: /travel/flights?q=flights+from+JFK+to+BER
-      const googleDate = departDate
-      const googleReturnDate = returnDate || ""
-      return `${source.baseUrl}${source.searchPath}?hl=en&curr=USD&tfs=CBwQAhoqEgoyMDI2LTAzLTE1agwIAhIIL20vMDJfMjhyDAgCEggvbS8wMTU2cUABSAFwAYIBCwj___________8BmAEB`
+      // Format: /travel/flights/search?q=flights+from+JFK+to+BER+on+2026-03-15
+      const googleQuery = `flights from ${fromCode} to ${toCode} on ${departDate}${returnDate ? ` return ${returnDate}` : ""}`
+      return `${source.baseUrl}${source.searchPath}?hl=en&curr=USD&q=${encodeURIComponent(googleQuery)}`
       
     case "momondo":
       // Format: /flight-search/JFK-BER/2026-03-15/2026-03-22?sort=bestflight_a
@@ -126,10 +127,10 @@ function buildSearchUrl(source: typeof FLIGHT_SOURCES[number], params: FlightSea
     case "kiwi":
       // Format: /search/tiles/JFK-BER/anytime/anytime
       return `${source.baseUrl}${source.searchPath}/${fromCode.toLowerCase()}-${toCode.toLowerCase()}/${departDate}/${returnDate || "no-return"}`
-      
-    default:
-      return source.baseUrl
   }
+
+  const exhaustiveCheck: never = source
+  return exhaustiveCheck
 }
 
 // Parse flight data from scraped content
@@ -166,19 +167,20 @@ function parseFlightData(markdown: string, source: FlightSource, searchUrl: stri
   
   // Create flight results from parsed data
   const numFlights = Math.min(prices.length, 5) // Limit to 5 results per source
-  
+  const now = Date.now()
+
   for (let i = 0; i < numFlights; i++) {
     const priceStr = prices[i] || "$0"
     const priceNum = parseInt(priceStr.replace(/[^\d]/g, "")) || 0
-    
-    if (priceNum < 50 || priceNum > 10000) continue // Skip unrealistic prices
-    
+
+    if (priceNum < 50 || priceNum > 15000) continue // Skip unrealistic prices
+
     const airline = airlines[i % airlines.length] || "Multiple Airlines"
-    const duration = durations[i] || "~10h"
-    const stops = hasNonstop && i === 0 ? 0 : hasOneStop ? 1 : Math.floor(Math.random() * 2)
-    
+    const duration = durations[i]?.replace(/[\n\r]/g, "").trim() || null // null = unknown, will be excluded by sanity check
+    const stops = hasNonstop && i === 0 ? 0 : hasOneStop ? 1 : -1 // -1 = unknown
+
     flights.push({
-      id: `${source}-${Date.now()}-${i}`,
+      id: `${source}-${now}-${i}`,
       source,
       sourceUrl: searchUrl,
       airline: airline.charAt(0).toUpperCase() + airline.slice(1),
@@ -186,9 +188,9 @@ function parseFlightData(markdown: string, source: FlightSource, searchUrl: stri
       currency: priceStr.includes("€") ? "EUR" : "USD",
       departureTime: times[i * 2] || "09:00",
       arrivalTime: times[i * 2 + 1] || "18:00",
-      duration: duration.toString(),
-      stops,
-      stopLocations: stops > 0 ? ["Connection"] : undefined,
+      duration: duration || "Unknown",
+      stops: stops >= 0 ? stops : 1, // default to 1 stop when unknown
+      stopLocations: (stops > 0 || stops < 0) ? ["Connection"] : undefined,
       cabinClass: "Economy",
       bookingUrl: searchUrl,
       scrapedAt: new Date().toISOString(),
@@ -206,12 +208,12 @@ async function scrapeFlightSource(
   const searchUrl = buildSearchUrl(source, params)
   
   try {
-    const result = await firecrawl.scrapeUrl(searchUrl, {
+    const result = await firecrawl.scrape(searchUrl, {
       formats: ["markdown"],
       timeout: 30000,
     })
     
-    if (!result.success || !result.markdown) {
+    if (!result.markdown) {
       return {
         source: source.id,
         sourceName: source.name,
@@ -255,10 +257,11 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
   // Search all sources in parallel
   const searchPromises = FLIGHT_SOURCES.map(source => scrapeFlightSource(source, params))
   const results = await Promise.all(searchPromises)
-  
-  // Combine all flights from all sources
-  const allFlights = results.flatMap(r => r.flights)
-  
+
+  // Combine all flights from all sources and filter implausible results
+  const rawFlights = results.flatMap(r => r.flights)
+  const allFlights = rawFlights.filter(f => isPlausibleFlight(f, params.from, params.to))
+
   // Sort by price
   allFlights.sort((a, b) => a.price - b.price)
   
@@ -293,8 +296,58 @@ function parseDuration(duration: string): number {
   return parseInt(hours) * 60 + parseInt(minutes)
 }
 
+// Compute great-circle distance between two airports in km (Haversine formula)
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// Minimum plausible flight duration in minutes based on distance
+// Uses ~900 km/h cruise speed + 30min for takeoff/landing overhead
+function minimumPlausibleDuration(fromAirport: Airport, toAirport: Airport): number {
+  const distKm = haversineDistance(
+    fromAirport.latitude, fromAirport.longitude,
+    toAirport.latitude, toAirport.longitude
+  )
+  const cruiseMinutes = (distKm / 900) * 60
+  return Math.max(45, Math.round(cruiseMinutes + 30)) // At least 45 min for any flight
+}
+
+// Validate a parsed flight result for plausibility
+function isPlausibleFlight(
+  flight: FlightResult,
+  fromAirport: Airport,
+  toAirport: Airport
+): boolean {
+  const durationMinutes = parseDuration(flight.duration)
+  const minDuration = minimumPlausibleDuration(fromAirport, toAirport)
+
+  // Reject if duration could not be parsed (e.g. "Unknown") — untrustworthy result
+  if (durationMinutes === 0) {
+    return false
+  }
+  // Reject if duration is less than 60% of minimum plausible (allows for some parsing imprecision)
+  if (durationMinutes < minDuration * 0.6) {
+    return false
+  }
+  // Reject absurdly long durations (>36 hours — likely scrape artifact)
+  if (durationMinutes > 36 * 60) {
+    return false
+  }
+  // Reject implausible prices
+  if (flight.price < 30 || flight.price > 25000) {
+    return false
+  }
+  return true
+}
+
 // Generate mock flight data for development/demo
-export function generateMockFlights(params: FlightSearchParams): FlightResult[] {
+export function generateMockFlights(_params: FlightSearchParams): FlightResult[] {
   const airlines = [
     { name: "Lufthansa", logo: "LH" },
     { name: "United Airlines", logo: "UA" },
@@ -314,7 +367,7 @@ export function generateMockFlights(params: FlightSearchParams): FlightResult[] 
     sourceUrl: FLIGHT_SOURCES[i % FLIGHT_SOURCES.length].baseUrl,
     airline: airline.name,
     airlineLogo: airline.logo,
-    price: basePrices[i] + Math.floor(Math.random() * 100),
+    price: basePrices[i] + (i * 17) % 100,
     currency: "USD",
     departureTime: `${8 + i}:${i % 2 === 0 ? "00" : "30"} AM`,
     arrivalTime: `${4 + i}:${i % 2 === 0 ? "30" : "00"} PM`,
@@ -325,6 +378,6 @@ export function generateMockFlights(params: FlightSearchParams): FlightResult[] 
     bookingUrl: `https://example.com/book/${i}`,
     amenities: ["Wi-Fi", "Meals", i < 3 ? "Entertainment" : "USB charging"].filter(Boolean),
     baggageIncluded: i < 2 ? "1 checked bag" : "Carry-on only",
-    scrapedAt: new Date().toISOString(),
+    scrapedAt: MOCK_FLIGHT_SCRAPED_AT,
   }))
 }

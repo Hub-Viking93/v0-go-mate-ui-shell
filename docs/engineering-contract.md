@@ -28,7 +28,7 @@ If a column exists in the deployed database but not in `scripts/`, write the mig
 
 ### 2.2 Migrations are sequential and idempotent
 
-Migration files are named `NNN_description.sql` where `NNN` is the next integer in sequence (currently `016` is next — migrations 011–013 were applied during Phase 0; 014–015 applied during Phase 3).
+Migration files are named `NNN_description.sql` where `NNN` is the next integer in sequence (currently `024` is next — migrations 011–023 applied during Phases 0–10, master-audit Phases 2 and 4).
 
 Every migration must be safe to run more than once:
 - Use `add column if not exists` for column additions
@@ -170,13 +170,13 @@ These patterns exist in the codebase today and must not be repeated in new code.
 | Pattern | Why forbidden | Where it exists today |
 |---|---|---|
 | Parallel visa lookup systems | Data inconsistency between systems | `visa-checker.ts`, `visa-recommendations.ts`, dashboard |
-| In-memory cache objects | Non-functional in serverless | `web-research.ts` |
+| In-memory cache objects | Non-functional in serverless | `numbeo-scraper.ts` (removed from `web-research.ts` in Phase 7) |
 | Self-HTTP calls | Fragile; creates circular dependency risk | `research/trigger/route.ts` |
 | Regex JSON extraction from LLM | Brittle; fails on edge cases | `checklist-generator.ts`, `settling-in-generator.ts` |
-| `fetch()` without timeout | Hangs under load | Most Firecrawl calls |
-| `console.error` without return | Silent errors | Multiple routes |
+| `fetch()` without timeout | Hangs under load | Several `app/api/research/` routes and `app/api/chat/route.ts` (OpenAI calls). All `lib/gomate/` Firecrawl calls now use `fetchWithRetry`. |
+| `console.error` without return | Silent errors | Partially addressed in Phases 0–5; some routes may still have this pattern |
 | `Math.random()` for data | Non-deterministic production data | `flight-search.ts` |
-| `"use client"` on shared server/client modules | Runtime errors | `airports.ts` |
+| `"use client"` on shared server/client modules | Runtime errors | Removed — no longer present (was in `airports.ts`) |
 
 ---
 
@@ -184,11 +184,12 @@ These patterns exist in the codebase today and must not be repeated in new code.
 
 Before making any change:
 
-1. Read the relevant system document in `docs/systems/` for the area being changed.
-2. Read `docs/audit.md` to understand whether this system is WORKING, PARTIAL, BROKEN, or MISSING.
-3. Check the build phase in `docs/build-protocol.md` — is this change in the current phase?
-4. Make the change.
-5. Verify against the success criteria defined in `docs/build-protocol.md` for the current phase.
+1. Read `docs/audits/document-authority.md` to confirm which documentation layer is authoritative for the decision you are making.
+2. Read the relevant system document in `docs/systems/` for the area being changed.
+3. Read `docs/audits/backend-audit.md` for current system state (original baseline in `docs/audit.md`).
+4. Check the build phase in `docs/build-protocol.md` — is this change in the current phase?
+5. Make the change.
+6. Verify against the success criteria defined in `docs/build-protocol.md` for the current phase.
 
 Full reading order for phase implementation: `docs/phase-status.md` → `docs/build-protocol.md` → `docs/phase-implementation-protocol.md`. See `/CLAUDE.md § Implementing a Build Phase` for the complete protocol.
 

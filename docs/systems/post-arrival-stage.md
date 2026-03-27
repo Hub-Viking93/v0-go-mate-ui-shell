@@ -180,12 +180,12 @@ There is no optimistic UI reconciliation against the server response — the com
 | Settling-in page | `app/(app)/settling-in/page.tsx` checks `tier === "pro_plus"` via `useTier()`; no explicit `stage` check on the page itself — the page is always accessible to Pro+ users |
 | Post-arrival chat mode | `app/api/chat/route.ts` reads `plan.stage` from DB; selects `buildPostArrivalSystemPrompt` when `planStage === "arrived"` |
 | Compliance alerts | `components/compliance-alerts.tsx` renders only when `planStage === "arrived"` (prop passed from parent) |
-| `GET /api/settling-in` | No stage check — returns tasks for the current plan regardless of stage |
-| `POST /api/settling-in/generate` | No stage check — generates tasks regardless of stage |
-| `PATCH /api/settling-in/[id]` | No stage check — allows task completion regardless of stage |
+| `GET /api/settling-in` | Soft-gates on stage: returns `tasks: []` with the current stage when plan is not `arrived` |
+| `POST /api/settling-in/generate` | Hard-gates on stage: returns 400 unless `plan.stage === "arrived"` |
+| `PATCH /api/settling-in/[id]` | Hard-gates on stage: returns 400 unless the owning plan is `arrived` |
 | `POST /api/settling-in/[id]/why-it-matters` | No stage check |
 
-**Divergence from contract:** The contract specifies that settling-in APIs must verify `plan.stage === 'arrived'` before operating. None of the settling-in API routes perform this check. A user whose plan is in `complete` stage (not yet arrived) could call the generate and task-completion endpoints directly.
+**Divergence from contract:** The stage gate is now only partially inconsistent rather than absent. Generate and PATCH enforce `arrived`, GET hides tasks behind a soft gate, and why-it-matters still has no stage gate at all. A pre-arrival plan can no longer generate or complete tasks through the public API, but it can still trigger enrichment if the task ID is known.
 
 There is no shared `isPostArrivalEnabled(plan)` helper function. Each system performs its own check, and the checks are inconsistent.
 
@@ -210,7 +210,7 @@ The arrival endpoint does not implement explicit concurrency protection:
 | G-9.1-C | Endpoint at `POST /api/plan/arrive` | Implemented at `POST /api/settling-in/arrive` | P3 — API path divergence |
 | G-9.1-D | Idempotency-Key header required | No idempotency header; duplicate POSTs silently overwrite `arrival_date` | P2 — Race condition risk on double-click |
 | G-9.1-E | Atomic transition (set fields + emit event + enqueue job) | Single UPDATE only; no events, no job enqueue | P2 — Observability absent; no auto-trigger of generation |
-| G-9.1-F | Settling-in APIs must verify `plan.stage === 'arrived'` | No such check in generate, GET, PATCH, or why-it-matters routes | P1 — Pre-arrival users can interact with settling-in endpoints |
+| G-9.1-F | Settling-in APIs must verify `plan.stage === 'arrived'` | Generate and PATCH now verify `arrived`, GET uses a soft gate (`200` + empty tasks), but why-it-matters still has no stage check | P1 — Post-arrival access rules are still inconsistent and enrichment remains reachable pre-arrival |
 | G-9.1-G | `isPostArrivalEnabled(plan)` shared helper | Does not exist; each system checks independently and inconsistently | P2 — Maintenance risk |
 | G-9.1-H | Client validates arrival date (not future, not too old) | No client or server validation of provided date | P3 — Bad data possible |
 | G-9.1-I | Checklist generation auto-triggered after arrival | Not triggered — user must manually navigate to /settling-in and click "Generate" | P2 — UX friction; user may not know to generate |

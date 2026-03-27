@@ -7,12 +7,10 @@
  * Server-side only - do not add "use client"
  */
 
+import { fetchWithRetry } from "./fetch-with-retry"
+
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY // Declare the variable here
-
-// Cache for cost of living data
-const colCache = new Map<string, { data: NumbeoData; timestamp: number }>()
-const CACHE_TTL = 1000 * 60 * 60 * 24 // 24 hours
 
 export interface NumbeoData {
   city: string
@@ -343,10 +341,7 @@ async function scrapeNumbeo(url: string): Promise<string | null> {
   }
 
   try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
-    
-    const response = await fetch(`${FIRECRAWL_BASE_URL}/scrape`, {
+    const response = await fetchWithRetry(`${FIRECRAWL_BASE_URL}/scrape`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -358,10 +353,7 @@ async function scrapeNumbeo(url: string): Promise<string | null> {
         onlyMainContent: true,
         waitFor: 3000,
       }),
-      signal: controller.signal,
-    })
-    
-    clearTimeout(timeoutId)
+    }, 15_000)
 
     if (!response.ok) {
       return null
@@ -370,7 +362,7 @@ async function scrapeNumbeo(url: string): Promise<string | null> {
     const data = await response.json()
     return data.data?.markdown || null
   } catch {
-    // Silently return null on any error (network failure, timeout, etc.)
+    // Silently return null on any error (network failure, timeout, retries exhausted)
     return null
   }
 }
@@ -665,6 +657,8 @@ export function getGenericFallbackData(city?: string, country?: string): NumbeoD
     transportation: { monthlyPass: 70, oneWayTicket: 2.5, taxiStart: 3.5, taxi1km: 1.5, gasolinePerLiter: 1.5 },
     healthcare: { doctorVisit: 60, dentistVisit: 80 },
     fitness: { gymMonthly: 40, cinemaTicket: 12 },
+    childcare: { preschoolMonthly: 800, primarySchoolYearly: 12000 },
+    clothing: { jeans: 55, summerDress: 45, runningShoes: 90, businessShoes: 110 },
     costOfLivingIndex: 60,
     rentIndex: 40,
     groceriesIndex: 50,
@@ -688,19 +682,11 @@ export async function getCostOfLivingFromNumbeo(
   country: string,
   city?: string
 ): Promise<NumbeoData | null> {
-  const cacheKey = `numbeo_${country}_${city || "country"}`
-  const cached = colCache.get(cacheKey)
-
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data
-  }
-
   // FIRST: Check if we have fallback data for this city/country
   // This avoids unnecessary API calls that might fail with 402
   const fallbackData = getFallbackData(city, country)
   if (fallbackData) {
     console.log("[GoMate] Using fallback data for:", city || country)
-    colCache.set(cacheKey, { data: fallbackData, timestamp: Date.now() })
     return fallbackData
   }
 
@@ -726,7 +712,6 @@ export async function getCostOfLivingFromNumbeo(
       // If scraping worked, parse and cache
       if (content) {
         const parsedData = parseNumbeoContent(content, targetCity, country) as NumbeoData
-        colCache.set(cacheKey, { data: parsedData, timestamp: Date.now() })
         return parsedData
       }
     } catch (scrapeError) {
@@ -736,9 +721,7 @@ export async function getCostOfLivingFromNumbeo(
 
   // THIRD: Return generic fallback as last resort
   console.log("[GoMate] No specific data found, using generic fallback for:", city || country)
-  const genericFallback = getGenericFallbackData(city, country)
-  colCache.set(cacheKey, { data: genericFallback, timestamp: Date.now() })
-  return genericFallback
+  return getGenericFallbackData(city, country)
 }
 
 /**

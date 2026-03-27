@@ -14,12 +14,21 @@ import {
   CheckCircle2,
   Shield,
   Sparkles,
+  ClipboardList,
+  Landmark,
+  Home,
+  HeartPulse,
+  Briefcase,
+  Car,
+  Wifi,
+  Users,
+  Scale,
+  MoreHorizontal,
+  type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { PageHeader } from "@/components/page-header"
 import { FullPageGate } from "@/components/tier-gate"
 import { useTier } from "@/hooks/use-tier"
 import {
@@ -30,14 +39,43 @@ import { SETTLING_CATEGORIES } from "@/lib/gomate/settling-in-generator"
 import { ComplianceTimeline } from "@/components/compliance-timeline"
 import { cn } from "@/lib/utils"
 
+// Map category keys to icons and colors
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  registration: ClipboardList,
+  banking: Landmark,
+  housing: Home,
+  healthcare: HeartPulse,
+  employment: Briefcase,
+  transport: Car,
+  utilities: Wifi,
+  social: Users,
+  legal: Scale,
+  other: MoreHorizontal,
+}
+
+const CATEGORY_COLORS: Record<string, { bg: string; text: string; ring: string }> = {
+  registration: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", ring: "ring-blue-500/20" },
+  banking: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/20" },
+  housing: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", ring: "ring-amber-500/20" },
+  healthcare: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", ring: "ring-rose-500/20" },
+  employment: { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", ring: "ring-purple-500/20" },
+  transport: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", ring: "ring-cyan-500/20" },
+  utilities: { bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400", ring: "ring-indigo-500/20" },
+  social: { bg: "bg-pink-500/10", text: "text-pink-600 dark:text-pink-400", ring: "ring-pink-500/20" },
+  legal: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", ring: "ring-red-500/20" },
+  other: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", ring: "ring-slate-500/20" },
+}
+
 interface SettlingStats {
   total: number
   completed: number
+  overdue?: number
   available: number
   locked: number
   legalTotal: number
   legalCompleted: number
   progressPercent: number
+  compliancePercent?: number
 }
 
 export default function SettlingInPage() {
@@ -75,7 +113,7 @@ export default function SettlingInPage() {
       if (data.tasks?.length) {
         const catWithAvailable = new Set<string>()
         for (const t of data.tasks) {
-          if (t.status === "available" || t.status === "in_progress") {
+          if (t.status === "available" || t.status === "in_progress" || t.status === "overdue") {
             catWithAvailable.add(t.category)
           }
         }
@@ -151,29 +189,37 @@ export default function SettlingInPage() {
   if (!tierLoading && tier !== "pro_plus") {
     return (
       <FullPageGate
+        tier={(tier || "free")}
         feature="post_relocation"
-        title="Settling-In Checklist"
-        description="Get a personalized post-arrival checklist with dependency tracking, compliance deadlines, and AI-powered guidance."
-      />
+      >
+        <div />
+      </FullPageGate>
     )
   }
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-      <PageHeader
-        title="Settling-In Checklist"
-        description="Your personalized post-arrival tasks with smart dependency tracking"
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Dashboard
-              </Link>
-            </Button>
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+              <ListChecks className="w-7 h-7 text-[#5EE89C]" />
+              Settling-In Checklist
+            </h1>
+            <p className="text-white/60 mt-1.5 text-sm md:text-base">
+              Your personalized post-arrival tasks with smart dependency tracking
+            </p>
           </div>
-        }
-      />
+          <Button variant="outline" size="sm" asChild className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0">
+            <Link href="/dashboard">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Dashboard
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       {/* Loading state */}
       {loading && (
@@ -258,35 +304,51 @@ export default function SettlingInPage() {
 
       {/* Stats bar */}
       {!loading && generated && stats && (
-        <div className="gm-card-static p-5 space-y-3">
+        <div className="gm-card-static p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h3 className="text-sm font-medium text-foreground">Progress</h3>
-              <span className="text-sm font-mono text-muted-foreground">
-                {stats.completed}/{stats.total}
+              <h3 className="text-sm font-semibold text-foreground">Progress</h3>
+              <span className="text-lg font-mono font-bold text-foreground">
+                {stats.completed}<span className="text-muted-foreground font-normal text-sm">/{stats.total}</span>
               </span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {stats.legalTotal > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-destructive" />
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {stats.legalCompleted}/{stats.legalTotal} legal
-                  </span>
-                </div>
+                <Badge variant="outline" className="text-xs gap-1 border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5">
+                  <Shield className="w-3 h-3" />
+                  {stats.legalCompleted}/{stats.legalTotal} legal ({stats.compliancePercent ?? 0}%)
+                </Badge>
               )}
-              <Badge variant="outline" className="text-xs">
+              {(stats.overdue ?? 0) > 0 && (
+                <Badge variant="destructive" className="text-xs gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {stats.overdue} overdue
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs gap-1 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                <CheckCircle2 className="w-3 h-3" />
                 {stats.available} available
               </Badge>
               {stats.locked > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  <Lock className="w-3 h-3 mr-0.5" />
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <Lock className="w-3 h-3" />
                   {stats.locked} locked
                 </Badge>
               )}
             </div>
           </div>
-          <Progress value={stats.progressPercent} className="h-2" />
+          {/* Chunky progress bar */}
+          <div className="relative">
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${stats.progressPercent}%` }}
+              />
+            </div>
+            <span className="absolute right-0 -top-5 text-xs font-mono font-medium text-muted-foreground">
+              {stats.progressPercent}%
+            </span>
+          </div>
         </div>
       )}
 
@@ -312,6 +374,11 @@ export default function SettlingInPage() {
             ).length
             const hasLegal = group.tasks.some((t) => t.is_legal_requirement)
 
+            const catColors = CATEGORY_COLORS[group.key] || CATEGORY_COLORS.other
+            const CatIcon = CATEGORY_ICONS[group.key] || MoreHorizontal
+            const isComplete = completedInGroup === group.tasks.length
+            const catProgress = group.tasks.length > 0 ? Math.round((completedInGroup / group.tasks.length) * 100) : 0
+
             return (
               <div
                 key={group.key}
@@ -328,35 +395,48 @@ export default function SettlingInPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center text-sm",
-                        completedInGroup === group.tasks.length
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
+                        "w-10 h-10 rounded-xl flex items-center justify-center",
+                        isComplete ? "bg-emerald-500/15" : catColors.bg
                       )}
                     >
-                      {completedInGroup === group.tasks.length ? (
-                        <CheckCircle2 className="w-4 h-4" />
+                      {isComplete ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <ListChecks className="w-4 h-4" />
+                        <CatIcon className={cn("w-5 h-5", catColors.text)} />
                       )}
                     </div>
                     <div className="text-left">
-                      <h3 className="text-sm font-medium text-foreground">
+                      <h3 className="text-sm font-semibold text-foreground">
                         {group.label}
                       </h3>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {completedInGroup}/{group.tasks.length} done
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {completedInGroup}/{group.tasks.length}
+                        </span>
+                        {/* Mini progress bar */}
+                        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-300",
+                              isComplete ? "bg-emerald-500" : "bg-primary"
+                            )}
+                            style={{ width: `${catProgress}%` }}
+                          />
+                        </div>
                         {availableInGroup > 0 && (
-                          <span className="text-primary ml-1.5">
+                          <span className="text-[11px] text-primary font-medium">
                             {availableInGroup} ready
                           </span>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {hasLegal && (
-                      <Shield className="w-3.5 h-3.5 text-destructive" />
+                      <Badge variant="outline" className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5 gap-0.5 px-1.5">
+                        <Shield className="w-3 h-3" />
+                        Legal
+                      </Badge>
                     )}
                     {isExpanded ? (
                       <ChevronUp className="w-4 h-4 text-muted-foreground" />

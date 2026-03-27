@@ -25,6 +25,7 @@ const FIELD_ORDER: AllFieldKey[] = [
   "destination",        // Where are you going?
   "target_city",        // Which city/region?
   "purpose",            // Why are you moving? (branches from here)
+  "visa_role",          // Primary applicant or dependent? (right after purpose per profile-schema)
   "timeline",           // When do you plan to move?
   "citizenship",        // Which passport do you hold?
   "moving_alone",       // How many people relocating?
@@ -46,11 +47,24 @@ const FIELD_ORDER: AllFieldKey[] = [
   "remote_income",
   "income_source",
   "monthly_income",
+  "income_consistency",
+  "income_history_months",
   
   // Settlement branch
   "settlement_reason",
   "family_ties",
-  
+
+  // Dependent / family reunion fields (asked when visa_role=dependent or settle purpose)
+  "partner_citizenship",
+  "partner_visa_status",
+  "partner_residency_duration",
+  "relationship_type",
+  "relationship_duration",
+
+  // Additional profile fields
+  "other_citizenships",
+  "birth_year",
+
   // FAMILY (only if not moving alone)
   "spouse_joining",
   "children_count",
@@ -205,6 +219,8 @@ export function formatProfileSummary(profile: Profile): string {
   const fieldToSection: Record<string, string> = {
     name: "Basic Information",
     citizenship: "Basic Information",
+    other_citizenships: "Basic Information",
+    birth_year: "Basic Information",
     current_location: "Basic Information",
     destination: "Basic Information",
     target_city: "Basic Information",
@@ -229,6 +245,11 @@ export function formatProfileSummary(profile: Profile): string {
     spouse_joining: "Family & Dependents",
     children_count: "Family & Dependents",
     children_ages: "Family & Dependents",
+    partner_citizenship: "Family & Dependents",
+    partner_visa_status: "Family & Dependents",
+    partner_residency_duration: "Family & Dependents",
+    relationship_type: "Family & Dependents",
+    relationship_duration: "Family & Dependents",
     
     savings_available: "Financial",
     monthly_budget: "Financial",

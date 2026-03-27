@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse, type NextRequest } from "next/server"
 import { getUserTier } from "@/lib/gomate/tier"
 import { computeAvailableTasks } from "@/lib/gomate/settling-in-generator"
+import { isPostArrivalStage } from "@/lib/gomate/post-arrival"
 
 // PATCH: Update a settling-in task's status
 export async function PATCH(
@@ -63,15 +64,15 @@ export async function PATCH(
     .eq("user_id", user.id)
     .maybeSingle()
 
-  if (!plan || plan.stage !== 'arrived') {
+  if (!plan || !isPostArrivalStage(plan.stage)) {
     return NextResponse.json(
       { error: "Task completion requires arrival confirmation" },
       { status: 400 }
     )
   }
 
-  // Can't complete a locked task
-  if (task.status === "locked" && newStatus === "completed") {
+  // Can't complete a locked task (overdue tasks CAN be completed)
+  if (task.status === "locked" && (newStatus === "completed" || newStatus === "in_progress")) {
     return NextResponse.json(
       { error: "Cannot complete a locked task. Complete its dependencies first." },
       { status: 400 }
@@ -85,6 +86,8 @@ export async function PATCH(
   }
   if (newStatus === "completed") {
     updateData.completed_at = new Date().toISOString()
+  } else {
+    updateData.completed_at = null
   }
 
   const { error: updateError } = await supabase

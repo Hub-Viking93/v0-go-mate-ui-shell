@@ -30,7 +30,7 @@ Source: `scripts/010_settling_in_checklist.sql`
 | `category` | `text` | No | — | One of 10 category values (see §2.2) |
 | `depends_on` | `text[]` | Yes | `'{}'` | Array of dependency task UUIDs |
 | `unlocked` | `boolean` | Yes | `false` | Present in schema; **not used by application code** |
-| `status` | `text` | Yes | `'locked'` | Enum: `locked`, `available`, `in_progress`, `completed`, `skipped` |
+| `status` | `text` | Yes | `'locked'` | Enum: `locked`, `available`, `in_progress`, `completed`, `skipped`, `overdue` |
 | `completed_at` | `timestamptz` | Yes | — | Set when status transitions to `completed` |
 | `deadline_days` | `integer` | Yes | — | Days after arrival by which task must be done; NULL if no deadline |
 | `deadline_source` | `text` | Yes | — | Free-text source attribution for deadline; never populated |
@@ -68,13 +68,13 @@ check (status in ('locked', 'available', 'in_progress', 'completed', 'skipped'))
 unique(plan_id, task_key)
 ```
 
-This constraint exists but is never triggered in practice because `task_key` is not populated during generation (see §3.1 below).
+This constraint is active in the live generation path because `task_key` is populated during insertion. It still cannot protect legacy rows created before the backfill if they bypassed the migration path.
 
 ---
 
 ## 3. Schema Mismatch: Migration vs. Runtime
 
-> **Phase 0 update (2026-02-28):** The three missing columns (`steps`, `documents_needed`, `cost`) were added via `scripts/011_add_settling_task_columns.sql` and applied to the live database. The `cost` column co-exists with `cost_estimate` — both are kept. The mismatch described below reflects the state before Phase 0. Only the `task_key`, `how_to`, `tips`, and `unlocked` gaps remain.
+> **Phase 0 / 3 / 6 updates:** `steps`, `documents_needed`, and `cost` were added via migration 011; `task_key` was backfilled and made active via migration 015; `deadline_at`, `deadline_anchor`, and `overdue` status support were added via migration 017. The remaining schema/runtime mismatches are `how_to`, `tips`, `unlocked`, and the legacy `cost_estimate` column.
 
 The generate route (`app/api/settling-in/generate/route.ts`) inserts rows with column names that do not match the migration schema. This is a critical discrepancy.
 
@@ -85,14 +85,14 @@ The generate route (`app/api/settling-in/generate/route.ts`) inserts rows with c
 | `steps` (string array) | Does not exist | **No migration column** |
 | `documents_needed` (string array) | Does not exist | **No migration column** |
 | `cost` (string) | `cost_estimate` (not `cost`) | **Name mismatch** |
-| — | `task_key` | **Application does not insert `task_key`** |
+| — | `task_key` | **Application now inserts `task_key` as a slug derived from title** |
 | — | `how_to` | **Application does not insert `how_to`** |
 | — | `tips` | **Application does not insert `tips`** |
 | — | `unlocked` | **Application does not write this field** |
 
 **Interpretation:** The deployed database schema likely includes `steps text[]`, `documents_needed text[]`, and `cost text` columns that were added after migration 010 was written. The migration script in the repository does not reflect the full deployed schema. The `SettlingInTask` TypeScript interface (used in `components/settling-in-task-card.tsx`) confirms that `steps`, `documents_needed`, and `cost` are expected as actual database columns.
 
-This means there is at least one undocumented migration that exists in the deployed environment but not in the `scripts/` directory.
+The remaining mismatch is no longer "missing migrations" but "stale schema fields": `how_to`, `tips`, `unlocked`, and `cost_estimate` remain in the table while the runtime primarily uses `steps`, `documents_needed`, `cost`, and `status`.
 
 ---
 
@@ -207,7 +207,7 @@ The following columns on `relocation_plans` are part of the settling-in persiste
 | Gap | Contract specification | Current implementation | Severity |
 |---|---|---|---|
 | G-9.2-A | Schema clearly defined with `steps`, `documents_needed`, `cost` | ~~Migration does not include these columns~~ — **RESOLVED by Phase 0 (2026-02-28):** `scripts/011_add_settling_task_columns.sql` adds `steps text[]`, `documents_needed text[]`, and `cost text` with `ADD COLUMN IF NOT EXISTS`. Applied to live database. Note: `cost` and `cost_estimate` remain separate columns — do not drop `cost_estimate`. | Resolved |
-| G-9.2-B | `task_key` uniquely identifies tasks across plans | `task_key` is defined and has a unique constraint but is never populated during generation | P2 — Unique constraint is inert; task_key always NULL |
+| G-9.2-B | `task_key` uniquely identifies tasks across plans | `task_key` is populated during generation and backfilled for existing rows, but downstream systems still do not use it as the primary execution identity | P2 — Persistence is aligned, but runtime identity remains split between UUIDs, task_key, and title |
 | G-9.2-C | `unlocked` boolean: computed, meaningful field | `unlocked` boolean defined but never read or written by application code | P2 — Dead schema |
 | G-9.2-D | `settling_in_generation_runs` table for idempotency/debugging | Not implemented | P2 — No generation audit trail |
 | G-9.2-E | `settling_in_task_events` append-only audit log | Not implemented | P2 — No task history |

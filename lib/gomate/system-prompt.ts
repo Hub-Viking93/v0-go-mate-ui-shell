@@ -23,15 +23,26 @@ function isEUCitizen(citizenship: string): boolean {
 export function buildSystemPrompt(
   profile: Profile,
   pendingFieldKey: AllFieldKey | null,
-  interviewState: "interview" | "review" | "confirmed" | "complete"
+  interviewState: "interview" | "review" | "confirmed" | "complete",
+  onboardingCompleted: boolean = false
 ): string {
   const profileSummary = formatProfileSummary(profile)
   const fieldConfig = pendingFieldKey ? FIELD_CONFIG[pendingFieldKey] : null
   const progressInfo = getProgressInfo(profile)
 
+  // Build the mandatory field directive — placed FIRST for maximum attention
+  const fieldDirective = pendingFieldKey && fieldConfig
+    ? `
+## MANDATORY — YOUR #1 PRIORITY THIS TURN
+You MUST end your response by asking about: "${fieldConfig.label}" (field: ${pendingFieldKey})
+Progress: ${progressInfo.filled}/${progressInfo.total} fields (${progressInfo.percentage}%)
+Do NOT wrap up, summarize, or say "feel free to ask" — there are still ${progressInfo.total - progressInfo.filled} fields remaining.
+`
+    : ""
+
   // Base identity - Planner, not interviewer
   let prompt = `You are GoMate, a relocation planning assistant. You help people plan their international moves with warmth and expertise.
-
+${fieldDirective}
 CORE PRINCIPLE:
 You are a PROFILE BUILDER, not an interviewer. Your goal is to ask ONLY the questions necessary to make this specific relocation plan valid. Think like a travel consultant, not a form.
 
@@ -75,6 +86,24 @@ After each user response, information is automatically extracted and stored in C
   a) The response was unclear - ask a brief follow-up to clarify
   b) The user gave unrelated info - acknowledge it and re-ask the original question gently
 - Never assume data was stored - check CURRENT PROFILE to be sure
+
+STALLED FIELD RECOVERY:
+If the NEXT FIELD NEEDED is the same field that was just discussed, and the user clearly
+answered but the field is STILL empty in CURRENT PROFILE:
+1. The extraction system may have missed it — this happens sometimes
+2. Rephrase the question more specifically (this is NOT re-asking, it's clarifying)
+3. Example: If you asked "Would you consider yourself highly skilled?" and user said "Yes"
+   but highly_skilled is still empty → ask: "Just to make sure — you'd qualify as a highly
+   skilled professional (e.g., advanced degree or 5+ years experience)? I want to make sure
+   I capture that for your visa options."
+4. NEVER stop asking questions and say "feel free to ask me anything" while fields are still pending
+5. You MUST always ask about the NEXT FIELD NEEDED — never go idle with pending fields
+
+CRITICAL ANTI-IDLE RULE:
+If PROGRESS shows less than 100% and NEXT FIELD NEEDED is not empty, you MUST end your
+response with a question about that field. NEVER say "let me know if you have questions",
+"feel free to ask", or "anything else?" while there are unfilled required fields.
+This is the #1 priority — always move the conversation forward toward the next pending field.
 
 CONFIRM WHAT YOU STORED:
 When a user shares information, briefly acknowledge what you understood before moving on. This builds trust and catches misunderstandings early.
@@ -135,6 +164,14 @@ WHEN YOU DETECT THIS:
    - Relationship type (married, engaged, cohabiting, etc.)
 3. These fields are CRUCIAL for family reunion visas
 
+IMPORTANT EXCEPTION — "moving WITH" vs "joining/following":
+If the user has their OWN purpose (they got a job, they're studying, they're a digital nomad)
+AND they mention bringing a partner/family along → visa_role stays "primary", set moving_alone="no"
+- "I got a job in Berlin, my partner is coming with me" → PRIMARY (own job)
+- "I'm studying in Tokyo, my wife is joining me" → PRIMARY (own study admission)
+- "My partner got a job there and I'm following them" → DEPENDENT (no own purpose)
+Only set "dependent" when the user is truly deriving their visa from someone else.
+
 EXAMPLE FLOW:
 User: "I'm moving to Sweden because my girlfriend lives there"
 → Infer: visa_role = dependent, destination = Sweden, relationship_type = girlfriend/cohabitant
@@ -170,7 +207,8 @@ Conditional questions (ONLY ask if relevant):
 - Spouse/children details: ONLY if NOT moving alone
 - Work experience: ONLY if purpose is "work"
 
-SKIP ENTIRELY unless user mentions OR context requires:
+FIELDS THAT MAY BE SKIPPED (only if they are NOT in the required fields list):
+Note: If a field appears as NEXT FIELD NEEDED above, it IS required — ask it regardless of these guidelines.
 - Prior visa history (only ask if they mention visiting before or visa concerns)
 - Visa rejections (only ask if they mention past issues)
 - Healthcare needs (only ask if they mention health conditions)
@@ -371,10 +409,43 @@ IMPORTANT:
     // Get detailed visa recommendations
     const visaRecs = generateVisaRecommendations(profile)
     const visaDetails = formatRecommendationsForAI(visaRecs)
-    
-    prompt += `
+
+    if (onboardingCompleted) {
+      // User has already seen the full plan — just be a helpful assistant
+      prompt += `
 CURRENT STATE: PLAN COMPLETE - PROFILE LOCKED
-USER CONFIRMED THEIR PROFILE
+USER HAS ALREADY SEEN THEIR FULL PLAN ON THE DASHBOARD.
+
+The plan is complete and the user's profile is locked. The dashboard already shows their full plan, budget, visa recommendations, and timeline.
+
+DO NOT regenerate the full relocation plan. DO NOT show the structured plan with headings like "Recommended Visa Pathway", "Your Timeline", etc. The user has already seen all of that.
+
+Instead, just be a helpful relocation assistant. Answer their questions about any aspect of their move.
+
+PROFILE SUMMARY:
+${profileSummary}
+
+VISA RECOMMENDATIONS DATA:
+${visaDetails}
+
+BEHAVIOR:
+- Answer questions clearly and helpfully about any aspect of their plan
+- Reference their specific profile details when relevant
+- Provide actionable, specific advice
+- Never modify the locked profile - just provide information
+- Keep responses concise and conversational
+- If the user says "hi" or similar, greet them warmly and ask how you can help with their ${profile.destination} move
+
+TONE:
+- Encouraging but realistic
+- Specific to their situation (use their name: ${profile.name})
+- Actionable with clear next steps
+`
+    } else {
+      // First time after confirmation — generate the full plan
+      prompt += `
+CURRENT STATE: PLAN COMPLETE - PROFILE LOCKED
+USER JUST CONFIRMED THEIR PROFILE
 
 The plan is now marked as 100% complete and the dashboard is locked.
 The user can continue chatting freely without modifying the plan.
@@ -385,7 +456,7 @@ ${profileSummary}
 VISA RECOMMENDATIONS DATA:
 ${visaDetails}
 
-IF THIS IS THE FIRST MESSAGE AFTER CONFIRMATION:
+THIS IS THE FIRST MESSAGE AFTER CONFIRMATION:
 Generate their complete, personalized relocation plan using this structure:
 
 ## Recommended Visa Pathway
@@ -441,6 +512,7 @@ TONE:
 - Specific to their situation (use their name: ${profile.name})
 - Actionable with clear next steps
 `
+    }
   }
 
   return prompt
@@ -590,15 +662,45 @@ export function buildPostArrivalSystemPrompt(profile: {
     return line
   }).join("\n")
 
-  // Build individual task list for the AI
-  const pendingTasks = settlingTasks
+  // Build individual task list for the AI — capped at ~2000 tokens (~500 chars/task)
+  // Priority order: overdue first, then deadline proximity, then legal requirements
+  const MAX_TASK_CHARS = 6000 // ~2000 tokens at ~3 chars/token
+  const incompleteTasks = settlingTasks
     .filter(t => t.status !== "completed" && t.status !== "skipped")
-    .map(t => {
-      let line = `  - "${t.title}" [${t.category}]`
-      if (t.is_legal_requirement) line += " (LEGAL REQUIREMENT)"
-      if (t.deadline_days) line += ` — deadline: ${t.deadline_days} days after arrival`
-      return line
-    }).join("\n")
+    .sort((a, b) => {
+      // Overdue first
+      if (a.status === "overdue" && b.status !== "overdue") return -1
+      if (b.status === "overdue" && a.status !== "overdue") return 1
+      // Then by deadline proximity (lower deadline_days = more urgent)
+      const aDl = a.deadline_days ?? 9999
+      const bDl = b.deadline_days ?? 9999
+      if (aDl !== bDl) return aDl - bDl
+      // Then legal requirements
+      if (a.is_legal_requirement && !b.is_legal_requirement) return -1
+      if (b.is_legal_requirement && !a.is_legal_requirement) return 1
+      return 0
+    })
+
+  let taskChars = 0
+  let truncatedCount = 0
+  const pendingTaskLines: string[] = []
+  for (const t of incompleteTasks) {
+    let line = `  - "${t.title}" [${t.category}]`
+    if (t.status === "overdue") line += " (OVERDUE)"
+    else if (t.is_legal_requirement) line += " (LEGAL REQUIREMENT)"
+    if (t.deadline_days) line += ` — deadline: ${t.deadline_days} days after arrival`
+
+    if (taskChars + line.length > MAX_TASK_CHARS) {
+      truncatedCount = incompleteTasks.length - pendingTaskLines.length
+      break
+    }
+    pendingTaskLines.push(line)
+    taskChars += line.length
+  }
+  if (truncatedCount > 0) {
+    pendingTaskLines.push(`  ...and ${truncatedCount} more task${truncatedCount > 1 ? "s" : ""}`)
+  }
+  const pendingTasks = pendingTaskLines.join("\n")
 
   const completedTasks = settlingTasks
     .filter(t => t.status === "completed")
@@ -666,4 +768,21 @@ export function buildPostArrivalWelcome(name: string, destination: string, pendi
 - Flagging upcoming deadlines`)
 
   return lines.join("\n")
+}
+
+// Field reminder — injected AFTER conversation history so the LLM sees it
+// right before generating its response (recency bias in transformer attention)
+export function buildFieldReminder(
+  profile: Profile,
+  pendingFieldKey: AllFieldKey | null
+): string | null {
+  if (!pendingFieldKey) return null
+
+  const fieldConfig = FIELD_CONFIG[pendingFieldKey]
+  if (!fieldConfig) return null
+
+  const progressInfo = getProgressInfo(profile)
+  const remaining = progressInfo.total - progressInfo.filled
+
+  return `[SYSTEM REMINDER] You MUST ask about "${fieldConfig.label}" (field: ${pendingFieldKey}) in your next response. ${remaining} required field${remaining !== 1 ? "s" : ""} remaining (${progressInfo.percentage}% complete). Do NOT say "feel free to ask" or wrap up — keep collecting profile data.`
 }

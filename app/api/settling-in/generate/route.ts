@@ -7,6 +7,7 @@ import {
   type SettlingTask,
 } from "@/lib/gomate/settling-in-generator"
 import { isValidDAG } from "@/lib/gomate/dag-validator"
+import { buildSettlingView, isPostArrivalStage } from "@/lib/gomate/post-arrival"
 
 export async function POST() {
   const supabase = await createClient()
@@ -31,7 +32,7 @@ export async function POST() {
   // Get current plan
   const { data: plan, error: planError } = await supabase
     .from("relocation_plans")
-    .select("id, profile_data, visa_research, post_relocation_generated, stage")
+    .select("id, profile_data, visa_research, post_relocation_generated, stage, arrival_date")
     .eq("user_id", user.id)
     .eq("is_current", true)
     .maybeSingle()
@@ -40,26 +41,60 @@ export async function POST() {
     return NextResponse.json({ error: "No active plan found" }, { status: 404 })
   }
 
-  if (plan.stage !== 'arrived') {
+  if (!isPostArrivalStage(plan.stage)) {
     return NextResponse.json(
       { error: "Settling-in features require arrival confirmation" },
       { status: 400 }
     )
   }
 
-  // Don't regenerate if already done (unless forced)
-  if (plan.post_relocation_generated) {
-    const { data: existingTasks } = await supabase
-      .from("settling_in_tasks")
-      .select("id, title, category, status, depends_on, sort_order")
-      .eq("plan_id", plan.id)
-      .order("sort_order")
+  const { data: existingTasks, error: existingTasksError } = await supabase
+    .from("settling_in_tasks")
+    .select("*")
+    .eq("plan_id", plan.id)
+    .order("sort_order")
+
+  if (existingTasksError) {
+    return NextResponse.json(
+      { error: "Failed to inspect existing settling-in tasks" },
+      { status: 500 }
+    )
+  }
+
+  if ((existingTasks || []).length > 0) {
+    if (!plan.post_relocation_generated) {
+      await supabase
+        .from("relocation_plans")
+        .update({
+          post_relocation_generated: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", plan.id)
+        .eq("user_id", user.id)
+    }
+
+    const cachedView = buildSettlingView({
+      tasks: existingTasks || [],
+      arrivalDate: plan.arrival_date,
+    })
 
     return NextResponse.json({
-      tasks: existingTasks || [],
+      tasks: cachedView.tasks,
       cached: true,
       planId: plan.id,
+      stats: cachedView.stats,
     })
+  }
+
+  if (plan.post_relocation_generated) {
+    await supabase
+      .from("relocation_plans")
+      .update({
+        post_relocation_generated: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", plan.id)
+      .eq("user_id", user.id)
   }
 
   const profileData = plan.profile_data as Record<string, unknown> | null
@@ -82,21 +117,32 @@ export async function POST() {
     const result = await generateSettlingInPlan({
       citizenship: (profileData.citizenship as string) || "",
       destination: (profileData.destination as string) || "",
-      destinationCity: (profileData.destinationCity as string) || "",
+      destinationCity: (profileData.target_city as string) || "",
       purpose: (profileData.purpose as string) || "general",
       visaType: selectedVisa?.type,
       visaName: selectedVisa?.name,
-      hasJobOffer: (profileData.hasJobOffer as boolean) || false,
-      hasFamilyInDestination: (profileData.hasFamilyInDestination as boolean) || false,
-      movingWithFamily: (profileData.movingWithFamily as boolean) || false,
-      budget: (profileData.budget as string) || "",
+      hasJobOffer: profileData.job_offer === "yes",
+      hasFamilyInDestination: false,
+      movingWithFamily: profileData.moving_alone === "no",
+      budget: (profileData.monthly_budget as string) || "",
     })
 
     // Insert tasks into DB
     const tempIdToUuid = new Map<string, string>()
+    // Compute absolute deadlines from arrival_date + deadline_days
+    const arrivalDate = plan.arrival_date ? new Date(plan.arrival_date) : null
+
     const tasksToInsert = result.tasks.map((task: SettlingTask) => {
       const id = crypto.randomUUID()
       tempIdToUuid.set(task.tempId, id)
+
+      let deadlineAt: string | null = null
+      if (arrivalDate && task.deadlineDays != null) {
+        const dl = new Date(arrivalDate)
+        dl.setDate(dl.getDate() + task.deadlineDays)
+        deadlineAt = dl.toISOString()
+      }
+
       return {
         id,
         user_id: user.id,
@@ -106,6 +152,8 @@ export async function POST() {
         category: task.category,
         depends_on: [] as string[], // will be resolved after all IDs are known
         deadline_days: task.deadlineDays,
+        deadline_at: deadlineAt,
+        deadline_anchor: "arrival_date",
         is_legal_requirement: task.isLegalRequirement,
         steps: task.steps,
         documents_needed: task.documentsNeeded,

@@ -122,11 +122,12 @@ Tasks with no dependencies start as `available`. All others start as `locked`. T
 ### 5.1 What is enforced
 
 - **No null dependencies:** `filter(Boolean)` in `resolveDependencies()` drops non-existent references.
-- **Self-references:** Not explicitly prevented. If the AI generates `task_A.depends_on = [task_A.id]`, it would remain locked forever (since it cannot be completed while locked).
+- **Generation-time DAG validation:** `app/api/settling-in/generate/route.ts` calls `isValidDAG()` after UUID resolution. If the generated graph contains a cycle, all dependencies are stripped before insert.
+- **Self-references in the generation path:** A self-reference becomes a 1-node cycle and is neutralized by the same DAG validation step.
 
 ### 5.2 What is NOT enforced
 
-**Cycle detection is not implemented.** There is no DFS, topological sort, or any other cycle-detection algorithm in the codebase. If the AI generates a dependency cycle (task A → B → A), both tasks will remain locked indefinitely with no error.
+**Edit-time cycle detection is not implemented.** The current generation path validates cycles, but there is still no broader dependency integrity layer for manual writes, legacy rows, or any future task-editing UI.
 
 **Cross-plan references:** Not validated. If a `depends_on` UUID happens to belong to a task in a different plan, `computeAvailableTasks()` will never find it in `completedIds` and the task will remain locked. The JOIN between `depends_on` UUIDs and task IDs is computed in-memory over the current plan's tasks only.
 
@@ -138,7 +139,7 @@ Tasks with no dependencies start as `available`. All others start as `locked`. T
 
 The contract specifies using `task_key` (not title) as the stable identifier for dependency references. In the migration schema, `task_key` has a `unique(plan_id, task_key)` constraint.
 
-**Reality:** `task_key` is not populated during generation. The INSERT in `generate/route.ts` does not include a `task_key` value. The unique constraint is therefore never triggered in practice.
+**Reality:** `task_key` is populated during generation and protected by `UNIQUE(plan_id, task_key)`, but dependency resolution uses UUIDs and chat completion still uses task titles rather than `task_key`.
 
 The chat completion protocol (Phase 10.2) uses task **title** as the identifier in `[TASK_DONE:title]` markers, not `task_key`. This is a documented divergence (see doc 10.2).
 
@@ -154,10 +155,10 @@ The `settling_in_tasks` migration defines `unlocked boolean default false`. This
 
 | Gap | Contract specification | Current implementation | Severity |
 |---|---|---|---|
-| G-9.4-A | DAG invariant enforcement: cycle detection (DFS or topological sort) | No cycle detection anywhere | P1 — Cycles cause permanent deadlock with no error |
-| G-9.4-B | `task_key` (not title) used as stable dependency identifier | `task_key` not populated; chat protocol uses title strings | P2 — Fragile on task rename |
+| G-9.4-A | DAG invariant enforcement: cycle detection (DFS or topological sort) | Generation path validates DAGs and strips dependencies on cycle, but there is no wider dependency integrity layer beyond generation | P2 — New writes are safer, but the contract is still only partially met |
+| G-9.4-B | `task_key` (not title) used as stable dependency identifier | `task_key` now exists and is persisted, but dependencies use UUIDs and chat protocol still uses title strings | P2 — Stable identity exists, but not across the full execution path |
 | G-9.4-C | Cross-plan reference prevention | Not validated; cross-plan UUID silently causes permanent lock | P2 — Behaviour is undetectable |
-| G-9.4-D | Self-reference prevention | Not validated | P2 — Self-referencing task permanently locked |
+| G-9.4-D | Self-reference prevention | Generation-time self-references are neutralized by DAG validation, but there is no broader guard for manual/legacy writes | P2 — Safety exists in the main path, not as a universal invariant |
 | G-9.4-E | `skipped` tasks treated as completed for dependency purposes | Skipped tasks do not unblock dependents | P2 — User cannot "skip through" a dependency chain |
 | G-9.4-F | Edit-time cycle checking | Not applicable — no dependency editing UI exists | N/A |
 | G-9.4-G | `unlocked` boolean meaningful and maintained | Dead schema — never read or written | P3 — Misleading column |

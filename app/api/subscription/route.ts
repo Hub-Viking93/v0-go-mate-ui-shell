@@ -4,6 +4,7 @@ import {
   ensureSubscription,
   canCreatePlan,
   hasFeatureAccess,
+  getEffectiveTier,
   PRICING,
   type Tier,
   type Feature,
@@ -25,6 +26,7 @@ export async function GET() {
     }
 
     const planStatus = await canCreatePlan(user.id)
+    const effectiveTier = getEffectiveTier(subscription)
 
     // Build feature access map
     const features: Record<string, boolean> = {}
@@ -34,11 +36,14 @@ export async function GET() {
       "post_relocation", "compliance_alerts", "post_arrival_assistant",
     ]
     for (const feature of featureList) {
-      features[feature] = hasFeatureAccess(subscription.tier as Tier, feature)
+      features[feature] = hasFeatureAccess(effectiveTier, feature)
     }
 
     return NextResponse.json({
-      subscription,
+      subscription: {
+        ...subscription,
+        tier: effectiveTier,
+      },
       plans: {
         current: planStatus.current,
         limit: planStatus.limit,
@@ -52,4 +57,3 @@ export async function GET() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
-

@@ -1,13 +1,17 @@
 # GoMate — Build Protocol
 
 **Version:** 1.0
-**Status:** Authoritative
+**Status:** Historical — all phases complete
 **Based on:** `docs/audit.md` v1.0, `docs/engineering-contract.md` v1.0
 **Date:** 2026-02-25
+**Completion:** All 5 phases completed (2026-02-28 through 2026-03-02)
+
+> For current development work, see `docs/audits/definitions-vs-system-audit.md` (44 gaps identified) and the triage recommendations therein.
+> For document precedence and authority resolution, see `docs/audits/document-authority.md`.
 
 This document defines the exact sequence for completing GoMate to production-ready v1. Every phase leaves the system in a deployable, functional state. Phases are not optional and are not reordered.
 
-Before beginning any phase, read `docs/audit.md` and `docs/engineering-contract.md` in full.
+Before beginning any historical phase flow, read `docs/audits/document-authority.md`, then `docs/audit.md` as the original baseline, and `docs/engineering-contract.md` in full.
 
 ---
 
@@ -707,5 +711,11 @@ Building any of these during a v1 phase is out of scope and must not happen.
 | `scripts/012_add_research_columns.sql` | 0 | `visa_research`, `local_requirements_research` on `relocation_plans` |
 | `scripts/013_add_document_statuses.sql` | 0 | `document_statuses` on `relocation_plans` |
 | `scripts/014_add_plan_switch_rpc.sql` | 3 | Atomic plan switch RPC (`switch_current_plan` function) |
+| `scripts/015_add_task_key_column.sql` | 3 | `task_key` on `settling_in_tasks` |
+| `scripts/016_add_research_status.sql` | 6 | `research_status`, `research_completed_at` on `relocation_plans` |
+| `scripts/017_add_deadline_columns.sql` | 6 | `deadline_at`, `deadline_anchor` on `settling_in_tasks`; OVERDUE status |
+| `scripts/018_add_plan_version.sql` | 7 | `plan_version` on `relocation_plans` |
+| `scripts/019_add_guide_versioning.sql` | 9 | Guide versioning + staleness columns on `guides` |
+| `scripts/020_add_onboarding_completed.sql` | 10 | `onboarding_completed` on `relocation_plans` |
 
-Next migration number after 014: `015`.
+Next migration number: `021`.

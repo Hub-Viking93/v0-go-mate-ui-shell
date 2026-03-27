@@ -26,10 +26,10 @@ This document describes the current distributed implementation and the target un
 
 | File | Integration method | API used | Timeout | waitFor |
 |---|---|---|---|---|
-| `web-research.ts` | Raw `fetch()` | `/v1/scrape`, `/v1/search` | None | Not set |
+| `web-research.ts` | `fetchWithRetry()` wrapper around raw `fetch()` | `/v1/scrape`, `/v1/search` | 15s | Not set |
 | `numbeo-scraper.ts` | Raw `fetch()` | `/v1/scrape` | 15s (AbortController) | 3000ms |
-| `app/api/research/visa/route.ts` | Raw `fetch()` | `/v1/scrape`, `/v1/search` | None | 3000ms |
-| `app/api/research/local-requirements/route.ts` | Raw `fetch()` | `/v1/scrape`, `/v1/search` | None | 3000ms |
+| `lib/gomate/research-visa.ts` | `fetchWithRetry()` wrapper around raw `fetch()` | `/v1/scrape`, `/v1/search` | 15s–20s | 3000ms |
+| `lib/gomate/research-local-requirements.ts` | `fetchWithRetry()` wrapper around raw `fetch()` | `/v1/scrape`, `/v1/search` | 15s–45s | 3000ms |
 | `lib/gomate/checklist-generator.ts` | **Firecrawl JS SDK** (`@mendable/firecrawl-js`) | `firecrawl.scrapeUrl()`, `firecrawl.search()` | SDK-managed | Not set |
 
 **Key finding:** All files except `checklist-generator.ts` use raw `fetch()` against the Firecrawl REST API directly. Only `checklist-generator.ts` uses the official `@mendable/firecrawl-js` npm package. This means the codebase has two different integration patterns for the same service.
@@ -53,7 +53,7 @@ POST /v1/scrape
   url,
   formats: ["markdown"],
   onlyMainContent: true,
-  // No waitFor, no timeout
+  // No waitFor
 }
 
 // searchAndScrape(query, limit=3) — search + scrape
@@ -65,7 +65,7 @@ POST /v1/search
 }
 ```
 
-No retry on failure. No timeout. Returns `null` / `[]` on error.
+Retries and a 15s timeout are applied via `fetchWithRetry()`. Returns `null` / `[]` on error.
 
 **Called by:**
 - `fetchLiveCostOfLiving()` — for Numbeo cost data (but see Phase 3.2: this path is mostly dead)
@@ -87,7 +87,7 @@ POST /v1/scrape
 }
 ```
 
-The 15-second timeout is the only client-side timeout in any Firecrawl call. All other calls rely solely on the Vercel function timeout (30s or 60s).
+Numbeo's scraper still uses a bespoke AbortController timeout. Other research fetchers now use `fetchWithRetry()` with explicit client-side timeouts as well.
 
 ### 3.3 app/api/research/visa/route.ts
 
@@ -252,9 +252,14 @@ Four separate copies of essentially the same function exist across four files. T
 
 `checklist-generator.ts` uses the `@mendable/firecrawl-js` SDK while all other files use raw `fetch()`. This creates an inconsistency in how errors, types, and responses are handled.
 
-### G-3.3-C: No timeout on most Firecrawl calls
+### G-3.3-C: Timeout strategy is still inconsistent across Firecrawl callers
 
-Only `numbeo-scraper.ts` implements a client-side timeout (15s). All other Firecrawl calls rely solely on the Vercel function timeout. A slow Firecrawl response could consume the entire 30s or 60s function budget.
+Most research callers now apply explicit client-side timeouts through `fetchWithRetry()`, but timeout policy is still inconsistent:
+- `web-research.ts` uses 15s
+- `research-visa.ts` uses 15s/20s
+- `research-local-requirements.ts` uses up to 45s for OpenAI analysis
+- `checklist-generator.ts` relies on SDK-managed behavior
+- `numbeo-scraper.ts` keeps a separate AbortController implementation
 
 ### G-3.3-D: In-memory cache is non-functional in serverless environments
 
@@ -276,7 +281,7 @@ The web research module does not use the official sources registry, building its
 |---|---|---|
 | Firecrawl integration | 5 independent implementations | Single `lib/gomate/fetch-layer.ts` module |
 | SDK consistency | Raw fetch + JS SDK mixed | Choose one approach; use consistently |
-| Timeout | Only numbeo-scraper has timeout | 10s default timeout on all Firecrawl calls |
+| Timeout | Present in most callers, but inconsistent by module | Unified timeout policy for Firecrawl and AI fetches |
 | Rate limiting | None | Per-source request budget with credit tracking |
 | Retry | None | Exponential backoff (3 retries, 1s base) |
 | In-memory cache | Non-functional on serverless | Remove or replace with Redis/Vercel KV |

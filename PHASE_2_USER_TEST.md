@@ -1,231 +1,219 @@
-# Phase 2 — User Test Specification
-
-**Phase:** Phase 2 — Settling-In Stage Integrity
-**Date:** 2026-03-01
-**Time-to-reproduce:** Each test < 3 minutes
-
----
+# Phase 2 User Test Specification — Research And Checklist Integrity
 
 ## 1. Purpose
 
-Verify that settling-in endpoints enforce `plan.stage === 'arrived'` and that the DAG validator prevents cyclical task dependencies:
-
-1. Pre-arrival users cannot generate settling-in tasks (400)
-2. Pre-arrival users cannot complete settling-in tasks (400)
-3. Pre-arrival users see empty task list with stage metadata (200, not 400)
-4. The settling-in page shows a "confirm arrival first" locked state
-5. Arrived users can still generate and complete tasks normally
+Verify Phase 2 implementation for master-audit gaps B2-002, B2-004, B2-005, B2-007, B2-008, B2-010, B2-011, B2-012. These changes improve research status honesty, checklist quality tracking, and document identity coupling.
 
 ---
 
 ## 2. Environment and Preconditions
 
-- Deployed preview URL on Vercel, OR `localhost:3000` via `pnpm dev`
-- A **Pro+ tier** test user account
-- Browser DevTools open (Network + Console tabs)
-
-### How to check your plan stage
-
-Run in browser console (while logged in):
-```javascript
-fetch("/api/profile").then(r => r.json()).then(d => console.log("Stage:", d.plan?.stage))
-```
-
-Expected: `"complete"` (pre-arrival) or `"arrived"` (post-arrival)
+- App deployed to Vercel preview OR running locally at `localhost:3000`
+- Supabase migration 021 (`research_meta` column) has been applied
+- Test user has a locked plan with existing research data
+- Browser with DevTools open (Network tab) for response inspection
 
 ---
 
 ## 3. Test Data and Deterministic Inputs
 
-| Item | Value |
-|---|---|
-| Test user | Pro+ tier account |
-| Pre-arrival state | `plan.stage` is `"collecting"`, `"generating"`, or `"complete"` |
-| Post-arrival state | `plan.stage` is `"arrived"` (use dashboard "I've arrived" button) |
+- **Test user:** Your existing account with a completed/locked plan
+- **Plan state:** Must have `locked = true` and `stage = "complete"` or `"arrived"`
+- **Existing data:** Plan should have `visa_research` and `checklist_items` from previous research runs
 
 ---
 
 ## 4. Happy Path Tests (End-to-End)
 
-### Test 1: Pre-arrival — Settling-in page shows locked state
-
-**Precondition:** Logged in as Pro+ user. `plan.stage !== 'arrived'` (check via console command above).
+### TEST-HP-1: Research Trigger Returns Per-Artifact Quality
 
 **Steps:**
-1. Navigate to `/settling-in`
+1. Open DevTools → Network tab
+2. Navigate to the chat page
+3. If plan is already locked, trigger research by calling `POST /api/research/trigger` with `{ "planId": "<your-plan-id>" }` via DevTools console:
+   ```javascript
+   fetch("/api/research/trigger", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ planId: "<your-plan-id>" })
+   }).then(r => r.json()).then(console.log)
+   ```
+4. Wait for response (up to 60 seconds)
 
-**Expected result:**
-- A card with a lock icon and heading "Confirm your arrival first"
-- Text: "Your settling-in checklist will be available after you confirm arrival..."
-- "Go to Dashboard" button visible
-- **No** "Generate checklist" button visible
+**Expected:**
+- Response contains `status` field: one of `"completed"`, `"partial"`, or `"failed"`
+- Response contains `meta` object with structure:
+  ```json
+  {
+    "meta": {
+      "visa": { "status": "completed"|"failed", "quality": "full"|"partial"|"fallback", "optionCount": <number> },
+      "localRequirements": { "status": "completed"|"failed" },
+      "checklist": { "status": "completed"|"failed", "isFallback": <boolean>, "itemCount": <number>, "hadVisaResearch": <boolean> }
+    }
+  }
+  ```
+- If `meta.visa.optionCount === 0`, aggregate `status` should be `"partial"` (not `"completed"`)
+- If `meta.checklist.isFallback === true`, aggregate `status` should be `"partial"` (not `"completed"`)
 
-**Pass criteria:** Lock card visible. No generate button.
-
----
-
-### Test 2: Pre-arrival — GET /api/settling-in returns empty tasks with stage
-
-**Precondition:** Same as Test 1.
-
-**Steps:**
-1. Run in browser console:
-```javascript
-fetch("/api/settling-in").then(r => r.json()).then(d => console.log(JSON.stringify(d, null, 2)))
-```
-
-**Expected result:**
-```json
-{
-  "tasks": [],
-  "stage": "complete",
-  "arrivalDate": null
-}
-```
-(The `stage` value will match your current plan stage)
-
-**Pass criteria:** HTTP 200. `tasks` is `[]`. `stage` is present and matches plan stage. `arrivalDate` is `null`.
-
----
-
-### Test 3: Post-arrival — Generate settling-in tasks
-
-**Precondition:** Pro+ user. Confirm arrival first (dashboard → "I've arrived" button). Then navigate to `/settling-in`.
+### TEST-HP-2: Dashboard Shows Partial Research Banner
 
 **Steps:**
-1. Navigate to `/settling-in` after arrival confirmation
-2. Click "Generate checklist"
-3. Wait for generation (30–60 seconds)
+1. After TEST-HP-1, if the research status is `"partial"`, navigate to the dashboard
+2. Observe the research status banner area
 
-**Expected result:**
-- Tasks appear grouped by category (Legal, Housing, Banking, etc.)
-- Progress bar shows `0/{N}` completed
-- Tasks have statuses: "available" (no dependencies) or "locked" (has dependencies)
+**Expected:**
+- If `research_status === "partial"`: amber banner says "Research completed with limited results"
+- If `research_status === "completed"`: no partial banner (staleness banner may appear after 7 days)
+- If `research_status === "failed"`: red banner says "Research couldn't be completed"
 
-**Pass criteria:** Tasks generated. No errors. Categories visible.
-
----
-
-### Test 4: Post-arrival — Complete a task
-
-**Precondition:** Test 3 completed. Tasks visible.
+### TEST-HP-3: Checklist Shows Fallback Warning
 
 **Steps:**
-1. Find a task with status "available"
-2. Click it / expand it
-3. Mark as "in progress", then "completed"
+1. Navigate to the Documents page
+2. Observe the AI checklist info section (above the checklist items)
 
-**Expected result:**
-- Task status changes to "completed"
-- Progress bar updates
-- Dependent tasks may unlock
+**Expected:**
+- If the checklist was generated with fallback data: amber text "This is a general checklist. Refresh to get personalized requirements..."
+- If the checklist was AI-researched: no fallback warning
+- The checklist info section shows "Personalized for: <visa type>"
 
-**Pass criteria:** Status transitions work. No errors.
+### TEST-HP-4: Checklist Research Regeneration
+
+**Steps:**
+1. On the Documents page, click the "Refresh" button in the stale checklist banner (or use DevTools):
+   ```javascript
+   fetch("/api/research/checklist", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ planId: "<your-plan-id>" })
+   }).then(r => r.json()).then(console.log)
+   ```
+
+**Expected:**
+- Response contains `checklist.isFallback` field (boolean)
+- Response contains `checklist.generatorInputs` with `{ hadVisaResearch, hadFirecrawlResearch, visaName }`
+- All checklist item IDs are snake_case (no spaces, no special characters)
+
+### TEST-HP-5: Document Status With Identity Validation
+
+**Steps:**
+1. Open DevTools console
+2. Mark a valid document as completed:
+   ```javascript
+   fetch("/api/documents", {
+     method: "PATCH",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ documentId: "passport", completed: true })
+   }).then(r => r.json()).then(console.log)
+   ```
+
+**Expected:**
+- Response: `{ "success": true, "statuses": { "passport": { "completed": true, "completedAt": "<ISO timestamp>", "documentName": "Valid Passport" } } }`
+- The status entry includes `documentName` for traceability
+
+### TEST-HP-6: GET Research Trigger Returns Meta
+
+**Steps:**
+1. Call GET /api/research/trigger from DevTools:
+   ```javascript
+   fetch("/api/research/trigger").then(r => r.json()).then(console.log)
+   ```
+
+**Expected:**
+- Response contains `meta` field (may be `null` for pre-Phase-2 data, or an object after fresh trigger)
+- Response contains `status`, `completedAt`, `hasVisaResearch`, `hasLocalRequirements`
 
 ---
 
 ## 5. Negative Tests (Failure / Safety)
 
-### Negative Test 1: POST /api/settling-in/generate blocked for pre-arrival
-
-**Precondition:** Pro+ user. `plan.stage !== 'arrived'`.
+### TEST-NEG-1: Invalid Document ID Rejected
 
 **Steps:**
-1. Run in browser console:
-```javascript
-fetch("/api/settling-in/generate", { method: "POST" })
-  .then(r => Promise.all([r.status, r.json()]))
-  .then(([status, body]) => console.log({ status, body }))
-```
+1. Call PATCH /api/documents with a non-existent document ID:
+   ```javascript
+   fetch("/api/documents", {
+     method: "PATCH",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ documentId: "nonexistent_xyz_123", completed: true })
+   }).then(r => r.json()).then(console.log)
+   ```
 
-**Expected result:**
-```
-{ status: 400, body: { error: "Settling-in features require arrival confirmation" } }
-```
+**Expected:**
+- HTTP 400 with `{ "error": "Document ID does not match any checklist item" }`
+- No orphaned entry created in document_statuses
 
-**Pass criteria:** HTTP 400. Exact error message. No tasks created.
-
----
-
-### Negative Test 2: PATCH /api/settling-in/{id} blocked for pre-arrival
-
-**Precondition:** You need a real task ID. If you previously generated tasks while arrived and then somehow are pre-arrival again, use that ID. Otherwise: **skip this test** and mark "N/A — no pre-arrival tasks exist to test against" (this is expected; pre-arrival users cannot generate tasks, so there's nothing to PATCH).
-
-**Steps (if applicable):**
-```javascript
-fetch("/api/settling-in/TASK_ID", {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ status: "completed" })
-}).then(r => Promise.all([r.status, r.json()]))
-  .then(([status, body]) => console.log({ status, body }))
-```
-
-**Expected result:**
-```
-{ status: 400, body: { error: "Task completion requires arrival confirmation" } }
-```
-
-**Pass criteria:** HTTP 400 with correct error message.
-
----
-
-### Negative Test 3: Unauthorized access
+### TEST-NEG-2: Missing DocumentId in PATCH
 
 **Steps:**
-1. Open incognito window
-2. Run in console: `fetch("/api/settling-in").then(r => console.log(r.status))`
+1. Call PATCH /api/documents with missing documentId:
+   ```javascript
+   fetch("/api/documents", {
+     method: "PATCH",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ completed: true })
+   }).then(r => r.json()).then(console.log)
+   ```
 
-**Expected result:** `401`
+**Expected:**
+- HTTP 400 with `{ "error": "Invalid request body" }`
 
-**Pass criteria:** HTTP 401.
-
----
-
-### Negative Test 4: Non-Pro+ user
-
-**Precondition:** Logged in as free-tier user (or use a separate free account).
+### TEST-NEG-3: Unauthenticated Access
 
 **Steps:**
-1. Navigate to `/settling-in`
+1. Open an incognito window (not logged in)
+2. Navigate to `/api/research/trigger`
 
-**Expected result:**
-- Tier gate appears — "Post-relocation features require Pro+"
+**Expected:**
+- HTTP 401 with `{ "error": "Unauthorized" }`
 
-**Pass criteria:** Gate page visible. No task data.
+### TEST-NEG-4: Research Trigger on Unlocked Plan
+
+**Steps:**
+1. If you have an unlocked plan, call POST /api/research/trigger with its planId
+
+**Expected:**
+- HTTP 409 with `{ "error": "Plan must be locked before research can run" }`
 
 ---
 
 ## 6. Time-to-Reproduce Rule
 
-Every test is reproducible in under 3 minutes. Test 3 (generation) takes 30–60 seconds for AI processing. If any critical flow cannot be reproduced in 5 minutes, log **TEST-SPEC-FAIL**.
+Every test above should be reproducible within 5 minutes using DevTools console calls. No external tools required beyond the browser.
 
 ---
 
 ## 7. Pass/Fail Criteria
 
-**Phase 2 User Acceptance PASSES when ALL are true:**
+**PASS** requires ALL of the following:
+- TEST-HP-1: Research trigger returns `meta` with per-artifact quality
+- TEST-HP-2: Dashboard shows correct banner for research status
+- TEST-HP-3: Documents page shows fallback warning when applicable
+- TEST-HP-5: Document PATCH returns `documentName` in status
+- TEST-HP-6: GET trigger returns `meta` field
+- TEST-NEG-1: Invalid document ID rejected with 400
+- TEST-NEG-2: Missing documentId returns 400
+- TEST-NEG-3: Unauthenticated access returns 401
 
-- [ ] Test 1: Pre-arrival page shows locked state (no generate button)
-- [ ] Test 2: GET returns `{tasks:[], stage, arrivalDate:null}` for pre-arrival
-- [ ] Test 3: Post-arrival generation works
-- [ ] Test 4: Post-arrival task completion works
-- [ ] Negative Test 1: POST generate returns 400 for pre-arrival
-- [ ] Negative Test 2: PATCH returns 400 for pre-arrival (or N/A)
-- [ ] Negative Test 3: Unauthorized → 401
-- [ ] Negative Test 4: Non-Pro+ sees tier gate
+**ACCEPTABLE DEGRADATION:**
+- TEST-HP-4: Checklist may return `isFallback: true` if Firecrawl/LLM is unavailable (this is the correct behavior — the system honestly reports fallback)
+- TEST-HP-1: Research may return `"partial"` status — this is the correct behavior for degraded quality
+
+**FAIL** if any of:
+- Research trigger does not return `meta` object
+- Document PATCH accepts invalid documentId without validation
+- Dashboard does not distinguish `"partial"` from `"completed"` status
 
 ---
 
 ## 8. Bug Reporting Template
 
-```markdown
-### Bug: [Short description]
-
-**Test:** [Which test]
-**Steps:** [Copied from spec, with deviations]
-**Expected:** [From spec]
-**Actual:** [What happened]
-**Severity:** Critical / High / Medium / Low
-**Evidence:** [Screenshot, console output, or response]
+```
+### BUG-PHASE2-XXX
+- **Test:** TEST-XX-N
+- **Steps:** (exact reproduction steps)
+- **Expected:** (from spec above)
+- **Actual:** (what happened)
+- **Severity:** Critical / High / Medium / Low
+- **Evidence:** (screenshot, console output, or response snippet)
 ```

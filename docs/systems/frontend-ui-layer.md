@@ -325,20 +325,17 @@ The "Generate Guide" button calls `POST /api/guides` with an empty body `{}`, th
 
 `app/(app)/booking/page.tsx` (452 lines). Gated by `FullPageGate` (requires `booking` feature).
 
-### 8.1 Always Mock Mode
+### 8.1 Search Mode
 
-All flight searches are sent with `useMock: true`:
+The booking page sends real flight searches to `POST /api/flights` without
+forcing `useMock: true`.
 
-```typescript
-body: JSON.stringify({
-  from: data.from.iataCode,
-  to: data.to.iataCode,
-  // ...
-  useMock: true, // Use mock data for demo
-})
-```
+Runtime behavior depends on the backend environment:
 
-The real Firecrawl-based flight search is never invoked from the UI. All results displayed are the 6 hardcoded mock flights from `generateMockFlights()`.
+- if `FIRECRAWL_API_KEY` is configured, the UI receives real scraped
+  multi-source results
+- if it is missing, the API falls back to deterministic mock flights and
+  returns `isMock: true`
 
 ### 8.2 Hotels Tab
 
@@ -346,7 +343,7 @@ The Hotels tab button is `disabled` with a "Coming Soon" label. No hotels functi
 
 ### 8.3 Booking Action
 
-"Book" buttons call `window.open(flight.bookingUrl, "_blank")`. These links are the external booking site URLs from the mock data (Skyscanner, Google Flights, etc.). No in-app booking flow exists.
+"Book" buttons call `window.open(flight.bookingUrl, "_blank")`. These links are external provider search or booking URLs. No in-app booking flow exists.
 
 ---
 
@@ -422,9 +419,9 @@ Migration 003 created `checklist_progress` for per-item completion tracking. The
 
 `relocation_plans.document_statuses` is accessed by `app/api/documents/route.ts` but does not appear in any SQL migration file (scripts 001–009). This column was added to the DB outside the migration system. New deployments from migration history only would not have this column.
 
-### G-7.1-E: Booking always uses mock data
+### G-7.1-E: Booking mode depends on backend environment
 
-The booking page hardcodes `useMock: true` in every search request. The Firecrawl-based multi-source flight search (the only reason flight-search.ts and its complex scraping logic exist) is never invoked from the UI.
+The booking page no longer hardcodes `useMock: true`. It invokes `POST /api/flights` directly. Whether users see real scraped results or deterministic mock results now depends on the backend environment (`FIRECRAWL_API_KEY`) and the API fallback path.
 
 ### G-7.1-F: Client-side data duplication
 

@@ -90,7 +90,7 @@ GET /dashboard (first load)
 |---|---|---|
 | `relocation_plans` | New row | `profile_data: {}`, `stage: "collecting"`, `is_current: true`, `locked: false` |
 
-**Key gap:** Plan creation in `GET /api/profile` is not idempotent-safe. If two concurrent requests hit `GET /api/profile` simultaneously for the same user with no existing plan, two plans may be inserted. The partial unique index on `(user_id) WHERE is_current = true` prevents both from having `is_current = true`, but the second insert would fail with a constraint error rather than being deduplicated. No locking mechanism exists.
+**Current behavior:** `GET /api/profile` now handles concurrent first-load creation defensively. If the insert loses a race, the handler re-fetches the already-created current plan and returns it instead of surfacing a 500.
 
 ---
 
@@ -106,10 +106,13 @@ POST /api/chat
 │
 ├── Initialize profile: incomingProfile || EMPTY_PROFILE
 │
-├── Inline auth check (Supabase):
-│   SELECT locked, profile_data FROM relocation_plans
+├── Explicit auth check (Supabase auth.getUser)
+│
+├── SELECT id, locked, profile_data, stage, arrival_date
+│   FROM relocation_plans
 │   WHERE user_id=? AND is_current=true
 │   → if plan.locked: set planLocked=true, use locked profile_data
+│   → if plan.stage === "generating": return 400 and terminate chat
 │
 ├── Extract profile data (if !planLocked && !confirmed):
 │   ├── extractProfileData(lastUserText, currentProfile) → GPT-4o-mini
@@ -218,11 +221,9 @@ PATCH /api/profile (action="lock")
 │   ├── Check profile.destination exists
 │   ├── SELECT id FROM guides WHERE plan_id=?  → check if guide already exists
 │   ├── If no existing guide:
-│   │   generateGuideFromProfile(profile)  → Guide object
-│   │   INSERT INTO guides {
-│   │     user_id, plan_id, title, destination, purpose,
-│   │     sections: guideData.sections   ← see G-6.2-D
-│   │   }
+│   │   generateGuide(profile)  → Guide object
+│   │   guideToDbFormat(guide, user_id, plan_id)
+│   │   INSERT mapped section columns into guides
 │   └── catch: console.error("[GoMate] Error auto-generating guide:") — silent swallow
 │
 └── Return { plan: lockedPlan }
@@ -247,24 +248,23 @@ After the plan is locked, the client triggers research separately. The research 
 POST /api/research/trigger { planId }
 │
 ├── auth check
+├── Reject unless plan is already locked and stage is "complete" or "arrived"
 ├── Weak dedup: return early if research_status === "in_progress"
-├── UPDATE relocation_plans SET research_status = "pending"
-│
-├── Resolve base URL (NEXT_PUBLIC_APP_URL || request origin)
+├── UPDATE relocation_plans SET research_status = "in_progress"
 │
 ├── Promise.allSettled([
-│     fetch(baseUrl + "/api/research/visa", { method:"POST", Cookie: forwarded })
-│     fetch(baseUrl + "/api/research/local-requirements", { method:"POST", Cookie: forwarded })
-│     fetch(baseUrl + "/api/research/checklist", { method:"POST", Cookie: forwarded })
+│     performVisaResearch(supabase, planId, userId, false)
+│     performLocalRequirementsResearch(supabase, planId, userId, false, false)
+│     performChecklistResearch(supabase, userId, planId)
 │   ])  ← maxDuration: 60s
 │
-├── If any succeeded: UPDATE research_status = "completed"
-├── If all failed:   UPDATE research_status = "failed"
+├── If all succeeded: UPDATE research_status = "completed"
+├── Otherwise:       UPDATE research_status = "failed"
 │
 └── Return { success, results }
 ```
 
-Each sub-route (visa, local-requirements, checklist) runs independently:
+Each helper (visa, local-requirements, checklist) runs independently:
 - Fetches from external APIs (Firecrawl, OpenAI/Anthropic)
 - Falls back to empty/default data on failure (silently)
 - Writes results to `relocation_plans` JSONB columns
@@ -330,7 +330,7 @@ At the end of the full user journey, the database state:
 | `auth.users` | 1 | id, email, encrypted_password |
 | `public.profiles` | 1 | id (= user_id), email, first_name=null, last_name=null |
 | `relocation_plans` | 1 (+ any archived) | profile_data, stage="complete", locked=true, is_current=true, visa_research, local_requirements_research, checklist_items, research_status="completed" |
-| `guides` | 1 | title, destination, purpose, sections (or individual columns — see G-6.2-D) |
+| `guides` | 1 | title, destination, purpose, overview, visa_section, budget_section, housing_section, banking_section, healthcare_section, culture_section, jobs_section, education_section, timeline_section, checklist_section |
 | `checklist_progress` | 0 | No rows ever written (no API) |
 | `user_subscriptions` | 0 or 1 | tier="free" unless manually upgraded |
 
@@ -385,19 +385,13 @@ Conversation is client-only. Server has no record of what was said. Debugging us
 - The `requiredFields` completeness check
 - Any documented migration (visa_research and local_requirements_research are not in any .sql file)
 
-### G-6.2-D: Guide insert in lock handler uses wrong schema
+### G-6.2-D: Resolved — lock handler uses guideToDbFormat
 
-The profile lock handler calls `generateGuideFromProfile(profile)` and inserts with `sections: guideData.sections`. The `Guide` interface from `guide-generator.ts` has individual section properties (`overview`, `visa_section`, `budget_section`, etc.), not a unified `sections` property. The `sections` key does not match any column in the `guides` table (migration 005 has individual columns). This insert either:
-- Fails silently (Supabase ignores unknown keys in JSONB mode), or
-- Succeeds but stores nothing in the individual section columns
+The lock handler now generates the guide via `generateGuide(profile)` and inserts it with `guideToDbFormat(...)`, matching the actual `guides` table columns. The earlier mismatched `sections` insert path no longer applies.
 
-The catch block in the lock handler swallows this error. Guide auto-generation on lock may be a no-op.
+### G-6.2-E: Resolved — concurrent first-load plan creation
 
-**Note:** The `POST /api/guides` route uses `guideToDbFormat()` which correctly maps to individual columns. The two guide-writing paths have different insert shapes.
-
-### G-6.2-E: Plan creation race condition in GET /api/profile
-
-Concurrent first loads for the same user can trigger two INSERT attempts. The second fails at the partial unique index constraint. The error is caught and logged but the response to the second request is a 500. On a slow connection with the user double-clicking, this can produce a visible error on first load.
+Current code re-fetches the already-created current plan when the insert loses a race. The original visible-500 first-load failure no longer applies.
 
 ### G-6.2-F: Research trigger is not called by server on lock
 

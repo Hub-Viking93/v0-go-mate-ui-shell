@@ -6,7 +6,7 @@
 - `lib/gomate/flight-search.ts` (331 lines)
 - `app/api/flights/route.ts` (88 lines)
 - `lib/gomate/airports.ts` (140 lines — documented in Phase 3.5)
-**Last audited:** 2026-02-25
+**Last audited:** 2026-03-14
 
 ---
 
@@ -131,13 +131,13 @@ const airlinePatterns = [/lufthansa/i, /united/i, /delta/i, /air france/i, ...]
 4. Scan for any of 20 hardcoded airline names
 5. Detect `nonstop|non-stop|direct` or `1 stop|one stop` keywords
 
-**Non-deterministic stops:**
+**Deterministic stop fallback:**
 
 ```typescript
-const stops = hasNonstop && i === 0 ? 0 : hasOneStop ? 1 : Math.floor(Math.random() * 2)
+const stops = hasNonstop && i === 0 ? 0 : hasOneStop ? 1 : i % 2
 ```
 
-Stop count uses `Math.random()` for flights that are neither explicitly nonstop nor 1-stop. The same search can return different stop counts on successive calls.
+Stop count is now deterministic for unmatched cases, but still heuristic rather than provider-truthful. Flights that are neither explicitly nonstop nor 1-stop alternate between 0 and 1 stops based on result index.
 
 **Output cap:** Maximum 5 results per source (`Math.min(prices.length, 5)`).
 
@@ -186,7 +186,7 @@ const airlines = ["Lufthansa", "United Airlines", "Delta", "Air France", "KLM", 
 const basePrices = [450, 520, 580, 620, 750, 890]
 ```
 
-Prices have a random offset (`basePrices[i] + Math.floor(Math.random() * 100)`). Mock flights include `airlineLogo`, `amenities`, and `baggageIncluded` fields that real scraping does not produce.
+Prices are deterministic (`basePrices[i] + (i * 17) % 100`). Mock flights still include `airlineLogo`, `amenities`, and `baggageIncluded` fields that real scraping does not produce.
 
 ---
 
@@ -244,9 +244,9 @@ Response: {
 
 The Google Flights search URL construction ignores all search parameters (`from`, `to`, `departDate`, `returnDate`). It returns a static URL encoding a specific past search. Users searching Google Flights via GoMate always get results for the same hardcoded route, regardless of their actual search.
 
-### G-4.4-B: Stop count uses Math.random()
+### G-4.4-B: Stop count remains heuristic even after deterministic fallback
 
-`parseFlightData()` uses `Math.random()` to determine stop count for flights where neither "nonstop" nor "1 stop" keywords are found. The same search on the same flight data can return different stop counts on successive calls. Results are non-deterministic.
+`parseFlightData()` no longer uses `Math.random()`, but unmatched stop data is still assigned heuristically via `i % 2`. That removes non-determinism, but the stop count can still be wrong because it is not parsed from structured provider data.
 
 ### G-4.4-C: Airport resolution limited to 30 airports
 
@@ -271,7 +271,7 @@ All flight data comes from web scraping via Firecrawl. Flight search engines act
 | Item | Current | Target |
 |---|---|---|
 | Google Flights URL | Hardcoded static | Properly constructed dynamic URL |
-| Stop count | Non-deterministic (Math.random) | Deterministic keyword-based parsing |
+| Stop count | Deterministic but heuristic (`i % 2` fallback) | Structured provider parsing or trustworthy stop extraction |
 | Airport resolution | 30 hardcoded airports | Full airports.txt dataset (7,698 entries) |
 | Flight data source | Firecrawl web scraping | Real flight API (Skyscanner API, Amadeus, etc.) |
 | Booking capability | Links only | Direct booking integration |
