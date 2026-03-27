@@ -183,11 +183,16 @@ async function analyzeLocalRequirements(
     throw new Error("OPENAI_API_KEY is not configured")
   }
 
-  if (scrapedContent.length === 0) {
-    return buildFallbackLocalRequirementsResearch()
+  if (!FIRECRAWL_API_KEY && scrapedContent.length === 0) {
+    console.warn("[GoMate][LocalReq] FIRECRAWL_API_KEY not set — running LLM-only research")
   }
 
-  const prompt = `You are an expert relocation consultant. Analyze the following information about moving to ${destination}${destinationCity ? ` (specifically ${destinationCity})` : ""} and provide comprehensive local requirements research.
+  const hasWebContent = scrapedContent.length > 0
+  const dataSourceSection = hasWebContent
+    ? `SCRAPED CONTENT FROM OFFICIAL SOURCES:\n${scrapedContent.join("\n\n").slice(0, 16_000)}`
+    : `No web research content was available. Use your training knowledge about administrative requirements for foreigners moving to ${destination}. Only state requirements you are confident about. Include registration, banking, healthcare enrollment, tax ID, and any mandatory steps.`
+
+  const prompt = `You are an expert relocation consultant. ${hasWebContent ? "Analyze the following information about" : "Provide comprehensive local requirements research for someone"} moving to ${destination}${destinationCity ? ` (specifically ${destinationCity})` : ""}.
 
 USER PROFILE:
 - Destination: ${destination}${destinationCity ? `, ${destinationCity}` : ""}
@@ -201,8 +206,7 @@ USER PROFILE:
       : 1 + (profileData.spouse_joining === "yes" ? 1 : 0) + (parseInt(profileData.children_count || "0", 10) || 0)
   }
 
-SCRAPED CONTENT FROM OFFICIAL SOURCES:
-${scrapedContent.join("\n\n").slice(0, 16_000)}
+${dataSourceSection}
 
 Respond with a JSON object in this structure:
 {

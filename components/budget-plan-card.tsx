@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useCallback } from "react"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
+import { useCurrencyConversion } from "@/hooks/use-currency-conversion"
 
 export interface BudgetBreakdownItem {
   category: string
@@ -35,6 +36,7 @@ interface BudgetPlanCardProps {
   budget: BudgetPlanData | null
   targetCity?: string | null
   targetCountry?: string | null
+  homeCurrency?: string | null
   currentSavings?: number | null
   onUpdateSavings?: (amount: number) => void
 }
@@ -49,15 +51,24 @@ export function BudgetPlanCard({
   budget,
   targetCity,
   targetCountry,
+  homeCurrency,
   currentSavings = 0,
   onUpdateSavings,
 }: BudgetPlanCardProps) {
   const destination = targetCity || targetCountry || "your destination"
   const savings = currentSavings || 0
   const totalGoal = budget?.totalSavingsTarget || 0
-  
+
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(savings.toString())
+
+  // Currency conversion: show destination currency with home currency equivalent
+  const budgetCurrency = budget?.currency || "USD"
+  const { formatDual } = useCurrencyConversion(
+    budgetCurrency,
+    homeCurrency && homeCurrency !== budgetCurrency ? homeCurrency : null
+  )
+  const fmt = useCallback((amount: number) => formatDual(amount), [formatDual])
   
   const handleSave = () => {
     const amount = parseFloat(inputValue) || 0
@@ -143,7 +154,7 @@ export function BudgetPlanCard({
           <div>
             <p className="text-xs text-muted-foreground">Savings Goal</p>
             <p className="text-2xl font-semibold text-foreground font-mono tracking-tight">
-              {budget.currency} {totalGoal.toLocaleString()}
+              {fmt(totalGoal)}
             </p>
           </div>
           <div className="text-right">
@@ -163,7 +174,7 @@ export function BudgetPlanCard({
             </div>
             {isEditing ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">{budget.currency}</span>
+                <span className="text-sm font-medium text-muted-foreground">{budgetCurrency}</span>
                 <input
                   type="number"
                   value={inputValue}
@@ -190,7 +201,7 @@ export function BudgetPlanCard({
               </div>
             ) : (
               <p className="text-lg font-semibold text-primary">
-                {budget.currency} {savings.toLocaleString()}
+                {fmt(savings)}
               </p>
             )}
           </div>
@@ -199,7 +210,7 @@ export function BudgetPlanCard({
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{Math.round(progressPercent)}% saved</span>
           <span>
-            {budget.currency} {remaining.toLocaleString()} to go
+            {fmt(remaining)} to go
           </span>
         </div>
       </div>
@@ -216,8 +227,7 @@ export function BudgetPlanCard({
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                 At your current savings rate, you&apos;ll need approximately{" "}
                 {monthsNeededAtCurrentRate} months to reach your goal. Consider saving{" "}
-                {budget.currency}{" "}
-                {Math.ceil(remaining / budget.monthsUntilMove).toLocaleString()}/month to stay on
+                {fmt(Math.ceil(remaining / budget.monthsUntilMove))}/month to stay on
                 track for your {budget.monthsUntilMove}-month timeline.
               </p>
             </div>
@@ -231,14 +241,14 @@ export function BudgetPlanCard({
           <TrendingUp className="w-5 h-5 text-primary mx-auto mb-2" />
           <p className="text-xs text-muted-foreground">Total Target</p>
           <p className="text-lg font-bold text-primary">
-            {budget.currency} {budget.totalSavingsTarget.toLocaleString()}
+            {fmt(budget.totalSavingsTarget)}
           </p>
         </div>
         <div className="p-4 rounded-xl bg-emerald-500/10 text-center border border-emerald-500/20">
           <Target className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
           <p className="text-xs text-muted-foreground">Monthly Target</p>
           <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-            {budget.currency} {budget.monthlySavingsTarget.toLocaleString()}
+            {fmt(budget.monthlySavingsTarget)}
           </p>
         </div>
         <div className="p-4 rounded-xl bg-blue-500/10 text-center border border-blue-500/20">
@@ -274,7 +284,7 @@ export function BudgetPlanCard({
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {budget.currency} {milestone.amount.toLocaleString()}
+                    {fmt(milestone.amount)}
                   </span>
                 </div>
               )
@@ -290,7 +300,7 @@ export function BudgetPlanCard({
             <div className="p-3 rounded-lg bg-muted/50">
               <p className="text-xs text-muted-foreground">One-time Costs</p>
               <p className="text-sm font-semibold">
-                {budget.currency} {totals.oneTime.toLocaleString()}
+                {fmt(totals.oneTime)}
               </p>
             </div>
           )}
@@ -298,7 +308,7 @@ export function BudgetPlanCard({
             <div className="p-3 rounded-lg bg-muted/50">
               <p className="text-xs text-muted-foreground">Monthly Expenses</p>
               <p className="text-sm font-semibold">
-                {budget.currency} {totals.monthly.toLocaleString()}/mo
+                {fmt(totals.monthly)}/mo
               </p>
             </div>
           )}
@@ -322,13 +332,13 @@ export function BudgetPlanCard({
                 <div className="text-right">
                   {item.oneTime && item.oneTime > 0 && (
                     <p className="text-sm font-medium">
-                      {budget.currency} {item.oneTime.toLocaleString()}
+                      {fmt(item.oneTime)}
                       <span className="text-xs text-muted-foreground ml-1">(one-time)</span>
                     </p>
                   )}
                   {item.monthly && item.monthly > 0 && (
                     <p className="text-sm">
-                      {budget.currency} {item.monthly.toLocaleString()}
+                      {fmt(item.monthly)}
                       <span className="text-xs text-muted-foreground ml-1">/month</span>
                     </p>
                   )}

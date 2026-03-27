@@ -8,11 +8,13 @@
 
 import type { Profile } from "./profile-schema"
 import { getCostOfLivingData, calculateMonthlyBudget, calculateSavingsTarget } from "./web-research"
+import type { CostOfLivingData } from "./web-research"
 import { generateVisaRecommendation } from "./profile-summary"
 import { getOfficialSourcesArray } from "./official-sources"
 import { getVisaStatus } from "./visa-checker"
 import { getCurrencyFromCountry, getCurrencySymbol } from "./currency"
 import { enrichGuide } from "./guide-enrichment"
+import { getExchangeRate } from "./exchange-rate"
 
 // Guide section types
 export interface GuideOverview {
@@ -635,6 +637,25 @@ const DEFAULT_COUNTRY_DATA = {
 }
 
 /**
+ * Convert all numeric cost values in CostOfLivingData by a given exchange rate.
+ */
+function convertCostData(data: CostOfLivingData, rate: number, newCurrency: string): CostOfLivingData {
+  const r = (v: number) => Math.round(v * rate)
+  return {
+    ...data,
+    currency: newCurrency,
+    monthlyRent1Bed: { city: r(data.monthlyRent1Bed.city), outside: r(data.monthlyRent1Bed.outside) },
+    monthlyRent3Bed: { city: r(data.monthlyRent3Bed.city), outside: r(data.monthlyRent3Bed.outside) },
+    utilities: r(data.utilities),
+    internet: r(data.internet),
+    mealInexpensive: r(data.mealInexpensive),
+    mealMidRange: r(data.mealMidRange),
+    groceries: r(data.groceries),
+    transportation: r(data.transportation),
+  }
+}
+
+/**
  * Generate a comprehensive relocation guide from profile data
  */
 export async function generateGuide(profile: Profile): Promise<Guide> {
@@ -644,7 +665,24 @@ export async function generateGuide(profile: Profile): Promise<Guide> {
   const city = profile.target_city
 
   // Get cost of living and budget data
-  const costOfLiving = getCostOfLivingData(destination, city)
+  let costOfLiving = getCostOfLivingData(destination, city)
+
+  // Convert cost data from source currency to destination currency if they differ
+  if (costOfLiving) {
+    const sourceCurrency = costOfLiving.currency || "USD"
+    const destCurrency = countryData.currency !== "Local currency"
+      ? countryData.currency
+      : getCurrencyFromCountry(destination) || "EUR"
+
+    if (sourceCurrency !== destCurrency) {
+      const rate = await getExchangeRate(sourceCurrency, destCurrency)
+      if (rate && rate !== 1) {
+        console.log(`[GoMate][Guide] Converting cost data from ${sourceCurrency} to ${destCurrency} (rate: ${rate})`)
+        costOfLiving = convertCostData(costOfLiving, rate, destCurrency)
+      }
+    }
+  }
+
   const budgetData = costOfLiving ? calculateMonthlyBudget(profile, costOfLiving) : null
   const savingsData = budgetData ? calculateSavingsTarget(profile, budgetData.comfortable) : null
 

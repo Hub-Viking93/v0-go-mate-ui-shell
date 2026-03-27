@@ -134,14 +134,12 @@ function generateBudgetFromProfile(profile: Profile, monthsUntilMove: number = 6
   const totalTarget = Math.round(baseSavings)
   const monthlyTarget = monthsUntilMove > 0 ? Math.round(totalTarget / monthsUntilMove) : totalTarget
   
-  // Derive currency from the user's home country (current_location or citizenship),
-  // NOT the destination. The budget shows how much the user needs to save in their own currency.
-  const homeCurrency = getCurrencyFromCountry(profile.current_location)
-    || getCurrencyFromCountry(profile.citizenship)
-    || "USD"
+  // Use the DESTINATION currency since all cost values are based on destination costs.
+  // The BudgetPlanCard will convert and display in the user's home currency via useCurrencyConversion.
+  const destinationCurrency = getCurrencyFromCountry(destination) || "EUR"
 
   return {
-    currency: homeCurrency,
+    currency: destinationCurrency,
     totalSavingsTarget: totalTarget,
     monthlySavingsTarget: monthlyTarget,
     monthsUntilMove,
@@ -1142,6 +1140,7 @@ export default function DashboardPage() {
               budget={budgetData}
               targetCity={profile.target_city || profile.destination || "Berlin"}
               targetCountry={targetCountry}
+              homeCurrency={getCurrencyFromCountry(profile.current_location) || getCurrencyFromCountry(profile.citizenship) || "USD"}
               currentSavings={parseFloat(profile.savings_available || "0") || 0}
               onUpdateSavings={async (amount) => {
                 if (!plan) return

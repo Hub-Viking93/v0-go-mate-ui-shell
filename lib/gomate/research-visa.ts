@@ -210,8 +210,17 @@ async function analyzeVisaContent(
     return { visas: [], generalRequirements: [], importantNotes: [] }
   }
 
-  const combinedContent = scrapedContent.join("\n\n---\n\n").slice(0, 50_000)
-  const prompt = `Analyze the following visa information for someone with this profile:
+  const hasWebContent = scrapedContent.length > 0
+  const combinedContent = hasWebContent ? scrapedContent.join("\n\n---\n\n").slice(0, 50_000) : ""
+
+  const dataSourceSection = hasWebContent
+    ? `Based on the content below, identify ALL relevant visa options for this person.
+
+SCRAPED CONTENT:
+${combinedContent}`
+    : `No web research content was available. Use your training knowledge about ${profile.destination} visa options for ${profile.citizenship} nationals moving for ${profile.purpose}. Only state visa options and requirements you are confident about. Do not hallucinate specific fees or processing times — if unsure, say "varies" or "check official sources".`
+
+  const prompt = `Analyze visa options for someone with this profile:
 - Nationality: ${profile.citizenship}
 - Destination: ${profile.destination}
 - Purpose: ${profile.purpose}
@@ -222,7 +231,9 @@ async function analyzeVisaContent(
 - Monthly Income: ${profile.monthly_income || "Not specified"}
 - Duration of Stay: ${profile.duration || "Not specified"}
 
-Based on the content below, identify ALL relevant visa options for this person. For each visa, provide:
+${dataSourceSection}
+
+For each visa, provide:
 1. Official name of the visa
 2. Type (work, student, digital_nomad, settlement, family, investor, or other)
 3. Whether they are likely eligible, possibly eligible, or unlikely eligible
@@ -235,9 +246,6 @@ Based on the content below, identify ALL relevant visa options for this person. 
 10. Key eligibility factors that drive the assessment (e.g., "Has job offer", "EU citizen")
 11. Assumptions made about the applicant's situation
 12. Source URLs from the research content that support this visa option (if identifiable)
-
-SCRAPED CONTENT:
-${combinedContent}
 
 Respond with a JSON object matching:
 {
@@ -350,9 +358,12 @@ export async function performVisaResearch(
       scrapedContent.push(...results)
     }
 
-    const analysis = scrapedContent.length > 0
-      ? await analyzeVisaContent(scrapedContent, profileData)
-      : { visas: [], generalRequirements: [], importantNotes: [] }
+    if (!FIRECRAWL_API_KEY) {
+      console.warn("[GoMate][Visa] FIRECRAWL_API_KEY not set — running LLM-only research")
+    }
+
+    // Always run LLM analysis — it handles empty scrapedContent with knowledge-only mode
+    const analysis = await analyzeVisaContent(scrapedContent, profileData)
 
     const confidence: "high" | "medium" | "low" =
       scrapedContent.length >= 3 ? "high" : scrapedContent.length > 0 ? "medium" : "low"

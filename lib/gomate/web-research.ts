@@ -254,6 +254,7 @@ export async function performComprehensiveResearch(
 export interface CostOfLivingData {
   city: string
   country: string
+  currency: string
   monthlyRent1Bed: { city: number; outside: number }
   monthlyRent3Bed: { city: number; outside: number }
   utilities: number
@@ -332,6 +333,7 @@ function numbeoToCostOfLiving(data: NumbeoData): CostOfLivingData {
   return {
     city: data.city,
     country: data.country,
+    currency: data.currency || "USD",
     monthlyRent1Bed: {
       city: data.rent?.apartment1BedCity || 1000,
       outside: data.rent?.apartment1BedOutside || 700,

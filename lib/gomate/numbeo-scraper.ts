@@ -576,6 +576,167 @@ const FALLBACK_DATA: Record<string, Partial<NumbeoData>> = {
     source: "Numbeo.com (estimated data)",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
+  Stockholm: {
+    city: "Stockholm",
+    country: "Sweden",
+    currency: "SEK",
+    rent: { apartment1BedCity: 14000, apartment1BedOutside: 11000, apartment3BedCity: 22000, apartment3BedOutside: 17000 },
+    utilities: { basic: 900, internet: 350, mobile: 200 },
+    food: { mealInexpensive: 130, mealMidRange: 350, mcMeal: 100, domesticBeer: 75, importedBeer: 70, cappuccino: 50, water1_5L: 18, milk1L: 14, bread: 35, eggs12: 45, chicken1kg: 110, rice1kg: 25, apples1kg: 30 },
+    transportation: { monthlyPass: 970, oneWayTicket: 39, taxiStart: 45, taxi1km: 14, gasolinePerLiter: 18 },
+    healthcare: { doctorVisit: 300, dentistVisit: 900 },
+    fitness: { gymMonthly: 400, cinemaTicket: 140 },
+    costOfLivingIndex: 74.8,
+    rentIndex: 38.5,
+    groceriesIndex: 58.2,
+    restaurantPriceIndex: 65.1,
+    purchasingPowerIndex: 110.5,
+    estimatedMonthlyBudget: {
+      single: { minimum: 17000, comfortable: 25000 },
+      couple: { minimum: 25000, comfortable: 38000 },
+      family4: { minimum: 42000, comfortable: 60000 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  Copenhagen: {
+    city: "Copenhagen",
+    country: "Denmark",
+    currency: "DKK",
+    rent: { apartment1BedCity: 11000, apartment1BedOutside: 8500, apartment3BedCity: 19000, apartment3BedOutside: 14000 },
+    utilities: { basic: 1200, internet: 250, mobile: 150 },
+    food: { mealInexpensive: 150, mealMidRange: 400, mcMeal: 90, domesticBeer: 60, importedBeer: 55, cappuccino: 45, water1_5L: 15, milk1L: 10, bread: 30, eggs12: 40, chicken1kg: 80, rice1kg: 25, apples1kg: 25 },
+    transportation: { monthlyPass: 640, oneWayTicket: 24, taxiStart: 40, taxi1km: 15, gasolinePerLiter: 14 },
+    healthcare: { doctorVisit: 0, dentistVisit: 800 },
+    fitness: { gymMonthly: 300, cinemaTicket: 120 },
+    costOfLivingIndex: 83.2,
+    rentIndex: 42.5,
+    groceriesIndex: 55.8,
+    restaurantPriceIndex: 78.3,
+    purchasingPowerIndex: 108.2,
+    estimatedMonthlyBudget: {
+      single: { minimum: 14000, comfortable: 21000 },
+      couple: { minimum: 21000, comfortable: 32000 },
+      family4: { minimum: 35000, comfortable: 50000 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  Vienna: {
+    city: "Vienna",
+    country: "Austria",
+    currency: "EUR",
+    rent: { apartment1BedCity: 900, apartment1BedOutside: 700, apartment3BedCity: 1700, apartment3BedOutside: 1300 },
+    utilities: { basic: 220, internet: 30, mobile: 20 },
+    food: { mealInexpensive: 12, mealMidRange: 35, mcMeal: 9, domesticBeer: 4.5, importedBeer: 4, cappuccino: 4, water1_5L: 0.8, milk1L: 1.3, bread: 2, eggs12: 4, chicken1kg: 10, rice1kg: 2, apples1kg: 2.5 },
+    transportation: { monthlyPass: 51, oneWayTicket: 2.4, taxiStart: 4.1, taxi1km: 1.8, gasolinePerLiter: 1.6 },
+    healthcare: { doctorVisit: 0, dentistVisit: 80 },
+    fitness: { gymMonthly: 35, cinemaTicket: 12 },
+    costOfLivingIndex: 66.5,
+    rentIndex: 32.1,
+    groceriesIndex: 52.4,
+    restaurantPriceIndex: 55.8,
+    purchasingPowerIndex: 95.4,
+    estimatedMonthlyBudget: {
+      single: { minimum: 1500, comfortable: 2300 },
+      couple: { minimum: 2200, comfortable: 3500 },
+      family4: { minimum: 3600, comfortable: 5500 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  Rome: {
+    city: "Rome",
+    country: "Italy",
+    currency: "EUR",
+    rent: { apartment1BedCity: 1000, apartment1BedOutside: 700, apartment3BedCity: 1800, apartment3BedOutside: 1300 },
+    utilities: { basic: 180, internet: 30, mobile: 20 },
+    food: { mealInexpensive: 13, mealMidRange: 40, mcMeal: 9, domesticBeer: 5, importedBeer: 4, cappuccino: 1.5, water1_5L: 0.5, milk1L: 1.5, bread: 1.8, eggs12: 3.5, chicken1kg: 9, rice1kg: 2, apples1kg: 2 },
+    transportation: { monthlyPass: 35, oneWayTicket: 1.5, taxiStart: 3.5, taxi1km: 1.3, gasolinePerLiter: 1.8 },
+    healthcare: { doctorVisit: 25, dentistVisit: 60 },
+    fitness: { gymMonthly: 40, cinemaTicket: 10 },
+    costOfLivingIndex: 60.2,
+    rentIndex: 35.8,
+    groceriesIndex: 45.2,
+    restaurantPriceIndex: 52.3,
+    purchasingPowerIndex: 68.5,
+    estimatedMonthlyBudget: {
+      single: { minimum: 1500, comfortable: 2400 },
+      couple: { minimum: 2200, comfortable: 3500 },
+      family4: { minimum: 3800, comfortable: 5800 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  Prague: {
+    city: "Prague",
+    country: "Czech Republic",
+    currency: "CZK",
+    rent: { apartment1BedCity: 22000, apartment1BedOutside: 16000, apartment3BedCity: 38000, apartment3BedOutside: 28000 },
+    utilities: { basic: 4500, internet: 500, mobile: 500 },
+    food: { mealInexpensive: 200, mealMidRange: 500, mcMeal: 180, domesticBeer: 50, importedBeer: 60, cappuccino: 75, water1_5L: 20, milk1L: 25, bread: 35, eggs12: 70, chicken1kg: 170, rice1kg: 50, apples1kg: 45 },
+    transportation: { monthlyPass: 550, oneWayTicket: 30, taxiStart: 60, taxi1km: 30, gasolinePerLiter: 38 },
+    healthcare: { doctorVisit: 500, dentistVisit: 1200 },
+    fitness: { gymMonthly: 900, cinemaTicket: 220 },
+    costOfLivingIndex: 48.5,
+    rentIndex: 32.1,
+    groceriesIndex: 42.8,
+    restaurantPriceIndex: 38.5,
+    purchasingPowerIndex: 72.1,
+    estimatedMonthlyBudget: {
+      single: { minimum: 30000, comfortable: 45000 },
+      couple: { minimum: 42000, comfortable: 65000 },
+      family4: { minimum: 70000, comfortable: 105000 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  "New York": {
+    city: "New York",
+    country: "United States",
+    currency: "USD",
+    rent: { apartment1BedCity: 3500, apartment1BedOutside: 2200, apartment3BedCity: 6500, apartment3BedOutside: 4000 },
+    utilities: { basic: 180, internet: 65, mobile: 50 },
+    food: { mealInexpensive: 20, mealMidRange: 55, mcMeal: 12, domesticBeer: 8, importedBeer: 8, cappuccino: 5.5, water1_5L: 2, milk1L: 1.5, bread: 4, eggs12: 5, chicken1kg: 13, rice1kg: 5, apples1kg: 5 },
+    transportation: { monthlyPass: 132, oneWayTicket: 2.9, taxiStart: 3.5, taxi1km: 2, gasolinePerLiter: 1 },
+    healthcare: { doctorVisit: 200, dentistVisit: 250 },
+    fitness: { gymMonthly: 90, cinemaTicket: 18 },
+    costOfLivingIndex: 100,
+    rentIndex: 100,
+    groceriesIndex: 78.5,
+    restaurantPriceIndex: 82.1,
+    purchasingPowerIndex: 100,
+    estimatedMonthlyBudget: {
+      single: { minimum: 4200, comfortable: 6500 },
+      couple: { minimum: 6000, comfortable: 9000 },
+      family4: { minimum: 9500, comfortable: 14000 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  Toronto: {
+    city: "Toronto",
+    country: "Canada",
+    currency: "CAD",
+    rent: { apartment1BedCity: 2400, apartment1BedOutside: 1800, apartment3BedCity: 3800, apartment3BedOutside: 2800 },
+    utilities: { basic: 180, internet: 75, mobile: 55 },
+    food: { mealInexpensive: 20, mealMidRange: 50, mcMeal: 13, domesticBeer: 8, importedBeer: 8, cappuccino: 5.5, water1_5L: 2.5, milk1L: 3, bread: 3.5, eggs12: 5, chicken1kg: 16, rice1kg: 4, apples1kg: 5 },
+    transportation: { monthlyPass: 156, oneWayTicket: 3.35, taxiStart: 4.25, taxi1km: 1.75, gasolinePerLiter: 1.6 },
+    healthcare: { doctorVisit: 0, dentistVisit: 200 },
+    fitness: { gymMonthly: 55, cinemaTicket: 16 },
+    costOfLivingIndex: 72.5,
+    rentIndex: 58.2,
+    groceriesIndex: 62.1,
+    restaurantPriceIndex: 65.4,
+    purchasingPowerIndex: 88.5,
+    estimatedMonthlyBudget: {
+      single: { minimum: 3000, comfortable: 4500 },
+      couple: { minimum: 4200, comfortable: 6500 },
+      family4: { minimum: 7000, comfortable: 10000 },
+    },
+    source: "Numbeo.com (estimated data)",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
   Sydney: {
     city: "Sydney",
     country: "Australia",
@@ -750,13 +911,16 @@ export async function compareCostOfLiving(
     return { from: fromData, to: toData, comparison: null }
   }
 
-  const fromRent = fromData.rent?.apartment1BedCity || 0
-  const toRent = toData.rent?.apartment1BedCity || 0
-  const rentDiff = fromRent > 0 ? ((toRent - fromRent) / fromRent) * 100 : 0
+  // Use costOfLivingIndex for comparison when available — these are
+  // currency-independent indices relative to NYC = 100, so they
+  // produce accurate cross-currency comparisons without conversion.
+  const fromIndex = fromData.costOfLivingIndex || 0
+  const toIndex = toData.costOfLivingIndex || 0
+  const fromRentIndex = fromData.rentIndex || 0
+  const toRentIndex = toData.rentIndex || 0
 
-  const fromBudget = fromData.estimatedMonthlyBudget?.single.comfortable || 0
-  const toBudget = toData.estimatedMonthlyBudget?.single.comfortable || 0
-  const overallDiff = fromBudget > 0 ? ((toBudget - fromBudget) / fromBudget) * 100 : 0
+  const rentDiff = fromRentIndex > 0 ? ((toRentIndex - fromRentIndex) / fromRentIndex) * 100 : 0
+  const overallDiff = fromIndex > 0 ? ((toIndex - fromIndex) / fromIndex) * 100 : 0
 
   let summary = ""
   if (overallDiff > 20) {
