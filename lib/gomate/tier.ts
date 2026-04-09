@@ -15,7 +15,7 @@ export interface UserSubscription {
   billing_cycle: BillingCycle | null
   status: SubscriptionStatus
   plan_limit: number
-  price_sek: number
+  price_usd: number
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   stripe_price_id: string | null
@@ -31,18 +31,30 @@ export interface UserSubscription {
 // ============================================================
 
 export type Feature =
+  // Pre-move (Pro Single+)
   | "chat"
   | "visa_recommendation"
   | "local_requirements"
   | "cost_of_living"
   | "budget_planner"
+  | "affordability_analysis"
   | "guides"
   | "documents"
-  | "booking"
+  | "pre_move_timeline"
+  | "plan_consistency"
+  | "tax_overview"
+  | "chat_history"
+  // Post-arrival (Pro+ only)
   | "plan_switcher"
   | "post_relocation"
+  | "settling_in_tasks"
   | "compliance_alerts"
+  | "compliance_calendar"
   | "post_arrival_assistant"
+  | "visa_tracker"
+  | "banking_wizard"
+  | "tax_registration"
+  | "wellbeing_checkins"
 
 const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
   free: {
@@ -51,13 +63,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: false,
     cost_of_living: false,
     budget_planner: false,
+    affordability_analysis: false,
     guides: false,
     documents: false,
-    booking: false,
+    pre_move_timeline: false,
+    plan_consistency: false,
+    tax_overview: false,
+    chat_history: false,
     plan_switcher: false,
     post_relocation: false,
+    settling_in_tasks: false,
     compliance_alerts: false,
+    compliance_calendar: false,
     post_arrival_assistant: false,
+    visa_tracker: false,
+    banking_wizard: false,
+    tax_registration: false,
+    wellbeing_checkins: false,
   },
   pro_single: {
     chat: true,
@@ -65,13 +87,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: true,
     cost_of_living: true,
     budget_planner: true,
+    affordability_analysis: true,
     guides: true,
     documents: true,
-    booking: true,
+    pre_move_timeline: true,
+    plan_consistency: true,
+    tax_overview: true,
+    chat_history: true,
     plan_switcher: false,
     post_relocation: false,
+    settling_in_tasks: false,
     compliance_alerts: false,
+    compliance_calendar: false,
     post_arrival_assistant: false,
+    visa_tracker: false,
+    banking_wizard: false,
+    tax_registration: false,
+    wellbeing_checkins: false,
   },
   pro_plus: {
     chat: true,
@@ -79,13 +111,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: true,
     cost_of_living: true,
     budget_planner: true,
+    affordability_analysis: true,
     guides: true,
     documents: true,
-    booking: true,
+    pre_move_timeline: true,
+    plan_consistency: true,
+    tax_overview: true,
+    chat_history: true,
     plan_switcher: true,
     post_relocation: true,
+    settling_in_tasks: true,
     compliance_alerts: true,
+    compliance_calendar: true,
     post_arrival_assistant: true,
+    visa_tracker: true,
+    banking_wizard: true,
+    tax_registration: true,
+    wellbeing_checkins: true,
   },
 }
 
@@ -97,7 +139,7 @@ export interface PricingOption {
   tier: Tier
   billing_cycle: BillingCycle | null
   label: string
-  price_sek: number
+  price_usd: number
   price_display: string
   plan_limit: number
   savings_percent: number | null
@@ -110,14 +152,14 @@ export const PRICING: PricingOption[] = [
     tier: "free",
     billing_cycle: null,
     label: "Free",
-    price_sek: 0,
-    price_display: "0 kr",
+    price_usd: 0,
+    price_display: "$0",
     plan_limit: 1,
     savings_percent: null,
     description: "Explore your relocation options",
     features: [
       "Full chat interview",
-      "Profile building",
+      "Profile building (65+ fields)",
       "Basic relocation overview",
     ],
   },
@@ -125,77 +167,84 @@ export const PRICING: PricingOption[] = [
     tier: "pro_single",
     billing_cycle: "one_time",
     label: "Pro Single",
-    price_sek: 699,
-    price_display: "699 kr",
+    price_usd: 29,
+    price_display: "$29",
     plan_limit: 1,
     savings_percent: null,
-    description: "Complete pre-relocation plan",
+    description: "Complete pre-relocation intelligence",
     features: [
       "Everything in Free",
-      "Visa recommendations",
-      "Local requirements",
+      "Visa recommendations & requirements",
+      "Local requirements research",
       "Cost of living analysis",
-      "Budget planner",
-      "Full relocation guide",
-      "Document checklist",
-      "Flight search",
+      "Budget planner & affordability analysis",
+      "Full relocation guide (AI-generated)",
+      "Document checklist with status tracking",
+      "Pre-move timeline",
+      "Plan consistency checks",
+      "Tax overview per destination",
+      "Chat history",
     ],
   },
   {
     tier: "pro_plus",
     billing_cycle: "monthly",
     label: "Pro+ Monthly",
-    price_sek: 249,
-    price_display: "249 kr/mo",
+    price_usd: 29,
+    price_display: "$29/mo",
     plan_limit: 999,
     savings_percent: null,
-    description: "Full relocation support with post-arrival assistance",
+    description: "Full relocation companion — before, during & after your move",
     features: [
       "Everything in Pro Single",
       "Unlimited relocation plans",
-      "Post-relocation checklist",
+      "Visa application tracker (status, deadlines, documents)",
+      "Banking setup wizard (local bank recommendations)",
+      "Tax registration guide (country-specific)",
+      "Post-arrival task manager (DAG-based with deadlines)",
       "Post-arrival AI assistant",
-      "Compliance alerts",
-      "Budget reality tracking",
+      "Compliance calendar with iCal export",
+      "Compliance alerts & reminders",
+      "Wellbeing check-ins & mental health resources",
     ],
   },
   {
     tier: "pro_plus",
     billing_cycle: "quarterly",
     label: "Pro+ 3 Months",
-    price_sek: 599,
-    price_display: "599 kr",
+    price_usd: 59,
+    price_display: "$59",
     plan_limit: 999,
-    savings_percent: 20,
-    description: "Save 20% with a 3-month commitment",
+    savings_percent: 32,
+    description: "Save 32% with a 3-month commitment",
     features: [
       "Everything in Pro+ Monthly",
-      "20% savings vs monthly",
+      "32% savings vs monthly",
     ],
   },
   {
     tier: "pro_plus",
     billing_cycle: "biannual",
     label: "Pro+ 6 Months",
-    price_sek: 999,
-    price_display: "999 kr",
+    price_usd: 99,
+    price_display: "$99",
     plan_limit: 999,
-    savings_percent: 33,
-    description: "Save 33% with a 6-month commitment",
+    savings_percent: 43,
+    description: "Save 43% with a 6-month commitment",
     features: [
       "Everything in Pro+ Monthly",
-      "33% savings vs monthly",
+      "43% savings vs monthly",
     ],
   },
   {
     tier: "pro_plus",
     billing_cycle: "annual",
     label: "Pro+ Annual",
-    price_sek: 1699,
-    price_display: "1 699 kr",
+    price_usd: 199,
+    price_display: "$199",
     plan_limit: 999,
     savings_percent: 43,
-    description: "Best value - save 43% with an annual plan",
+    description: "Best value — save 43% with an annual plan",
     features: [
       "Everything in Pro+ Monthly",
       "43% savings vs monthly",
@@ -255,7 +304,7 @@ export async function ensureSubscription(userId?: string): Promise<UserSubscript
       tier: "free",
       status: "active",
       plan_limit: 1,
-      price_sek: 0,
+      price_usd: 0,
     })
     .select()
     .single()
@@ -377,7 +426,7 @@ export async function upgradeSubscription(
       billing_cycle: billingCycle,
       status: "active",
       plan_limit: pricing.plan_limit,
-      price_sek: pricing.price_sek,
+      price_usd: pricing.price_usd,
       started_at: new Date().toISOString(),
       expires_at: expiresAt,
       cancelled_at: null,
@@ -407,7 +456,7 @@ export async function downgradeToFree(userId: string): Promise<UserSubscription 
       billing_cycle: null,
       status: "active",
       plan_limit: 1,
-      price_sek: 0,
+      price_usd: 0,
       expires_at: null,
       cancelled_at: new Date().toISOString(),
     })

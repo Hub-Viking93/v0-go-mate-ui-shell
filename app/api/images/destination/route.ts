@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { resolveGuideImage } from "@/lib/gomate/image-service"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 /**
  * POST /api/images/destination
@@ -13,6 +14,11 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tier = await getUserTier(user.id)
+    if (!hasFeatureAccess(tier, "guides")) {
+      return NextResponse.json({ error: "Guide images require a paid plan" }, { status: 403 })
     }
 
     const { country, city } = await req.json()

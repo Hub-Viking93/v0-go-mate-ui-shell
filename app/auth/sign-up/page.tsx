@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -17,6 +18,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const router = useRouter()
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -124,10 +126,29 @@ export default function SignUpPage() {
                       <p className="text-sm text-destructive">{error}</p>
                     </div>
                   )}
-                  <Button 
-                    type="submit" 
-                    className="w-full h-11 mt-2" 
-                    disabled={isLoading}
+                  <div className="flex items-start gap-2.5 mt-1">
+                    <Checkbox
+                      id="terms"
+                      checked={termsAccepted}
+                      onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <Label htmlFor="terms" className="text-xs text-muted-foreground font-normal leading-relaxed cursor-pointer">
+                      I agree to the{" "}
+                      <Link href="/legal/terms" className="underline hover:text-foreground" target="_blank">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/legal/privacy" className="underline hover:text-foreground" target="_blank">
+                        Privacy Policy
+                      </Link>.
+                      I understand that GoMate provides informational guidance, not legal advice.
+                    </Label>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full h-11 mt-2"
+                    disabled={isLoading || !termsAccepted}
                   >
                     {isLoading ? (
                       <span className="flex items-center gap-2">
@@ -154,7 +175,11 @@ export default function SignUpPage() {
 
           {/* Footer */}
           <p className="text-xs text-center text-muted-foreground">
-            By creating an account, you agree to our Terms of Service and Privacy Policy
+            <Link href="/legal/terms" className="underline hover:text-foreground">Terms</Link>
+            {" · "}
+            <Link href="/legal/privacy" className="underline hover:text-foreground">Privacy</Link>
+            {" · "}
+            <Link href="/legal/disclaimer" className="underline hover:text-foreground">Disclaimer</Link>
           </p>
         </div>
       </div>

@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { performVisaResearch } from "@/lib/gomate/research-visa"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 function normalizeVisaResearch(raw: any): any {
   if (!raw) return raw
@@ -34,6 +35,11 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tier = await getUserTier(user.id)
+    if (!hasFeatureAccess(tier, "visa_recommendation")) {
+      return NextResponse.json({ error: "Visa research requires a paid plan" }, { status: 403 })
     }
 
     const body = await request.json()

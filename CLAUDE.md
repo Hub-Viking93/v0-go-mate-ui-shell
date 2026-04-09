@@ -198,7 +198,7 @@ If the change is a bug fix not in any build phase, proceed only if it does not r
 
 ### Every new database column must:
 - Have a corresponding migration file in `scripts/` using `add column if not exists`
-- The next migration number is: **024**
+- The next migration number is: **026**
 
 ---
 
@@ -223,7 +223,7 @@ Do not introduce any of the following:
 - In-memory cache: `lib/gomate/numbeo-scraper.ts` (24h TTL, non-functional in serverless)
 - Self-HTTP calls: `app/api/research/trigger/route.ts` (calls sibling research routes via fetch)
 - `fetch()` without timeout: Several `app/api/research/` routes and `app/api/chat/route.ts` (OpenAI calls)
-- `Math.random()` for data: `lib/gomate/flight-search.ts` (mock flight generation)
+- `Math.random()` for data: removed (was in `lib/gomate/flight-search.ts`, deleted with booking feature)
 
 ---
 
@@ -262,7 +262,8 @@ The post-arrival chat emits `[TASK_DONE:exact task title]` (title, not UUID). Th
 | `scripts/022` | Phase 2 (master-audit): add 'partial' to research_status check constraint |
 | `scripts/023` | Phase 4 (master-audit): guide artifact integrity — profile_snapshot, is_current, unique index |
 | `supabase/migrations/024` | Destination images table + hero image columns on guides + storage bucket |
-| Next: **`025`** | Next migration to write |
+| `supabase/migrations/025` | Update v1: visa_application + wellbeing_checkins columns on relocation_plans; chat_messages table with RLS |
+| Next: **`026`** | Next migration to write |
 
 ### Migration 004 Gap
 

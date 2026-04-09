@@ -34,7 +34,18 @@
       "Bash(find:*)",
       "Bash(npx sharp-cli:*)",
       "Bash(TOKEN=\"eyJhbGciOiJFUzI1NiIsImtpZCI6Ijg3MjllM2JkLTlmZWItNDljNi1iM2UzLWIzNzY0Y2QxODRkYSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2xyZHhweGtqb3VxanVqYXR1cGt4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI4MTkwNTNkMy0wZjUzLTQ5YzYtYThhMC1kOTIxMjJjYWI1YWUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzczNjI1MzU4LCJpYXQiOjE3NzM2MjE3NTgsImVtYWlsIjoiYXhlbGNvcm5lbGl1czkzQGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWwiOiJheGVsY29ybmVsaXVzOTNAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiODE5MDUzZDMtMGY1My00OWM2LWE4YTAtZDkyMTIyY2FiNWFlIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3NzM2MjE3NTh9XSwic2Vzc2lvbl9pZCI6IjllMDY2MjQ5LTg5YzItNGEyYi04Y2Q1LTkyODBiZDA3Y2U2NCIsImlzX2Fub255bW91cyI6ZmFsc2V9.UjAlrWrF7K7p4Q0aDs_U9K7I3S8niLkC8D6fLip5EUr05MK42IA4Gaxuh_uijCvLhtmdRoihtuImKxyRVd2gDw\"\nANON=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyZHhweGtqb3VxanVqYXR1cGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2ODc4MTksImV4cCI6MjA4NTI2MzgxOX0.t2ayqF5LGBzG94dkLvVdmdB1QP_LgyvSj_qPqMR5iqc\"\n\ncurl -s \"https://lrdxpxkjouqjujatupkx.supabase.co/rest/v1/relocation_plans?is_current=eq.true&select=id,destination,stage,profile_data\" \\\\\n  -H \"apikey: $ANON\" \\\\\n  -H \"Authorization: Bearer $TOKEN\" | jq '.')",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel project:*)",
+      "Bash(find /Users/axel/Desktop/GoMate -name *generate*guide* -o -name *guide*gen*)",
+      "Bash(find /Users/axel/Desktop/GoMate/docs -name *audit* -o -name *definition*)",
+      "Bash(ls -la /Users/axel/Desktop/GoMate/app/\\\\\\(app\\\\\\)/)",
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(find /Users/axel/Desktop/GoMate -name *compliance-alerts* -o -name *notification* -o -name *alert*)",
+      "Bash(grep -E \"\\\\.\\(sql|ts\\)$\")",
+      "Bash(npm list:*)",
+      "Bash(/tmp/trace.md:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

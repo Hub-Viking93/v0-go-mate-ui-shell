@@ -21,6 +21,7 @@ import { OPENING_MESSAGE, getSmartOpeningMessage } from "@/lib/gomate/system-pro
 import { isProfileComplete } from "@/lib/gomate/state-machine"
 import { Confetti } from "@/components/confetti"
 import { ChatMessageContent } from "@/components/chat/chat-message-content"
+import { OnboardingDisclaimer } from "@/components/legal-disclaimer"
 import { GoMateAvatar } from "@/components/gomate-avatar"
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
@@ -28,6 +29,7 @@ import { ProfileSummaryCard } from "@/components/profile-summary-card"
 import { BudgetCard } from "@/components/budget-card"
 import { TierGate } from "@/components/tier-gate"
 import { useTier } from "@/hooks/use-tier"
+import { getCurrencyFromCountry } from "@/lib/gomate/currency"
 import { ExternalLink } from "lucide-react"
 import type { OfficialSource } from "@/lib/gomate/official-sources"
 
@@ -71,6 +73,8 @@ function ChatPageContent() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [confettiShown, setConfettiShown] = useState(false)
   const [profileLoaded, setProfileLoaded] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyTruncated, setHistoryTruncated] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -142,24 +146,45 @@ function ChatPageContent() {
     loadExistingProfile()
   }, [])
 
-  // Add opening message after profile has loaded - smart opening for returning users with complete profiles
+  // Load chat history after profile has loaded, then fall back to opening message
   useEffect(() => {
     if (!profileLoaded || messages.length > 0) return
 
-    const profileComplete = isProfileComplete(profile)
-    const hasName = !!profile.name
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/chat/history")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.messages && data.messages.length > 0) {
+            setMessages(
+              data.messages.map((m: { id: string; role: string; content: string }) => ({
+                id: m.id,
+                role: m.role as "user" | "assistant",
+                content: m.content,
+              }))
+            )
+            if (data.messages.length >= 50) {
+              setHistoryTruncated(true)
+            }
+            setHistoryLoading(false)
+            return
+          }
+        }
+      } catch (e) {
+        console.error("[GoMate] Failed to load chat history:", e)
+      }
 
-    const openingContent = profileComplete && hasName
-      ? getSmartOpeningMessage(profile)
-      : OPENING_MESSAGE
+      // No history found — show opening message
+      const profileComplete = isProfileComplete(profile)
+      const hasName = !!profile.name
+      const openingContent = profileComplete && hasName
+        ? getSmartOpeningMessage(profile)
+        : OPENING_MESSAGE
+      setMessages([{ id: "opening", role: "assistant", content: openingContent }])
+      setHistoryLoading(false)
+    }
 
-    setMessages([
-      {
-        id: "opening",
-        role: "assistant",
-        content: openingContent,
-      },
-    ])
+    loadHistory()
   }, [profileLoaded])
 
   // Handle field parameter from URL - prompt AI to ask about specific field
@@ -486,8 +511,36 @@ function ChatPageContent() {
         </div>
       </div>
 
+      {/* Disclaimer */}
+      <OnboardingDisclaimer />
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Chat history loading skeleton */}
+        {historyLoading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className={cn("flex", i % 2 === 0 ? "justify-end" : "justify-start")}>
+                {i % 2 !== 0 && <div className="w-8 h-8 rounded-full bg-muted animate-pulse mt-1 mr-2.5" />}
+                <div className={cn(
+                  "rounded-2xl px-4 py-3 animate-pulse",
+                  i % 2 === 0 ? "bg-primary/20 w-[60%]" : "bg-muted w-[70%]"
+                )}>
+                  <div className="h-4 bg-muted-foreground/10 rounded w-full mb-2" />
+                  <div className="h-4 bg-muted-foreground/10 rounded w-3/4" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Truncation notice */}
+        {historyTruncated && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            Showing last 50 messages
+          </p>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}
@@ -605,10 +658,11 @@ function ChatPageContent() {
         {/* Budget Card - show when profile is complete and we have budget data, but not after onboarding is done */}
         {!onboardingCompleted && (interviewState === "complete" || planLocked) && budgetData && savingsData && profile.destination && (
           <TierGate tier={tier} feature="budget_planner" onUpgrade={() => window.location.href = "/settings"}>
-            <BudgetCard 
-              budget={budgetData} 
-              savings={savingsData} 
+            <BudgetCard
+              budget={budgetData}
+              savings={savingsData}
               destination={profile.destination}
+              currency={getCurrencyFromCountry(profile.destination) || "USD"}
               currentSavings={parseFloat(profile.savings_available || "0") || 0}
               onUpdateSavings={async (amount) => {
                 if (planVersion === null) return

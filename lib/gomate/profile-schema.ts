@@ -60,6 +60,7 @@ export const ALL_FIELDS = [
   // Financial (always required for planning)
   "savings_available",
   "monthly_budget",
+  "preferred_currency", // ISO 4217 code (e.g. "SEK", "EUR") — explicit user preference
   "need_budget_help", // yes, no
   
   // Background
@@ -474,6 +475,15 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     required: true,
     category: "financial",
   },
+  preferred_currency: {
+    key: "preferred_currency",
+    label: "Preferred Currency",
+    intent: "Currency the user wants all amounts displayed in",
+    examples: ["What currency do you prefer?", "Would you like amounts shown in SEK, EUR, or another currency?"],
+    extractionHints: ["currency", "SEK", "EUR", "USD", "GBP", "kr", "dollars", "euros", "pounds"],
+    required: false,
+    category: "financial",
+  },
   need_budget_help: {
     key: "need_budget_help",
     label: "Budget Help Needed",
@@ -619,6 +629,7 @@ export const ProfileSchema = z.object({
   // Financial
   savings_available: z.string().nullable(),
   monthly_budget: z.string().nullable(),
+  preferred_currency: z.string().nullable(),
   need_budget_help: z.string().nullable(),
   
   // Background
@@ -676,6 +687,7 @@ export const EMPTY_PROFILE: Profile = {
   children_ages: null,
   savings_available: null,
   monthly_budget: null,
+  preferred_currency: null,
   need_budget_help: null,
   language_skill: null,
   education_level: null,

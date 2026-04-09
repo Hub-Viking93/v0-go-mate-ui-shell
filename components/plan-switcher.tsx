@@ -71,7 +71,6 @@ export function PlanSwitcher({
       const res = await fetch("/api/plans")
       if (!res.ok) return
       const data = await res.json()
-      console.log("[v0] PlanSwitcher data:", { tier: data.tier, planCount: data.plans?.length })
       setPlans(data.plans || [])
       setTier(data.tier || "free")
     } catch {
@@ -133,8 +132,7 @@ export function PlanSwitcher({
       } else {
         const data = await res.json()
         if (res.status === 403) {
-          // Plan limit reached - could trigger upgrade modal in Build 3/4
-          console.log("[v0] Plan limit reached:", data.message)
+          // Plan limit reached
         }
       }
     } finally {

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { InfoCard } from "@/components/info-card"
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,16 +13,12 @@ import { UpgradeModal } from "@/components/upgrade-modal"
 import { useTier } from "@/hooks/use-tier"
 import {
   User,
-  Globe,
-  Bell,
   Moon,
   Shield,
   Download,
   Trash2,
-  MapPin,
   Flag,
   Plane,
-  Mail,
   Lock,
   CreditCard,
   Zap,
@@ -30,12 +27,63 @@ import {
 } from "lucide-react"
 
 export default function SettingsPage() {
-  const [darkMode, setDarkMode] = useState(false)
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [pushNotifications, setPushNotifications] = useState(false)
-  const [weeklyDigest, setWeeklyDigest] = useState(true)
+  const { theme, setTheme } = useTheme()
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [passwordResetSent, setPasswordResetSent] = useState(false)
   const { tier, loading: tierLoading, planCount, planLimit, refresh: refreshTier } = useTier()
+
+  // Fetch real user + profile data
+  const [userName, setUserName] = useState("")
+  const [userEmail, setUserEmail] = useState("")
+  const [citizenship, setCitizenship] = useState("")
+  const [destination, setDestination] = useState("")
+
+  useEffect(() => {
+    async function loadUserData() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setUserEmail(user.email ?? "")
+      setUserName(user.user_metadata?.full_name ?? user.user_metadata?.name ?? "")
+
+      const { data: plan } = await supabase
+        .from("relocation_plans")
+        .select("profile_data")
+        .eq("user_id", user.id)
+        .eq("is_current", true)
+        .maybeSingle()
+
+      if (plan?.profile_data) {
+        const p = plan.profile_data as Record<string, string | null>
+        setCitizenship(p.citizenship ?? "")
+        setDestination(p.destination ?? "")
+        if (!userName && p.name) setUserName(p.name)
+      }
+    }
+    loadUserData()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveName() {
+    setSaving(true)
+    setSaveMessage(null)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: userName },
+      })
+      if (error) throw error
+      setSaveMessage("Saved!")
+      setTimeout(() => setSaveMessage(null), 2000)
+    } catch {
+      setSaveMessage("Failed to save")
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-4xl">
@@ -66,40 +114,44 @@ export default function SettingsPage() {
               <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center">
                 <User className="w-8 h-8 text-muted-foreground" />
               </div>
-              <Button variant="outline" size="sm" className="rounded-full bg-transparent">
-                Change photo
-              </Button>
             </div>
 
             {/* Profile Form */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" defaultValue="Alex Johnson" className="rounded-xl" />
+                <Input id="name" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Your name" className="rounded-xl" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" defaultValue="alex@example.com" className="rounded-xl" />
+                <Input id="email" type="email" value={userEmail} disabled className="rounded-xl bg-muted/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="citizenship" className="flex items-center gap-2">
                   <Flag className="w-3.5 h-3.5 text-muted-foreground" />
                   Citizenship
                 </Label>
-                <Input id="citizenship" defaultValue="United States" className="rounded-xl" />
+                <Input id="citizenship" value={citizenship} disabled placeholder="Set via chat interview" className="rounded-xl bg-muted/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="destination" className="flex items-center gap-2">
                   <Plane className="w-3.5 h-3.5 text-muted-foreground" />
                   Target Destination
                 </Label>
-                <Input id="destination" defaultValue="Germany" className="rounded-xl" />
+                <Input id="destination" value={destination} disabled placeholder="Set via chat interview" className="rounded-xl bg-muted/50" />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end mt-6">
-            <Button className="rounded-xl">Save changes</Button>
+          <div className="flex items-center justify-end gap-3 mt-6">
+            {saveMessage && (
+              <span className={`text-sm ${saveMessage === "Saved!" ? "text-green-600" : "text-destructive"}`}>
+                {saveMessage}
+              </span>
+            )}
+            <Button className="rounded-xl" onClick={handleSaveName} disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
           </div>
         </div>
       </section>
@@ -190,7 +242,7 @@ export default function SettingsPage() {
       {/* Preferences Section */}
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Globe className="w-5 h-5 text-primary" />
+          <Moon className="w-5 h-5 text-primary" />
           Preferences
         </h2>
         <div className="gm-card-static divide-y divide-border overflow-hidden">
@@ -206,86 +258,14 @@ export default function SettingsPage() {
               </div>
             </div>
             <Switch
-              checked={darkMode}
-              onCheckedChange={setDarkMode}
+              checked={theme === "dark"}
+              onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
             />
           </div>
 
-          {/* Language */}
-          <div className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-secondary">
-                <Globe className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Language</p>
-                <p className="text-sm text-muted-foreground">Choose your preferred language</p>
-              </div>
-            </div>
-            <Badge variant="secondary">English</Badge>
-          </div>
         </div>
       </section>
 
-      {/* Notifications Section */}
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Bell className="w-5 h-5 text-primary" />
-          Notifications
-        </h2>
-        <div className="gm-card-static divide-y divide-border overflow-hidden">
-          {/* Email Notifications */}
-          <div className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-secondary">
-                <Mail className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive updates about your relocation plan</p>
-              </div>
-            </div>
-            <Switch
-              checked={emailNotifications}
-              onCheckedChange={setEmailNotifications}
-            />
-          </div>
-
-          {/* Push Notifications */}
-          <div className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-secondary">
-                <Bell className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Push Notifications</p>
-                <p className="text-sm text-muted-foreground">Get notified about important deadlines</p>
-              </div>
-            </div>
-            <Switch
-              checked={pushNotifications}
-              onCheckedChange={setPushNotifications}
-            />
-          </div>
-
-          {/* Weekly Digest */}
-          <div className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-secondary">
-                <MapPin className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Weekly Progress Digest</p>
-                <p className="text-sm text-muted-foreground">Summary of your relocation progress</p>
-              </div>
-            </div>
-            <Switch
-              checked={weeklyDigest}
-              onCheckedChange={setWeeklyDigest}
-            />
-          </div>
-        </div>
-      </section>
 
       {/* Data & Privacy Section */}
       <section className="mb-10">
@@ -303,7 +283,13 @@ export default function SettingsPage() {
           <Separator />
           
           <div className="space-y-3">
-            <Button variant="outline" className="w-full sm:w-auto gap-2 rounded-xl bg-transparent">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto gap-2 rounded-xl bg-transparent"
+              onClick={() => {
+                window.open("/api/account/export", "_blank")
+              }}
+            >
               <Download className="w-4 h-4" />
               Download my data
             </Button>
@@ -315,12 +301,58 @@ export default function SettingsPage() {
           <Separator />
 
           <div className="space-y-3">
-            <Button variant="outline" className="w-full sm:w-auto gap-2 rounded-xl text-destructive hover:text-destructive bg-transparent">
-              <Trash2 className="w-4 h-4" />
-              Delete my account
-            </Button>
+            {!deleteConfirm ? (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto gap-2 rounded-xl text-destructive hover:text-destructive bg-transparent"
+                onClick={() => setDeleteConfirm(true)}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete my account
+              </Button>
+            ) : (
+              <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-3">
+                <p className="text-sm font-medium text-destructive">
+                  Are you sure? This will permanently delete your account, all plans, guides, and chat history. This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-2"
+                    disabled={deleting}
+                    onClick={async () => {
+                      setDeleting(true)
+                      try {
+                        const res = await fetch("/api/account/delete", { method: "DELETE" })
+                        if (!res.ok) throw new Error()
+                        // Sign out and redirect
+                        const supabase = createClient()
+                        await supabase.auth.signOut()
+                        window.location.href = "/"
+                      } catch {
+                        setDeleting(false)
+                        setDeleteConfirm(false)
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {deleting ? "Deleting…" : "Yes, delete everything"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent"
+                    onClick={() => setDeleteConfirm(false)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Permanently delete your account and all associated data. This action cannot be undone.
+              Permanently delete your account and all associated data. This cannot be undone.
             </p>
           </div>
         </div>
@@ -336,10 +368,26 @@ export default function SettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="font-medium text-foreground">Password</p>
-              <p className="text-sm text-muted-foreground">Last changed 3 months ago</p>
+              <p className="text-sm text-muted-foreground">
+                {passwordResetSent
+                  ? "Check your email for a password reset link."
+                  : "Send a password reset link to your email."}
+              </p>
             </div>
-            <Button variant="outline" className="rounded-xl bg-transparent">
-              Change password
+            <Button
+              variant="outline"
+              className="rounded-xl bg-transparent"
+              disabled={passwordResetSent}
+              onClick={async () => {
+                if (!userEmail) return
+                const supabase = createClient()
+                await supabase.auth.resetPasswordForEmail(userEmail, {
+                  redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+                })
+                setPasswordResetSent(true)
+              }}
+            >
+              {passwordResetSent ? "Email sent" : "Reset password"}
             </Button>
           </div>
         </div>

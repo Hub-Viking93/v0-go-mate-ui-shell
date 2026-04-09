@@ -2,12 +2,18 @@ import { NextResponse } from "next/server"
 import { getCostOfLivingFromNumbeo, compareCostOfLiving, getGenericFallbackData } from "@/lib/gomate/numbeo-scraper"
 import { createClient } from "@/lib/supabase/server"
 import { derivePlanAuthority, getOwnedPlan } from "@/lib/gomate/core-state"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "cost_of_living")) {
+    return NextResponse.json({ error: "Cost of living analysis requires a paid plan" }, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -62,10 +68,15 @@ export async function GET(request: Request) {
 // POST endpoint to save user's cost of living preferences
 export async function POST(request: Request) {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "cost_of_living")) {
+    return NextResponse.json({ error: "Cost of living requires a paid plan" }, { status: 403 })
   }
 
   try {

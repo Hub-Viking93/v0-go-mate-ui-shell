@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 
 const ALLOWED_REDIRECTS = [
   '/', '/dashboard', '/chat', '/settling-in',
-  '/guides', '/profile', '/settings', '/booking'
+  '/guides', '/profile', '/settings'
 ]
 
 export async function GET(request: Request) {

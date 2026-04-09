@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { type GeneratedChecklist } from "@/lib/gomate/checklist-generator"
 import { performChecklistResearch } from "@/lib/gomate/research-checklist"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 export async function GET() {
   const supabase = await createClient()
@@ -12,6 +13,11 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "documents")) {
+    return NextResponse.json({ error: "Document checklist requires a paid plan" }, { status: 403 })
   }
 
   const { data: plan, error } = await supabase
@@ -47,6 +53,11 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "documents")) {
+    return NextResponse.json({ error: "Checklist research requires a paid plan" }, { status: 403 })
   }
 
   let planId: string | undefined

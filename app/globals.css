@@ -58,51 +58,52 @@
 }
 
 .dark {
-  --background: #0F172A;
-  --foreground: #F1F5F9;
-  --card: rgba(30, 41, 59, 0.65);
-  --card-foreground: #F1F5F9;
-  --popover: #1E293B;
-  --popover-foreground: #F1F5F9;
+  /* Warm neutral dark — no blue tint */
+  --background: #131315;
+  --foreground: #EDEDF0;
+  --card: rgba(28, 28, 32, 0.65);
+  --card-foreground: #EDEDF0;
+  --popover: #1C1C20;
+  --popover-foreground: #EDEDF0;
   --primary: #22C55E;
   --primary-foreground: #FFFFFF;
-  --secondary: #1E293B;
-  --secondary-foreground: #CBD5E1;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
-  --accent: #1E293B;
-  --accent-foreground: #F1F5F9;
+  --secondary: #1C1C20;
+  --secondary-foreground: #C8C8D0;
+  --muted: #1C1C20;
+  --muted-foreground: #8B8B96;
+  --accent: #1C1C20;
+  --accent-foreground: #EDEDF0;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --border: rgba(148, 163, 184, 0.12);
-  --input: #334155;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #2A2A2F;
   --ring: #22C55E;
   --chart-1: #22C55E;
   --chart-2: #16A34A;
   --chart-3: #4ADE80;
   --chart-4: #86EFAC;
   --chart-5: #BBF7D0;
-  --sidebar: #0F2419;
-  --sidebar-foreground: #D4E4DB;
+  --sidebar: #111113;
+  --sidebar-foreground: #D4D4DA;
   --sidebar-primary: #5EE89C;
   --sidebar-primary-foreground: #0D2818;
-  --sidebar-accent: rgba(94, 232, 156, 0.1);
-  --sidebar-accent-foreground: #D4E4DB;
+  --sidebar-accent: rgba(94, 232, 156, 0.08);
+  --sidebar-accent-foreground: #D4D4DA;
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-ring: #5EE89C;
 
-  --gm-card-bg: rgba(30, 41, 59, 0.7);
-  --gm-card-border: rgba(148, 163, 184, 0.1);
-  --gm-card-shadow: 0px 2px 8px rgba(0, 0, 0, 0.15), 0px 4px 16px rgba(0, 0, 0, 0.2);
-  --gm-card-shadow-hover: 0px 8px 24px rgba(0, 0, 0, 0.25), 0px 16px 32px rgba(0, 0, 0, 0.2);
+  --gm-card-bg: rgba(28, 28, 32, 0.7);
+  --gm-card-border: rgba(255, 255, 255, 0.07);
+  --gm-card-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2), 0px 4px 16px rgba(0, 0, 0, 0.25);
+  --gm-card-shadow-hover: 0px 8px 24px rgba(0, 0, 0, 0.3), 0px 16px 32px rgba(0, 0, 0, 0.25);
   --gm-success-glow: 0 0 0 2px rgba(34, 197, 94, 0.3);
 
-  --gm-forest: #1B3A2D;
-  --gm-forest-mid: #234D3A;
-  --gm-forest-light: #2D6A4F;
+  --gm-forest: #1A1C1B;
+  --gm-forest-mid: #242725;
+  --gm-forest-light: #2E3230;
   --gm-mint: #5EE89C;
   --gm-sage: #7FBFA5;
-  --gm-body: #94A3B8;
+  --gm-body: #8B8B96;
 }
 
 @theme inline {

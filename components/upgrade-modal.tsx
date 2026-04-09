@@ -30,10 +30,10 @@ interface UpgradeModalProps {
 type ProPlusCycle = "monthly" | "quarterly" | "biannual" | "annual"
 
 const PRO_PLUS_CYCLES: { value: ProPlusCycle; label: string; price: string; note: string | null }[] = [
-  { value: "monthly", label: "Monthly", price: "249 kr/mo", note: null },
-  { value: "quarterly", label: "3 Months", price: "599 kr", note: "Save 20%" },
-  { value: "biannual", label: "6 Months", price: "999 kr", note: "Save 33%" },
-  { value: "annual", label: "Annual", price: "1 699 kr", note: "Save 43%" },
+  { value: "monthly", label: "Monthly", price: "$29/mo", note: null },
+  { value: "quarterly", label: "3 Months", price: "$59", note: "Save 32%" },
+  { value: "biannual", label: "6 Months", price: "$99", note: "Save 43%" },
+  { value: "annual", label: "Annual", price: "$199", note: "Save 43%" },
 ]
 
 export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplete }: UpgradeModalProps) {
@@ -44,11 +44,11 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
   const [notice, setNotice] = useState<string | null>(null)
 
   function handleUpgrade() {
-    setNotice("Plan upgrades are not yet available. Payment integration is coming soon.")
+    setNotice("GoMate is currently in beta. Plan upgrades will be available when we launch — stay tuned!")
   }
 
   function handleDowngrade() {
-    setNotice("Plan changes are not yet available. Please contact support for assistance.")
+    setNotice("GoMate is currently in beta. Plan changes will be available when we launch.")
   }
 
   return (
@@ -76,7 +76,7 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
               )}
             </div>
             <div className="mt-2 mb-4">
-              <span className="text-2xl font-bold text-foreground">0 kr</span>
+              <span className="text-2xl font-bold text-foreground">$0</span>
             </div>
             <ul className="space-y-2 mb-6 flex-1">
               {[
@@ -120,19 +120,22 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
               )}
             </div>
             <div className="mt-2 mb-1">
-              <span className="text-2xl font-bold text-foreground">699 kr</span>
+              <span className="text-2xl font-bold text-foreground">$29</span>
             </div>
             <p className="text-xs text-muted-foreground mb-4">One-time payment</p>
             <ul className="space-y-2 mb-6 flex-1">
               {[
                 "Everything in Free",
-                "Visa recommendations",
-                "Local requirements",
-                "Cost of living analysis",
+                "Visa recommendations & research",
+                "Local requirements research",
+                "Cost of living & affordability analysis",
                 "Budget planner",
-                "Full relocation guide",
-                "Document checklist",
-                "Flight search",
+                "Full AI-generated relocation guide",
+                "Document checklist with tracking",
+                "Pre-move timeline",
+                "Plan consistency checks",
+                "Tax overview per destination",
+                "Chat history",
               ].map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
                   <Check className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
@@ -211,10 +214,14 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
               {[
                 "Everything in Pro Single",
                 "Unlimited relocation plans",
-                "Post-relocation checklist",
+                "Visa application tracker",
+                "Banking setup wizard",
+                "Tax registration guide",
+                "Post-arrival task manager",
                 "Post-arrival AI assistant",
-                "Compliance alerts",
-                "Budget reality tracking",
+                "Compliance calendar & iCal export",
+                "Compliance alerts & reminders",
+                "Wellbeing check-ins",
               ].map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
                   <Check className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
@@ -245,7 +252,7 @@ export function UpgradeModal({ open, onOpenChange, currentTier, onUpgradeComplet
         )}
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Payment integration coming soon. Plan changes will be available after Stripe integration.
+          GoMate is in beta. All beta testers get full access — plan upgrades will go live at launch.
         </p>
       </DialogContent>
     </Dialog>

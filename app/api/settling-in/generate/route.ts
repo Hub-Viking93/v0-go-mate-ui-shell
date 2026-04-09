@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { getUserTier } from "@/lib/gomate/tier"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 import {
   generateSettlingInPlan,
   resolveDependencies,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/gomate/settling-in-generator"
 import { isValidDAG } from "@/lib/gomate/dag-validator"
 import { buildSettlingView, isPostArrivalStage } from "@/lib/gomate/post-arrival"
+import { checkUsageLimit, recordUsage } from "@/lib/gomate/usage-guard"
 
 export async function POST() {
   const supabase = await createClient()
@@ -22,7 +23,7 @@ export async function POST() {
 
   // Tier gate
   const tier = await getUserTier(user.id)
-  if (tier !== "pro_plus") {
+  if (!hasFeatureAccess(tier, "settling_in_tasks")) {
     return NextResponse.json(
       { error: "Post-relocation features require Pro+" },
       { status: 403 }
@@ -103,6 +104,15 @@ export async function POST() {
       { error: "Please complete your profile first" },
       { status: 400 }
     )
+  }
+
+  // --- Usage guard: check generation limit before expensive work ---
+  const usageCheck = await checkUsageLimit(user.id, "settling_in_generation")
+  if (!usageCheck.allowed) {
+    return NextResponse.json({
+      error: usageCheck.reason,
+      usage: { used: usageCheck.used, limit: usageCheck.limit },
+    }, { status: 429 })
   }
 
   try {
@@ -209,6 +219,8 @@ export async function POST() {
       .eq("user_id", user.id)
 
     console.log("[SettlingAPI] Generated", tasksToInsert.length, "settling-in tasks")
+
+    await recordUsage(user.id, "settling_in_generation", plan.id, 6_000)
 
     return NextResponse.json({
       tasks: tasksToInsert,

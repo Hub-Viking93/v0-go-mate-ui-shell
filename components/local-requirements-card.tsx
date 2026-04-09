@@ -351,7 +351,7 @@ export function LocalRequirementsCard({
           </div>
 
           <h3 className="font-medium text-foreground mb-2">
-            Discover what you need to do after arrival
+            Explore common post-arrival steps
           </h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
             Our AI will research official sources to find the local requirements for

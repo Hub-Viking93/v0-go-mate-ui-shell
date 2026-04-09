@@ -9,18 +9,30 @@ import { cn } from "@/lib/utils"
 
 // Feature-to-tier mapping (client-side mirror of server TIER_FEATURES)
 export type Feature =
+  // Pre-move (Pro Single+)
   | "chat"
   | "visa_recommendation"
   | "local_requirements"
   | "cost_of_living"
   | "budget_planner"
+  | "affordability_analysis"
   | "guides"
   | "documents"
-  | "booking"
+  | "pre_move_timeline"
+  | "plan_consistency"
+  | "tax_overview"
+  | "chat_history"
+  // Post-arrival (Pro+ only)
   | "plan_switcher"
   | "post_relocation"
+  | "settling_in_tasks"
   | "compliance_alerts"
+  | "compliance_calendar"
   | "post_arrival_assistant"
+  | "visa_tracker"
+  | "banking_wizard"
+  | "tax_registration"
+  | "wellbeing_checkins"
 
 export type Tier = "free" | "pro_single" | "pro_plus"
 
@@ -31,13 +43,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: false,
     cost_of_living: false,
     budget_planner: false,
+    affordability_analysis: false,
     guides: false,
     documents: false,
-    booking: false,
+    pre_move_timeline: false,
+    plan_consistency: false,
+    tax_overview: false,
+    chat_history: false,
     plan_switcher: false,
     post_relocation: false,
+    settling_in_tasks: false,
     compliance_alerts: false,
+    compliance_calendar: false,
     post_arrival_assistant: false,
+    visa_tracker: false,
+    banking_wizard: false,
+    tax_registration: false,
+    wellbeing_checkins: false,
   },
   pro_single: {
     chat: true,
@@ -45,13 +67,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: true,
     cost_of_living: true,
     budget_planner: true,
+    affordability_analysis: true,
     guides: true,
     documents: true,
-    booking: true,
+    pre_move_timeline: true,
+    plan_consistency: true,
+    tax_overview: true,
+    chat_history: true,
     plan_switcher: false,
     post_relocation: false,
+    settling_in_tasks: false,
     compliance_alerts: false,
+    compliance_calendar: false,
     post_arrival_assistant: false,
+    visa_tracker: false,
+    banking_wizard: false,
+    tax_registration: false,
+    wellbeing_checkins: false,
   },
   pro_plus: {
     chat: true,
@@ -59,13 +91,23 @@ const TIER_FEATURES: Record<Tier, Record<Feature, boolean>> = {
     local_requirements: true,
     cost_of_living: true,
     budget_planner: true,
+    affordability_analysis: true,
     guides: true,
     documents: true,
-    booking: true,
+    pre_move_timeline: true,
+    plan_consistency: true,
+    tax_overview: true,
+    chat_history: true,
     plan_switcher: true,
     post_relocation: true,
+    settling_in_tasks: true,
     compliance_alerts: true,
+    compliance_calendar: true,
     post_arrival_assistant: true,
+    visa_tracker: true,
+    banking_wizard: true,
+    tax_registration: true,
+    wellbeing_checkins: true,
   },
 }
 
@@ -111,10 +153,6 @@ const FEATURE_META: Partial<Record<Feature, { title: string; description: string
   documents: {
     title: "Document Checklist",
     description: "A personalized checklist of all documents you need for your move.",
-  },
-  booking: {
-    title: "Flight Search",
-    description: "Search and compare flights from multiple travel platforms.",
   },
   post_relocation: {
     title: "Post-Relocation Support",
@@ -248,7 +286,7 @@ export function FullPageGate({ tier, feature, children, onUpgrade }: FullPageGat
           <ArrowRight className="w-4 h-4" />
         </Button>
         <p className="text-xs text-muted-foreground">
-          {requiredTier === "pro_single" ? "One-time payment of 699 kr" : "Starting at 249 kr/mo"}
+          {requiredTier === "pro_single" ? "One-time payment of $29" : "Starting at $29/mo"}
         </p>
       </div>
     </div>

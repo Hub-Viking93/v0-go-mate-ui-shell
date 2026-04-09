@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse, type NextRequest } from "next/server"
-import { getUserTier } from "@/lib/gomate/tier"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { isPostArrivalStage } from "@/lib/gomate/post-arrival"
@@ -27,7 +27,7 @@ export async function POST(
   }
 
   const tier = await getUserTier(user.id)
-  if (tier !== "pro_plus") {
+  if (!hasFeatureAccess(tier, "settling_in_tasks")) {
     return NextResponse.json({ error: "Pro+ required" }, { status: 403 })
   }
 

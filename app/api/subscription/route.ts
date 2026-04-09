@@ -32,8 +32,11 @@ export async function GET() {
     const features: Record<string, boolean> = {}
     const featureList: Feature[] = [
       "chat", "visa_recommendation", "local_requirements", "cost_of_living",
-      "budget_planner", "guides", "documents", "booking", "plan_switcher",
-      "post_relocation", "compliance_alerts", "post_arrival_assistant",
+      "budget_planner", "affordability_analysis", "guides", "documents",
+      "pre_move_timeline", "plan_consistency", "tax_overview", "chat_history",
+      "plan_switcher", "post_relocation", "settling_in_tasks", "compliance_alerts",
+      "compliance_calendar", "post_arrival_assistant", "visa_tracker",
+      "banking_wizard", "tax_registration", "wellbeing_checkins",
     ]
     for (const feature of featureList) {
       features[feature] = hasFeatureAccess(effectiveTier, feature)

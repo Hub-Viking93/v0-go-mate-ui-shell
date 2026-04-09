@@ -25,9 +25,17 @@ create unique index if not exists idx_destination_images_lookup
 -- RLS: authenticated users can read, writes via service role only
 alter table public.destination_images enable row level security;
 
-create policy "Authenticated users can view destination images"
-  on public.destination_images for select
-  using (auth.role() = 'authenticated');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can view destination images'
+  ) THEN
+    CREATE POLICY "Authenticated users can view destination images"
+      ON public.destination_images FOR SELECT
+      USING (auth.role() = 'authenticated');
+  END IF;
+END
+$$;
 
 -- Add hero image columns to guides
 alter table public.guides

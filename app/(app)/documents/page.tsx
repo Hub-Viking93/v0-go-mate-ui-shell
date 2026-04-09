@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   InteractiveDocumentChecklist,
   type DocumentItem,
-  type DocumentStatus,
+  type DocumentStatusEntry,
 } from "@/components/interactive-document-checklist"
 import type { Profile } from "@/lib/gomate/profile-schema"
 import type { GeneratedChecklist } from "@/lib/gomate/checklist-generator"
@@ -274,7 +274,7 @@ export default function DocumentsPage() {
   const [researchError, setResearchError] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [planId, setPlanId] = useState<string | null>(null)
-  const [statuses, setStatuses] = useState<Record<string, DocumentStatus>>({})
+  const [statuses, setStatuses] = useState<Record<string, DocumentStatusEntry>>({})
   const [items, setItems] = useState<DocumentItem[]>([])
   const [aiChecklist, setAiChecklist] = useState<GeneratedChecklist | null>(null)
   const [isAiGenerated, setIsAiGenerated] = useState(false)
@@ -294,7 +294,7 @@ export default function DocumentsPage() {
           const profileData = data.plan?.profile_data as Profile
           setProfile(profileData)
           setPlanId(data.plan?.id || null)
-          
+
           // Use static checklist as fallback
           if (profileData) {
             setItems(generateDocumentChecklist(profileData))
@@ -303,6 +303,7 @@ export default function DocumentsPage() {
 
         if (docsRes.ok) {
           const data = await docsRes.json()
+          // GET now returns normalized DocumentStatusEntry objects
           setStatuses(data.statuses || {})
         }
 
@@ -328,22 +329,22 @@ export default function DocumentsPage() {
   // Handle AI research
   const handleResearchChecklist = useCallback(async () => {
     if (!planId || !profile) return
-    
+
     setResearching(true)
     setResearchError(null)
-    
+
     try {
       const response = await fetch("/api/research/checklist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId }),
       })
-      
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || "Failed to research requirements")
       }
-      
+
       const data = await response.json()
       if (data.checklist && data.checklist.items?.length > 0) {
         setAiChecklist(data.checklist)
@@ -358,15 +359,16 @@ export default function DocumentsPage() {
     }
   }, [planId, profile])
 
-  // Handle status change
-  const handleStatusChange = useCallback(async (documentId: string, completed: boolean) => {
+  // Handle status or detail change for a document
+  const handleStatusChange = useCallback(async (documentId: string, update: Partial<DocumentStatusEntry>) => {
     // Optimistic update
     setStatuses((prev) => ({
       ...prev,
       [documentId]: {
-        completed,
-        completedAt: completed ? new Date().toISOString() : undefined,
-      },
+        ...prev[documentId],
+        ...update,
+        status: update.status ?? prev[documentId]?.status ?? "not_started",
+      } as DocumentStatusEntry,
     }))
 
     setSaving(true)
@@ -374,29 +376,36 @@ export default function DocumentsPage() {
       const response = await fetch("/api/documents", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, completed }),
+        body: JSON.stringify({
+          documentId,
+          ...update,
+        }),
       })
 
-      if (!response.ok) {
-        // Revert on failure
-        setStatuses((prev) => ({
-          ...prev,
-          [documentId]: {
-            completed: !completed,
-            completedAt: !completed ? new Date().toISOString() : undefined,
-          },
-        }))
+      if (response.ok) {
+        const data = await response.json()
+        // Sync with server response
+        if (data.statuses) {
+          setStatuses(data.statuses)
+        }
+      } else {
+        // Revert on failure — refetch
+        const docsRes = await fetch("/api/documents")
+        if (docsRes.ok) {
+          const data = await docsRes.json()
+          setStatuses(data.statuses || {})
+        }
       }
     } catch (error) {
       console.error("Error updating status:", error)
-      // Revert on error
-      setStatuses((prev) => ({
-        ...prev,
-        [documentId]: {
-          completed: !completed,
-          completedAt: !completed ? new Date().toISOString() : undefined,
-        },
-      }))
+      // Revert on error — refetch
+      try {
+        const docsRes = await fetch("/api/documents")
+        if (docsRes.ok) {
+          const data = await docsRes.json()
+          setStatuses(data.statuses || {})
+        }
+      } catch { /* ignore nested fetch error */ }
     } finally {
       setSaving(false)
     }
@@ -428,7 +437,25 @@ export default function DocumentsPage() {
     )
   }
 
-  const completedCount = items.filter((item) => statuses[item.id]?.completed).length
+  // Status breakdown for summary bar
+  const statusCounts = items.reduce((acc, item) => {
+    const s = statuses[item.id]?.status || "not_started"
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+  const readyCount = (statusCounts["ready"] || 0) + (statusCounts["submitted"] || 0)
+  const gatheringCount = statusCounts["gathering"] || 0
+  const notStartedCount = statusCounts["not_started"] || 0
+  const expiringCount = items.filter((i) => {
+    const expiry = statuses[i.id]?.expiryDate
+    if (!expiry) return false
+    const d = new Date(expiry)
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const soon = new Date(now)
+    soon.setDate(soon.getDate() + 30)
+    return d <= soon
+  }).length
 
   return (
     <FullPageGate tier={tier} feature="documents" onUpgrade={() => router.push("/settings")}>
@@ -449,7 +476,7 @@ export default function DocumentsPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {isAiGenerated && (
               <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
@@ -491,20 +518,20 @@ export default function DocumentsPage() {
             <p className="text-sm text-muted-foreground">Total Documents</p>
           </div>
           <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</p>
-            <p className="text-sm text-emerald-600/70 dark:text-emerald-400/70">Completed</p>
+            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{readyCount}</p>
+            <p className="text-sm text-emerald-600/70 dark:text-emerald-400/70">Ready / Submitted</p>
+          </div>
+          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{gatheringCount}</p>
+            <p className="text-sm text-blue-600/70 dark:text-blue-400/70">Gathering</p>
           </div>
           <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
             <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-              {items.length - completedCount}
+              {expiringCount > 0 ? expiringCount : notStartedCount}
             </p>
-            <p className="text-sm text-amber-600/70 dark:text-amber-400/70">Remaining</p>
-          </div>
-          <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-            <p className="text-3xl font-bold text-red-600 dark:text-red-400">
-              {items.filter((i) => i.priority === "critical" && !statuses[i.id]?.completed).length}
+            <p className="text-sm text-amber-600/70 dark:text-amber-400/70">
+              {expiringCount > 0 ? "Expiring Soon" : "Not Started"}
             </p>
-            <p className="text-sm text-red-600/70 dark:text-red-400/70">Critical Pending</p>
           </div>
         </div>
 

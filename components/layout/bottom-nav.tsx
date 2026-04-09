@@ -7,15 +7,13 @@ import {
   LayoutDashboard, 
   MessageSquare, 
   BookOpen, 
-  Plane, 
-  Settings 
+  Settings
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Guides", href: "/guides", icon: BookOpen },
-  { name: "Booking", href: "/booking", icon: Plane },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse, type NextRequest } from "next/server"
-import { getUserTier } from "@/lib/gomate/tier"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 import { computeAvailableTasks } from "@/lib/gomate/settling-in-generator"
 import { isPostArrivalStage } from "@/lib/gomate/post-arrival"
 
@@ -21,7 +21,7 @@ export async function PATCH(
   }
 
   const tier = await getUserTier(user.id)
-  if (tier !== "pro_plus") {
+  if (!hasFeatureAccess(tier, "settling_in_tasks")) {
     return NextResponse.json(
       { error: "Post-relocation features require Pro+" },
       { status: 403 }

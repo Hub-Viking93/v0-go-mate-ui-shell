@@ -17,7 +17,12 @@ import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
-import { getCurrencyFromCountry } from "@/lib/gomate/currency"
+import { AffordabilityCard } from "@/components/affordability-card"
+import { TaxOverviewCard } from "@/components/tax-overview-card"
+import { getCurrencyFromCountry, resolveUserCurrency } from "@/lib/gomate/currency"
+import { PlanConsistencyAlerts } from "@/components/plan-consistency-alerts"
+import { CommonlyForgottenSection } from "@/components/commonly-forgotten-section"
+import { PlanChangeSummary, type PlanChangeSummaryData } from "@/components/plan-change-summary"
 import { PlanSwitcher } from "@/components/plan-switcher"
 import { TierGate } from "@/components/tier-gate"
 import { ArrivalBanner, SettlingInDashboardCard } from "@/components/arrival-banner"
@@ -491,6 +496,8 @@ export default function DashboardPage() {
     }) | null
   >(null)
   const [settlingSummary, setSettlingSummary] = useState<DashboardSettlingSummary | null>(null)
+  const [changeSummary, setChangeSummary] = useState<PlanChangeSummaryData | null>(null)
+  const [changeSummaryOpen, setChangeSummaryOpen] = useState(false)
 
   // Fetch the user's plan, guide, and document statuses on mount
   useEffect(() => {
@@ -850,6 +857,15 @@ export default function DashboardPage() {
       {/* Compliance Alerts (post-arrival) */}
       <ComplianceAlerts planStage={plan?.stage} className="gm-animate-in gm-delay-1" />
 
+      {/* Plan Consistency Alerts */}
+      {plan && hasDestination && (
+        <TierGate tier={tier} feature="guides" onUpgrade={goToUpgrade}>
+          <div className="mb-6 gm-animate-in gm-delay-1">
+            <PlanConsistencyAlerts planId={plan.id} />
+          </div>
+        </TierGate>
+      )}
+
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
         <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
@@ -1007,6 +1023,29 @@ export default function DashboardPage() {
   />
 </TierGate>
 
+{/* Visa Tracker Card */}
+{isLocked && visaResearch && (
+  <TierGate tier={tier} feature="documents" onUpgrade={goToUpgrade}>
+    <div className="gm-card p-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Shield className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Visa Tracker</h2>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Track your visa application status, deadlines, and required documents.
+      </p>
+      <Button asChild className="w-full gap-2">
+        <Link href="/visa-tracker">
+          Open Visa Tracker
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </Button>
+    </div>
+  </TierGate>
+)}
+
           {/* Your Personal Guide - Show if locked and guide exists */}
           {isLocked && userGuide && (
             <TierGate tier={tier} feature="guides" onUpgrade={goToUpgrade}>
@@ -1140,7 +1179,7 @@ export default function DashboardPage() {
               budget={budgetData}
               targetCity={profile.target_city || profile.destination || "Berlin"}
               targetCountry={targetCountry}
-              homeCurrency={getCurrencyFromCountry(profile.current_location) || getCurrencyFromCountry(profile.citizenship) || "USD"}
+              homeCurrency={resolveUserCurrency(profile)}
               currentSavings={parseFloat(profile.savings_available || "0") || 0}
               onUpdateSavings={async (amount) => {
                 if (!plan) return
@@ -1163,6 +1202,10 @@ export default function DashboardPage() {
                   if (response.ok) {
                     const data = await response.json()
                     setPlan(data.plan)
+                    if (data.changeSummary) {
+                      setChangeSummary(data.changeSummary)
+                      setChangeSummaryOpen(true)
+                    }
                   } else {
                     setPlan(previousPlan)
                   }
@@ -1189,6 +1232,47 @@ export default function DashboardPage() {
               }
             />
           </TierGate>
+        </div>
+      )}
+
+      {/* Affordability & Tax Overview */}
+      {hasDestination && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
+            <AffordabilityCard
+              monthlyBudget={parseFloat(profile.monthly_budget || "") || null}
+              monthlyIncome={parseFloat(profile.monthly_income || "") || null}
+              savingsAvailable={parseFloat(profile.savings_available || "") || null}
+              destination={profile.destination || ""}
+              city={profile.target_city || undefined}
+              householdSize={
+                profile.moving_alone === "yes" ? "single" :
+                profile.spouse_joining === "yes" && !profile.children_count ? "couple" :
+                profile.children_count ? "family4" : "single"
+              }
+              userCurrency={resolveUserCurrency(profile)}
+            />
+          </TierGate>
+          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
+            <TaxOverviewCard
+              destination={profile.destination || ""}
+              annualIncome={
+                (parseFloat(profile.monthly_income || "") || parseFloat(profile.monthly_budget || "") || 0) * 12 || null
+              }
+              planId={plan?.id}
+            />
+          </TierGate>
+        </div>
+      )}
+
+      {/* Commonly Forgotten Items */}
+      {plan && hasDestination && (
+        <div className="mb-6">
+          <CommonlyForgottenSection
+            planId={plan.id}
+            destination={profile.destination || undefined}
+            stage={plan.stage}
+          />
         </div>
       )}
 
@@ -1232,6 +1316,18 @@ export default function DashboardPage() {
         </TierGate>
       )}
 
+      {/* Plan Change Summary Dialog */}
+      <PlanChangeSummary
+        summary={changeSummary}
+        open={changeSummaryOpen}
+        onClose={() => setChangeSummaryOpen(false)}
+        onRegenerateGuide={() => {
+          setChangeSummaryOpen(false)
+          if (userGuide) {
+            router.push(`/guides/${userGuide.id}`)
+          }
+        }}
+      />
     </div>
   )
 }

@@ -81,3 +81,23 @@ export function getCurrencyFromCountry(country: string | undefined | null): stri
 export function getCurrencySymbol(currencyCode: string): string {
   return CURRENCY_SYMBOLS[currencyCode] || currencyCode
 }
+
+/**
+ * Resolve the user's currency from profile fields.
+ * Priority: preferred_currency → current_location → citizenship → USD
+ */
+export function resolveUserCurrency(profile: {
+  preferred_currency?: string | null
+  current_location?: string | null
+  citizenship?: string | null
+}): string {
+  if (profile.preferred_currency) {
+    const upper = profile.preferred_currency.toUpperCase().trim()
+    if (CURRENCY_SYMBOLS[upper]) return upper
+  }
+  const fromLocation = getCurrencyFromCountry(profile.current_location)
+  if (fromLocation) return fromLocation
+  const fromCitizenship = getCurrencyFromCountry(profile.citizenship)
+  if (fromCitizenship) return fromCitizenship
+  return "USD"
+}

@@ -11,7 +11,7 @@ interface SubscriptionData {
     billing_cycle: string | null
     status: string
     plan_limit: number
-    price_sek: number
+    price_usd: number
     expires_at: string | null
   }
   plans: {

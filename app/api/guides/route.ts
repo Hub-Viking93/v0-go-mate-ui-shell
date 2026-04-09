@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { generateGuide, guideToDbFormat } from "@/lib/gomate/guide-generator"
 import { resolveGuideImage } from "@/lib/gomate/image-service"
+import { checkUsageLimit, recordUsage } from "@/lib/gomate/usage-guard"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 import type { Profile } from "@/lib/gomate/profile-schema"
 import type { DestinationImage } from "@/lib/gomate/image-service"
 
@@ -26,6 +28,11 @@ export async function GET(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tier = await getUserTier(user.id)
+    if (!hasFeatureAccess(tier, "guides")) {
+      return NextResponse.json({ error: "Guides require a paid plan" }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -85,6 +92,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const postTier = await getUserTier(user.id)
+    if (!hasFeatureAccess(postTier, "guides")) {
+      return NextResponse.json({ error: "Guides require a paid plan" }, { status: 403 })
+    }
+
     const { planId, guideId } = await req.json()
 
     // Fetch the plan to get profile data
@@ -126,6 +138,15 @@ export async function POST(req: Request) {
       return NextResponse.json({
         error: "Complete your profile first to generate a guide"
       }, { status: 400 })
+    }
+
+    // --- Usage guard: check generation limit before expensive work ---
+    const usageCheck = await checkUsageLimit(user.id, "guide_generation")
+    if (!usageCheck.allowed) {
+      return NextResponse.json({
+        error: usageCheck.reason,
+        usage: { used: usageCheck.used, limit: usageCheck.limit },
+      }, { status: 429 })
     }
 
     // Determine guide_type (always "main" for v1)
@@ -227,6 +248,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Failed to update guide" }, { status: 500 })
         }
 
+        await recordUsage(user.id, "guide_generation", currentPlanId, 42_000)
         return NextResponse.json({ guide: updatedGuide, updated: true })
       }
 
@@ -280,6 +302,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Failed to update guide" }, { status: 500 })
         }
 
+        await recordUsage(user.id, "guide_generation", currentPlanId, 42_000)
         return NextResponse.json({ guide: updatedGuide, updated: true })
       }
 
@@ -320,6 +343,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create guide" }, { status: 500 })
     }
 
+    await recordUsage(user.id, "guide_generation", currentPlanId, 42_000)
     return NextResponse.json({ guide: newGuide, created: true })
   } catch (error) {
     console.error("[GoMate] Error in POST /api/guides:", error)

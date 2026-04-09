@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { performLocalRequirementsResearch } from "@/lib/gomate/research-local-requirements"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 function normalizeLocalRequirements(raw: any): any {
   if (!raw) return raw
@@ -66,6 +67,11 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tier = await getUserTier(user.id)
+    if (!hasFeatureAccess(tier, "local_requirements")) {
+      return NextResponse.json({ error: "Local requirements research requires a paid plan" }, { status: 403 })
     }
 
     const body = await request.json()

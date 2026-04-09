@@ -206,6 +206,7 @@ Generate a JSON array of settling-in tasks. Each task MUST have:
 4. COUNTRY-SPECIFIC: Include country-specific tasks (e.g. Anmeldung in Germany, NIE in Spain, BSN in Netherlands, Social Security Number in US)
 5. Generate 15-25 tasks covering all categories
 6. Sort by logical order: registration first, then banking, healthcare, etc.
+7. TONE: In task descriptions, use "typically required" or "commonly expected" instead of "you must" or "you need to". Always add "verify with local authorities" for legal deadlines.
 
 Return ONLY a valid JSON array.`
 
@@ -257,7 +258,7 @@ function getDefaultSettlingTasks(input: SettlingGeneratorInput): SettlingTask[] 
     {
       tempId: "register_residence",
       title: "Register your residence",
-      description: "Register your address with the local authorities. This is legally required in most countries within the first 1-2 weeks.",
+      description: "Register your address with the local authorities. In most countries, this is typically required within the first 1-2 weeks of arrival — verify the exact deadline with your local registration office.",
       category: "registration",
       dependsOnTempIds: [],
       deadlineDays: 14,

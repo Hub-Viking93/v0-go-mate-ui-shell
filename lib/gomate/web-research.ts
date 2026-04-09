@@ -21,14 +21,61 @@ const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 // In-memory cache removed — non-functional in serverless (Vercel).
 // Each invocation fetches fresh data. For caching, use database persistence.
 
+// ============================================================
+// Firecrawl Guardrails
+// ============================================================
+
+/** Max total Firecrawl calls (search + scrape) per single request invocation. */
+const MAX_FIRECRAWL_CALLS_PER_REQUEST = 10
+
+/** Max pages returned per search query. Hard cap regardless of caller's `limit`. */
+const MAX_PAGES_PER_SEARCH = 3
+
+/** Tracks URLs already scraped in this invocation to avoid duplicate calls. */
+const scrapedUrlsThisInvocation = new Set<string>()
+
+/** Counter for Firecrawl calls in this invocation. */
+let firecrawlCallCount = 0
+
+/** Reset per-invocation tracking. Call at the start of a request if needed. */
+export function resetFirecrawlTracking() {
+  scrapedUrlsThisInvocation.clear()
+  firecrawlCallCount = 0
+}
+
+/** Check if we've hit the per-request Firecrawl call limit. */
+function canCallFirecrawl(): boolean {
+  return firecrawlCallCount < MAX_FIRECRAWL_CALLS_PER_REQUEST
+}
+
+function trackFirecrawlCall() {
+  firecrawlCallCount++
+}
+
 /**
- * Scrape a URL using Firecrawl API
+ * Scrape a URL using Firecrawl API.
+ * Includes guardrails: URL dedup, per-request call cap.
  */
 export async function scrapeUrl(url: string): Promise<string | null> {
   if (!FIRECRAWL_API_KEY) {
     console.log("[GoMate] Firecrawl API key not configured, using fallback data")
     return null
   }
+
+  // Dedup: skip if already scraped in this invocation
+  if (scrapedUrlsThisInvocation.has(url)) {
+    console.log("[GoMate] Skipping duplicate scrape:", url)
+    return null
+  }
+
+  // Call cap: stop if we've hit the per-request limit
+  if (!canCallFirecrawl()) {
+    console.warn("[GoMate] Firecrawl call limit reached, skipping scrape:", url)
+    return null
+  }
+
+  scrapedUrlsThisInvocation.add(url)
+  trackFirecrawlCall()
 
   try {
     const response = await fetchWithRetry(`${FIRECRAWL_BASE_URL}/scrape`, {
@@ -58,12 +105,24 @@ export async function scrapeUrl(url: string): Promise<string | null> {
 }
 
 /**
- * Search and scrape using Firecrawl
+ * Search and scrape using Firecrawl.
+ * Hard-capped at MAX_PAGES_PER_SEARCH results regardless of caller's limit.
  */
 export async function searchAndScrape(query: string, limit = 3): Promise<string[]> {
   if (!FIRECRAWL_API_KEY) {
     return []
   }
+
+  // Call cap: stop if we've hit the per-request limit
+  if (!canCallFirecrawl()) {
+    console.warn("[GoMate] Firecrawl call limit reached, skipping search:", query)
+    return []
+  }
+
+  trackFirecrawlCall()
+
+  // Hard cap the limit
+  const effectiveLimit = Math.min(limit, MAX_PAGES_PER_SEARCH)
 
   try {
     // Use Firecrawl's search endpoint
@@ -75,7 +134,7 @@ export async function searchAndScrape(query: string, limit = 3): Promise<string[
       },
       body: JSON.stringify({
         query,
-        limit,
+        limit: effectiveLimit,
         scrapeOptions: {
           formats: ["markdown"],
           onlyMainContent: true,

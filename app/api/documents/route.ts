@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { canonicalDocumentId } from "@/lib/gomate/checklist-generator"
-
-export interface DocumentStatus {
-  completed: boolean
-  completedAt?: string
-  /** B2-008: Reference to the canonical checklist item document name */
-  documentName?: string
-}
+import {
+  type DocumentStatus,
+  type DocumentStatusEntry,
+  normalizeDocumentStatus,
+  isValidExternalLink,
+} from "@/lib/gomate/types/document-status"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 // GET: Fetch document statuses for the current user's plan
 export async function GET() {
@@ -16,6 +16,11 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "documents")) {
+    return NextResponse.json({ error: "Document checklist requires a paid plan" }, { status: 403 })
   }
 
   const { data: plan, error } = await supabase
@@ -29,14 +34,21 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch documents" }, { status: 500 })
   }
 
+  // Normalize all entries to the new shape (handles legacy { completed: boolean })
+  const rawStatuses = (plan?.document_statuses || {}) as Record<string, unknown>
+  const normalized: Record<string, DocumentStatusEntry> = {}
+  for (const [key, value] of Object.entries(rawStatuses)) {
+    normalized[key] = normalizeDocumentStatus(value)
+  }
+
   return NextResponse.json({
     planId: plan?.id || null,
-    statuses: (plan?.document_statuses || {}) as Record<string, DocumentStatus>,
+    statuses: normalized,
     checklistItems: plan?.checklist_items || [],
   })
 }
 
-// PATCH: Update a document's completion status
+// PATCH: Update a document's status and optional fields
 // B2-008: Validates documentId against checklist_items for shared identity
 export async function PATCH(request: Request) {
   const supabase = await createClient()
@@ -46,11 +58,34 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { documentId, completed } = body
+  const tier = await getUserTier(user.id)
+  if (!hasFeatureAccess(tier, "documents")) {
+    return NextResponse.json({ error: "Document checklist requires a paid plan" }, { status: 403 })
+  }
 
-  if (!documentId || typeof completed !== "boolean") {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  const body = await request.json()
+  const { documentId, status, completed, externalLink, notes, expiryDate } = body as {
+    documentId?: string
+    status?: DocumentStatus
+    completed?: boolean // backward compat
+    externalLink?: string
+    notes?: string
+    expiryDate?: string
+  }
+
+  if (!documentId) {
+    return NextResponse.json({ error: "documentId is required" }, { status: 400 })
+  }
+
+  // Validate status enum if provided
+  const validStatuses: DocumentStatus[] = ["not_started", "gathering", "ready", "submitted", "expiring", "expired"]
+  if (status !== undefined && !validStatuses.includes(status)) {
+    return NextResponse.json({ error: "Invalid status value" }, { status: 400 })
+  }
+
+  // Validate externalLink — must be https://
+  if (externalLink !== undefined && externalLink !== "" && !isValidExternalLink(externalLink)) {
+    return NextResponse.json({ error: "External link must use https://" }, { status: 400 })
   }
 
   // Get current plan with checklist for identity validation
@@ -86,15 +121,32 @@ export async function PATCH(request: Request) {
     item => canonicalDocumentId(item.id) === canonicalId
   )
 
-  // Update the document status
-  const currentStatuses = (plan.document_statuses || {}) as Record<string, DocumentStatus>
+  // Build the updated entry from existing + new fields
+  const currentStatuses = (plan.document_statuses || {}) as Record<string, unknown>
+  const existing = normalizeDocumentStatus(currentStatuses[canonicalId])
+
+  // Resolve the new status — support both new `status` field and legacy `completed` boolean
+  let resolvedStatus: DocumentStatus = existing.status
+  if (status !== undefined) {
+    resolvedStatus = status
+  } else if (typeof completed === "boolean") {
+    resolvedStatus = completed ? "ready" : "not_started"
+  }
+
+  const updatedEntry: DocumentStatusEntry = {
+    status: resolvedStatus,
+    completedAt: resolvedStatus === "submitted"
+      ? (existing.completedAt || new Date().toISOString())
+      : existing.completedAt,
+    documentName: matchingItem?.document ?? existing.documentName,
+    externalLink: externalLink !== undefined ? (externalLink || undefined) : existing.externalLink,
+    notes: notes !== undefined ? (notes || undefined) : existing.notes,
+    expiryDate: expiryDate !== undefined ? (expiryDate || undefined) : existing.expiryDate,
+  }
+
   const newStatuses = {
     ...currentStatuses,
-    [canonicalId]: {
-      completed,
-      completedAt: completed ? new Date().toISOString() : undefined,
-      documentName: matchingItem?.document,
-    },
+    [canonicalId]: updatedEntry,
   }
 
   const { error: updateError } = await supabase
@@ -110,8 +162,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Failed to update document status" }, { status: 500 })
   }
 
+  // Normalize all entries before returning
+  const normalizedStatuses: Record<string, DocumentStatusEntry> = {}
+  for (const [key, value] of Object.entries(newStatuses)) {
+    normalizedStatuses[key] = normalizeDocumentStatus(value)
+  }
+
   return NextResponse.json({
     success: true,
-    statuses: newStatuses,
+    statuses: normalizedStatuses,
   })
 }

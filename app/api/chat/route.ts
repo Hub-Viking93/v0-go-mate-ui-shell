@@ -33,6 +33,7 @@ import {
   generateResearchReport,
 } from "@/lib/gomate/web-research"
 import { fetchWithRetry } from "@/lib/gomate/fetch-with-retry"
+import { checkUsageLimit, recordUsage } from "@/lib/gomate/usage-guard"
 
 export const maxDuration = 30
 
@@ -113,6 +114,15 @@ export async function POST(req: Request) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
+    // --- Rate limit: max 15 messages/minute per user ---
+    const chatLimit = await checkUsageLimit(user.id, "chat_message")
+    if (!chatLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: chatLimit.reason }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
       )
     }
 
@@ -486,7 +496,11 @@ export async function POST(req: Request) {
     }
     
     const messageId = `msg_${Date.now()}`
-    
+
+    // Accumulate full assistant response for chat history persistence
+    let fullAssistantText = ""
+    let streamCompleted = false
+
     const transformStream = new TransformStream({
       start(controller) {
         // Send message start
@@ -496,15 +510,16 @@ export async function POST(req: Request) {
           role: "assistant",
         })}\n\n`))
       },
-      
+
       transform(chunk, controller) {
         const text = decoder.decode(chunk)
         const lines = text.split("\n")
-        
+
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6)
             if (data === "[DONE]") {
+              streamCompleted = true
               // Send message end with metadata
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({
                 type: "message-end",
@@ -516,6 +531,7 @@ export async function POST(req: Request) {
                 const parsed = JSON.parse(data)
                 const content = parsed.choices?.[0]?.delta?.content
                 if (content) {
+                  fullAssistantText += content
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({
                     type: "text-delta",
                     delta: content,
@@ -528,9 +544,26 @@ export async function POST(req: Request) {
           }
         }
       },
+
+      async flush() {
+        // Persist chat messages after stream completes successfully
+        // Only persist if: stream completed fully, we have a planId, and there's content
+        if (!streamCompleted || !planId || !fullAssistantText || !lastUserText) return
+        try {
+          await supabase.from("chat_messages").insert([
+            { plan_id: planId, user_id: user.id, role: "user", content: lastUserText },
+            { plan_id: planId, user_id: user.id, role: "assistant", content: fullAssistantText },
+          ])
+        } catch (e) {
+          console.error("[GoMate] Failed to persist chat messages:", e)
+        }
+      },
     })
 
     const responseStream = openaiResponse.body?.pipeThrough(transformStream)
+
+    // Record chat usage (fire-and-forget, don't block the stream)
+    recordUsage(user.id, "chat_message", undefined, 500).catch(() => {})
 
     return new Response(responseStream, {
       headers: {

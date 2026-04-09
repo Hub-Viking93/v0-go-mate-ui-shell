@@ -229,7 +229,7 @@ export interface Guide {
 }
 
 // Country-specific data for guide generation
-const COUNTRY_DATA: Record<string, {
+export const COUNTRY_DATA: Record<string, {
   currency: string
   language: string
   englishLevel: string
@@ -269,6 +269,23 @@ const COUNTRY_DATA: Record<string, {
     groceryStores: { name: string; type: string; priceLevel: string }[]
     tipping: string
   }
+  taxInfo?: {
+    incomeTaxBrackets: { upTo: number | null; rate: number }[]
+    socialContributions: string
+    specialRegimes?: { name: string; summary: string; eligibility: string }[]
+    taxYear: string
+    filingDeadline: string
+    disclaimer: string
+    officialLink: string
+    lastVerified: string
+  }
+  commonlyForgotten?: {
+    item: string
+    why: string
+    when: "before_move" | "first_week" | "first_month" | "ongoing"
+    applies_to?: string[] | null
+    lastVerified: string
+  }[]
 }> = {
   Germany: {
     currency: "EUR",
@@ -353,6 +370,28 @@ const COUNTRY_DATA: Record<string, {
       ],
       tipping: "5-10% is customary, often just round up the bill",
     },
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 38441, rate: 0.3697 },
+        { upTo: 75518, rate: 0.3697 },
+        { upTo: null, rate: 0.4195 },
+      ],
+      socialContributions: "Social contributions (~18%) are included in the first bracket rate. Employer also pays ~20% on top of gross salary.",
+      specialRegimes: [],
+      taxYear: "Jan–Dec",
+      filingDeadline: "31 July of the following year",
+      disclaimer: "Rates are for 2025 employee income tax (Einkommensteuer). Solidarity surcharge (5.5% of tax) applies above thresholds. Church tax (8-9%) may apply. Self-employed rates differ.",
+      officialLink: "https://www.bzst.de",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "Anmeldung (address registration) within 14 days", why: "Legally required within 14 days of moving in. Without it you cannot open a bank account, get health insurance, or receive your tax ID.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Rundfunkbeitrag (broadcasting fee)", why: "Every household must pay ~€18.36/month for public broadcasting. You will receive a letter — ignoring it leads to fines.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Liability insurance (Haftpflichtversicherung)", why: "Not legally required but culturally expected. Covers accidental damage to others' property. Landlords often ask for proof.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "SCHUFA credit history", why: "Germany's credit scoring system. Without a SCHUFA record, renting an apartment is very difficult. Start building it early by opening a German bank account.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Garbage separation rules (Mülltrennung)", why: "Germany has strict recycling rules with separate bins for paper, packaging, bio, glass, and residual waste. Incorrect sorting can result in fines from your landlord.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+    ],
   },
   Netherlands: {
     currency: "EUR",
@@ -435,6 +474,34 @@ const COUNTRY_DATA: Record<string, {
       ],
       tipping: "Not expected but appreciated. Round up or 5-10% for good service.",
     },
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 38098, rate: 0.3693 },
+        { upTo: 75518, rate: 0.4950 },
+        { upTo: null, rate: 0.4950 },
+      ],
+      socialContributions: "Employee social contributions ~27.65% (pension, health, unemployment). Employer pays an additional ~20-22%.",
+      specialRegimes: [
+        {
+          name: "30% Ruling",
+          summary: "Highly skilled migrants can receive 30% of salary tax-free for up to 5 years, effectively reducing taxable income.",
+          eligibility: "Must be recruited from abroad, meet minimum salary threshold (~€46,107 for 2025), and have specific expertise not readily available in NL.",
+        },
+      ],
+      taxYear: "Jan–Dec",
+      filingDeadline: "1 May of the following year (extension possible until 1 September)",
+      disclaimer: "Rates are for 2025 Dutch income tax (Box 1). The 30% ruling significantly reduces effective tax. Self-employed and freelancers pay different social contributions.",
+      officialLink: "https://www.belastingdienst.nl",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "BSN appointment (book in advance)", why: "The BSN (citizen service number) appointment at your municipality often has a 2-4 week wait. Book before you arrive or immediately on arrival.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "DigiD registration", why: "DigiD is the Dutch digital identity system required for taxes, healthcare, and government services. You need a BSN first, then registration takes 1-2 weeks by post.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Health insurance from day 1", why: "Health insurance (zorgverzekering) is mandatory from your first day of residence. You have 4 months to arrange it, but you are liable from day 1. Fines apply for late registration.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Buy or rent a bicycle", why: "Cycling is the primary mode of transport in Dutch cities. Public transport is expensive and a bike is essential for daily life.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Apply for the 30% ruling early", why: "If eligible, the 30% tax ruling must be applied for within 4 months of starting employment. Missing the deadline means losing years of tax benefit.", when: "first_month", applies_to: ["non_eu"], lastVerified: "2026-03-01" },
+    ],
   },
   Spain: {
     currency: "EUR",
@@ -518,6 +585,35 @@ const COUNTRY_DATA: Record<string, {
       ],
       tipping: "Not expected, 5-10% for exceptional service at restaurants.",
     },
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 12450, rate: 0.19 },
+        { upTo: 20200, rate: 0.24 },
+        { upTo: 35200, rate: 0.30 },
+        { upTo: 60000, rate: 0.37 },
+        { upTo: null, rate: 0.45 },
+      ],
+      socialContributions: "Employee social security ~6.35%. Employer pays ~29.9%. Self-employed (autónomo) pay ~30% of chosen base.",
+      specialRegimes: [
+        {
+          name: "Beckham Law (Ley Beckham)",
+          summary: "Flat 24% tax rate on Spanish-sourced income for up to 6 years. Foreign income (except employment) exempt from Spanish tax.",
+          eligibility: "Must not have been Spanish tax resident in previous 5 years. Must move to Spain due to employment contract or company director role.",
+        },
+      ],
+      taxYear: "Jan–Dec",
+      filingDeadline: "30 June of the following year (Campaña de la Renta starts in April)",
+      disclaimer: "Rates are for 2025 Spanish general income tax (IRPF). Regional surcharges vary by autonomous community. Beckham Law may significantly reduce effective rate. Self-employed rates differ.",
+      officialLink: "https://sede.agenciatributaria.gob.es",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "NIE vs NIF — know the difference", why: "NIE is your foreigner ID number (for residency). NIF is your tax number (for finances). You need both, and the application processes are separate.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Empadronamiento (municipal registration)", why: "Register at your local town hall (ayuntamiento) to prove residency. Required for healthcare, school enrollment, and many administrative procedures.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Siesta hours affect office availability", why: "Many government offices and businesses close between 14:00-17:00. Plan errands for morning hours to avoid wasted trips.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Autónomo registration if freelance", why: "Self-employed workers must register as autónomo with Social Security. There is a reduced flat-rate quota for the first year (~€80/month).", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+    ],
   },
   Portugal: {
     currency: "EUR",
@@ -546,6 +642,39 @@ const COUNTRY_DATA: Record<string, {
       { name: "Net-Empregos", url: "https://www.net-empregos.com", description: "Major Portuguese job board" },
       { name: "LinkedIn", url: "https://www.linkedin.com", description: "Professional networking" },
       { name: "Indeed Portugal", url: "https://www.indeed.pt", description: "International job board" },
+    ],
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 7703, rate: 0.1325 },
+        { upTo: 11623, rate: 0.18 },
+        { upTo: 16472, rate: 0.23 },
+        { upTo: 21321, rate: 0.26 },
+        { upTo: 27146, rate: 0.3275 },
+        { upTo: 39791, rate: 0.37 },
+        { upTo: 51997, rate: 0.435 },
+        { upTo: 81199, rate: 0.45 },
+        { upTo: null, rate: 0.48 },
+      ],
+      socialContributions: "Employee social security ~11%. Employer pays ~23.75%. Self-employed pay ~21.4%.",
+      specialRegimes: [
+        {
+          name: "Non-Habitual Resident (NHR 2.0)",
+          summary: "20% flat tax on eligible Portuguese-sourced employment/self-employment income for 10 years. Replaced original NHR regime in 2024.",
+          eligibility: "Must not have been Portuguese tax resident in previous 5 years. Must work in eligible professions (tech, science, academia) or for companies qualifying under tax incentive regimes.",
+        },
+      ],
+      taxYear: "Jan–Dec",
+      filingDeadline: "30 June of the following year",
+      disclaimer: "Rates are for 2025 Portuguese income tax (IRS). NHR 2.0 regime may significantly reduce effective rate for eligible workers. Self-employed rates differ.",
+      officialLink: "https://www.portaldasfinancas.gov.pt",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "NIF appointment may require a fiscal representative", why: "Non-EU citizens often need a fiscal representative (representante fiscal) to obtain a NIF (tax number). This can take weeks to arrange and costs €100-300/year.", when: "before_move", applies_to: ["non_eu"], lastVerified: "2026-03-01" },
+      { item: "NISS for social security", why: "The NISS (social security number) is separate from the NIF. You need it to start working legally. Apply at the Social Security office after getting your NIF.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "MB Way for payments", why: "MB Way is Portugal's dominant mobile payment system, used everywhere from restaurants to parking. Link it to your Portuguese bank account early.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "NIF application before arrival", why: "You can apply for a NIF before arriving in Portugal. Having it ready speeds up bank account opening, rental contracts, and utility setup.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
     ],
   },
   Sweden: {
@@ -576,6 +705,38 @@ const COUNTRY_DATA: Record<string, {
       { name: "LinkedIn", url: "https://www.linkedin.com", description: "Professional networking" },
       { name: "Indeed Sweden", url: "https://www.indeed.se", description: "International job board" },
     ],
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 614000, rate: 0.32 },
+        { upTo: null, rate: 0.52 },
+      ],
+      socialContributions: "Employee social contributions ~7%. Employer pays ~31.42% (largest component). Total tax burden is high but includes generous social benefits.",
+      specialRegimes: [
+        {
+          name: "SINK Tax (for temporary workers)",
+          summary: "Flat 25% tax on employment income for non-residents working temporarily in Sweden. No deductions allowed.",
+          eligibility: "Non-resident staying in Sweden for less than 6 months. Applied for at Skatteverket.",
+        },
+        {
+          name: "Expert Tax Relief (Forskarskattenämnden)",
+          summary: "25% of salary exempt from income tax and social contributions for up to 7 years. Effectively reduces tax on the first ~SEK 100,000/month.",
+          eligibility: "Foreign experts, researchers, or key personnel earning above ~SEK 106,200/month (2025). Must apply within 3 months of starting work.",
+        },
+      ],
+      taxYear: "Jan–Dec",
+      filingDeadline: "2 May of the following year",
+      disclaimer: "Rates are for 2025 Swedish income tax. The first bracket includes ~32% municipal tax (varies by municipality). State tax of ~20% applies above SEK 614,000. Expert tax relief can significantly reduce effective rate. Self-employed rates differ.",
+      officialLink: "https://www.skatteverket.se",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "Personnummer wait time (2-6 weeks)", why: "The Swedish personal number (personnummer) is required for almost everything — bank accounts, phone contracts, healthcare. It can take 2-6 weeks to receive after registration at Skatteverket.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "BankID is essential for daily life", why: "BankID is Sweden's digital identification system used for banking, government services, and even package delivery. You need a personnummer and a Swedish bank account first.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Skatteverket registration in person", why: "You must register in person at Skatteverket (Swedish Tax Agency) with your passport and proof of residence. This triggers the personnummer process.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Winter gear before October", why: "Swedish winters start early and are harsh. Buy proper winter clothing (jacket, boots, thermal layers) before October — prices rise and stock runs low as winter approaches.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Apply for Expert Tax Relief within 3 months", why: "If eligible, the application to Forskarskattenämnden must be submitted within 3 months of starting work. Missing this deadline forfeits up to 7 years of tax savings.", when: "first_month", applies_to: ["non_eu"], lastVerified: "2026-03-01" },
+    ],
   },
   Japan: {
     currency: "JPY",
@@ -604,6 +765,32 @@ const COUNTRY_DATA: Record<string, {
       { name: "GaijinPot Jobs", url: "https://jobs.gaijinpot.com", description: "Jobs for foreigners" },
       { name: "Daijob", url: "https://www.daijob.com", description: "Bilingual job board" },
       { name: "LinkedIn", url: "https://www.linkedin.com", description: "Professional networking" },
+    ],
+    taxInfo: {
+      incomeTaxBrackets: [
+        { upTo: 1950000, rate: 0.05 },
+        { upTo: 3300000, rate: 0.10 },
+        { upTo: 6950000, rate: 0.20 },
+        { upTo: 9000000, rate: 0.23 },
+        { upTo: 18000000, rate: 0.33 },
+        { upTo: 40000000, rate: 0.40 },
+        { upTo: null, rate: 0.45 },
+      ],
+      socialContributions: "Employee pays ~15% (health insurance, pension, employment insurance). Employer pays a similar amount. Exact rate depends on age and income level.",
+      specialRegimes: [],
+      taxYear: "Jan–Dec",
+      filingDeadline: "15 March of the following year (kakutei shinkoku)",
+      disclaimer: "Rates are for 2025 Japanese national income tax. Resident tax (~10%) is charged separately by municipality. Amounts in JPY. Self-employed rates differ.",
+      officialLink: "https://www.nta.go.jp",
+      lastVerified: "2025-03-01",
+    },
+    commonlyForgotten: [
+      { item: "Residence card at airport immigration", why: "Your Zairyu Card (residence card) is issued at the airport on arrival. Do not leave the immigration area without it — it is your primary ID in Japan.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Ward office registration within 14 days", why: "You must register at your local ward office (kuyakusho) within 14 days of moving in. This is required for health insurance, pension, and other services.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Hanko/Inkan seal", why: "A personal seal (hanko) is still required for many official documents, bank accounts, and contracts in Japan. Get one made early — custom seals take a few days.", when: "first_month", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "National Health Insurance enrollment", why: "If not covered by employer health insurance, you must enroll in National Health Insurance (Kokumin Kenko Hoken) at the ward office. Coverage starts from your move-in date.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Garbage sorting rules (gomi bunbetsu)", why: "Japan has strict garbage separation rules that vary by municipality. Incorrect sorting leads to rejected bags and neighbor complaints. Get the schedule from your ward office.", when: "first_week", applies_to: null, lastVerified: "2026-03-01" },
+      { item: "Deregister from your home country", why: "Many countries require formal deregistration. Failing to do so can cause tax residency complications and double taxation.", when: "before_move", applies_to: null, lastVerified: "2026-03-01" },
     ],
   },
 }
@@ -754,7 +941,7 @@ function generateOverview(
   return {
     title: `Moving to ${destination}`,
     subtitle: `Your personalized guide to ${purposeText[purpose] || "relocating"} in ${destination}`,
-    summary: `This guide has been tailored specifically for you based on your profile. It covers everything you need to know about relocating to ${destination}, from visa requirements to finding housing and settling in.`,
+    summary: `This guide has been tailored to your profile. It covers key information about relocating to ${destination}, from visa requirements to finding housing and settling in. Always verify details with the relevant authorities.`,
     keyFacts: [
       { label: "Currency", value: countryData.currency },
       { label: "Language", value: countryData.language },

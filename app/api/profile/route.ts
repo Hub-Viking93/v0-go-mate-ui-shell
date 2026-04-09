@@ -7,6 +7,7 @@ import {
   derivePlanAuthority,
   getOwnedPlan,
 } from "@/lib/gomate/core-state"
+import { computePlanChangeSummary } from "@/lib/gomate/plan-diff"
 
 // GET - Fetch the current user's plan and profile
 export async function GET() {
@@ -322,7 +323,23 @@ export async function PATCH(req: Request) {
       .eq("user_id", user.id)
       .is("is_stale", false)
 
-    return NextResponse.json({ plan: attachDerivedPlanState(updatedPlan) })
+    // Compute change summary by comparing against the current guide's profile snapshot
+    let changeSummary = null
+    const { data: currentGuide } = await supabase
+      .from("guides")
+      .select("profile_snapshot")
+      .eq("plan_id", currentPlan.id)
+      .eq("is_current", true)
+      .maybeSingle()
+
+    if (currentGuide?.profile_snapshot) {
+      changeSummary = computePlanChangeSummary(
+        currentGuide.profile_snapshot as Record<string, unknown>,
+        mergedProfile as Record<string, unknown>,
+      )
+    }
+
+    return NextResponse.json({ plan: attachDerivedPlanState(updatedPlan), changeSummary })
   } catch (error) {
     console.error("[GoMate] Error in PATCH /api/profile:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { performVisaResearch } from "@/lib/gomate/research-visa"
 import { performLocalRequirementsResearch } from "@/lib/gomate/research-local-requirements"
 import { performChecklistResearch } from "@/lib/gomate/research-checklist"
+import { checkUsageLimit, recordUsage } from "@/lib/gomate/usage-guard"
+import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 
 export const maxDuration = 60 // Allow longer timeout for research
 
@@ -20,6 +22,11 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tier = await getUserTier(user.id)
+    if (!hasFeatureAccess(tier, "visa_recommendation")) {
+      return NextResponse.json({ error: "Research requires a paid plan" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -55,6 +62,15 @@ export async function POST(request: Request) {
         message: "Research already in progress",
         status: "in_progress"
       })
+    }
+
+    // --- Usage guard: check generation limit before expensive research ---
+    const usageCheck = await checkUsageLimit(user.id, "research")
+    if (!usageCheck.allowed) {
+      return NextResponse.json({
+        error: usageCheck.reason,
+        usage: { used: usageCheck.used, limit: usageCheck.limit },
+      }, { status: 429 })
     }
 
     // Mark aggregate research as actively running before helper execution.
@@ -151,6 +167,11 @@ export async function POST(request: Request) {
 
     if (finalUpdateError) {
       console.error("[Research Trigger] Failed to save final status:", finalUpdateError)
+    }
+
+    // Record usage on success or partial success (research ran, consumed API credits)
+    if (finalStatus === "completed" || finalStatus === "partial") {
+      await recordUsage(user.id, "research", planId, 10_000)
     }
 
     return NextResponse.json({

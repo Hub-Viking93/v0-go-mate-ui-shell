@@ -5,18 +5,19 @@ import React from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { 
-  DollarSign, 
-  Home, 
-  Zap, 
-  ShoppingCart, 
-  Bus, 
+import {
+  DollarSign,
+  Home,
+  Zap,
+  ShoppingCart,
+  Bus,
   Wifi,
   PiggyBank,
   Plane,
   Key,
   FileText
 } from "lucide-react"
+import { getCurrencySymbol } from "@/lib/gomate/currency"
 
 interface BudgetData {
   minimum: number
@@ -37,6 +38,8 @@ interface BudgetCardProps {
   budget: BudgetData
   savings: SavingsData
   destination: string
+  /** ISO 4217 currency code for all displayed values (e.g. "EUR", "SEK") */
+  currency: string
   currentSavings?: number
   onUpdateSavings?: (amount: number) => void
 }
@@ -57,10 +60,11 @@ const savingsIcons: Record<string, React.ReactNode> = {
   visaFees: <FileText className="w-4 h-4" />,
 }
 
-export function BudgetCard({ budget, savings, destination, currentSavings = 0, onUpdateSavings }: BudgetCardProps) {
+export function BudgetCard({ budget, savings, destination, currency, currentSavings = 0, onUpdateSavings }: BudgetCardProps) {
   const [isEditing, setIsEditing] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(currentSavings.toString())
-  
+
+  const sym = getCurrencySymbol(currency)
   const savingsProgress = Math.min(Math.round((currentSavings / savings.total) * 100), 100)
   const remaining = Math.max(savings.total - currentSavings, 0)
 
@@ -80,18 +84,18 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
             Monthly Budget for {destination}
           </h3>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="p-3 rounded-lg bg-secondary/30">
             <p className="text-xs text-muted-foreground mb-1">Minimum</p>
             <p className="text-lg font-semibold text-foreground font-mono tracking-tight">
-              ${budget.minimum.toLocaleString()}
+              {sym}{budget.minimum.toLocaleString()}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
             <p className="text-xs text-muted-foreground mb-1">Comfortable</p>
             <p className="text-lg font-semibold text-primary font-mono tracking-tight">
-              ${budget.comfortable.toLocaleString()}
+              {sym}{budget.comfortable.toLocaleString()}
             </p>
           </div>
         </div>
@@ -99,8 +103,8 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Breakdown</p>
           {Object.entries(budget.breakdown).map(([key, value]) => (
-            <div 
-              key={key} 
+            <div
+              key={key}
               className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
             >
               <div className="flex items-center gap-2 text-sm text-foreground">
@@ -110,7 +114,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
                 <span className="capitalize">{key}</span>
               </div>
               <span className="text-sm font-medium text-foreground font-mono">
-                ${value.toLocaleString()}
+                {sym}{value.toLocaleString()}
               </span>
             </div>
           ))}
@@ -125,7 +129,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
             <h3 className="text-sm font-semibold text-foreground">Savings Target</h3>
           </div>
           <Badge variant="secondary" className="text-xs">
-            ${savings.total.toLocaleString()} total
+            {sym}{savings.total.toLocaleString()} total
           </Badge>
         </div>
 
@@ -136,7 +140,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               <span>Emergency fund (3 mo)</span>
             </div>
             <span className="font-medium text-foreground font-mono">
-              ${savings.emergencyFund.toLocaleString()}
+              {sym}{savings.emergencyFund.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -145,7 +149,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               <span>Moving costs</span>
             </div>
             <span className="font-medium text-foreground font-mono">
-              ${savings.movingCosts.toLocaleString()}
+              {sym}{savings.movingCosts.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -154,7 +158,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               <span>Initial setup</span>
             </div>
             <span className="font-medium text-foreground font-mono">
-              ${savings.initialSetup.toLocaleString()}
+              {sym}{savings.initialSetup.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -163,7 +167,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               <span>Visa fees</span>
             </div>
             <span className="font-medium text-foreground font-mono">
-              ${savings.visaFees.toLocaleString()}
+              {sym}{savings.visaFees.toLocaleString()}
             </span>
           </div>
         </div>
@@ -174,7 +178,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Your current savings</span>
               {!isEditing && onUpdateSavings && (
-                <button 
+                <button
                   onClick={() => setIsEditing(true)}
                   className="text-xs text-primary hover:underline"
                 >
@@ -184,7 +188,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
             </div>
             {isEditing ? (
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-foreground">$</span>
+                <span className="text-lg font-bold text-foreground">{sym}</span>
                 <input
                   type="number"
                   value={inputValue}
@@ -193,13 +197,13 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
                   placeholder="0"
                   autoFocus
                 />
-                <button 
+                <button
                   onClick={handleSave}
                   className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90"
                 >
                   Save
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setInputValue(currentSavings.toString())
                     setIsEditing(false)
@@ -211,7 +215,7 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
               </div>
             ) : (
               <p className="text-lg font-bold text-foreground">
-                ${currentSavings.toLocaleString()}
+                {sym}{currentSavings.toLocaleString()}
               </p>
             )}
           </div>
@@ -224,11 +228,11 @@ export function BudgetCard({ budget, savings, destination, currentSavings = 0, o
             </span>
           </div>
           <Progress value={savingsProgress} className="h-2" />
-          
+
           {/* Remaining amount */}
           {remaining > 0 ? (
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">${remaining.toLocaleString()}</span> left to save
+              <span className="font-medium text-foreground">{sym}{remaining.toLocaleString()}</span> left to save
               {savings.timeline && ` · ${savings.timeline}`}
             </p>
           ) : (

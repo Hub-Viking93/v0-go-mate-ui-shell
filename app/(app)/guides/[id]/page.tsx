@@ -35,7 +35,9 @@ import {
   Download
 } from "lucide-react"
 import { downloadGuidePDF } from "@/lib/gomate/pdf-generator"
+import { ContentDisclaimer } from "@/components/legal-disclaimer"
 import { useCurrencyConversion } from "@/hooks/use-currency-conversion"
+import { PreMoveTimeline } from "@/components/pre-move-timeline"
 
 /** Renders a multi-paragraph enrichment string as styled prose */
 function EnrichedProse({ content, className }: { content?: string; className?: string }) {
@@ -181,6 +183,8 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
   const [deleting, setDeleting] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
+  const [targetDate, setTargetDate] = useState<string | null>(null)
+  const [guidePlanId, setGuidePlanId] = useState<string | null>(null)
 
   // Currency conversion: guide amounts (destination currency) → user's home currency
   const guideCurrency = guide?.currency || "EUR"
@@ -211,6 +215,7 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             guideData.useful_tips = guideData.useful_tips || []
             guideData.official_links = guideData.official_links || []
             setGuide(guideData)
+            if (guideData.plan_id) setGuidePlanId(guideData.plan_id)
           } else {
             router.push("/guides")
           }
@@ -226,6 +231,24 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
     }
     fetchGuide()
   }, [id, router])
+
+  // Fetch target_date from profile for timeline
+  useEffect(() => {
+    async function fetchTargetDate() {
+      try {
+        const res = await fetch("/api/profile")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.plan?.profile_data?.target_date) {
+            setTargetDate(data.plan.profile_data.target_date)
+          }
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+    fetchTargetDate()
+  }, [])
 
   const handleDownloadPDF = async () => {
     if (!guide) return
@@ -449,6 +472,9 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
           </Button>
         </div>
       )}
+
+      {/* Content Disclaimer */}
+      <ContentDisclaimer />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1123,35 +1149,19 @@ export default function GuideDetailPage({ params }: { params: Promise<{ id: stri
             </Card>
           )}
 
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-2">Your Relocation Timeline</h2>
-            <p className="text-muted-foreground mb-6">
-              Estimated total: {guide.timeline_section?.totalMonths} months
-            </p>
-            
-            <div className="space-y-6">
-              {guide.timeline_section?.phases?.map((phase, i) => (
-                <div key={i} className="relative pl-8 pb-6 border-l-2 border-primary/20 last:pb-0">
-                  <div className="absolute -left-2 top-0 w-4 h-4 rounded-full bg-primary" />
-                  <div className="mb-2">
-                    <h3 className="font-semibold">{phase.name}</h3>
-                    <p className="text-sm text-muted-foreground">{phase.duration}</p>
-                  </div>
-                  <ul className="space-y-1 mb-3">
-                    {phase.tasks?.map((task, j) => (
-                      <li key={j} className="flex items-start gap-2 text-sm">
-                        <CheckSquare className="w-4 h-4 text-muted-foreground" />
-                        {task}
-                      </li>
-                    ))}
-                  </ul>
-                  {phase.tips?.[0] && (
-                    <p className="text-sm text-primary italic">{phase.tips[0]}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
+          {guidePlanId ? (
+            <PreMoveTimeline
+              timelineSection={guide.timeline_section}
+              planId={guidePlanId}
+              targetDate={targetDate}
+            />
+          ) : (
+            <Card className="p-6">
+              <p className="text-sm text-muted-foreground">
+                Timeline data is loading...
+              </p>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Checklist Tab */}

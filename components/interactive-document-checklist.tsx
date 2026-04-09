@@ -3,9 +3,6 @@
 import { useState, useCallback } from "react"
 import {
   FileCheck,
-  CheckCircle2,
-  Circle,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -14,10 +11,19 @@ import {
   Clock,
   DollarSign,
   MapPin,
+  Link as LinkIcon,
+  StickyNote,
+  CalendarClock,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import type { DocumentStatus, DocumentStatusEntry } from "@/lib/gomate/types/document-status"
+
+export type { DocumentStatus, DocumentStatusEntry }
 
 export interface DocumentItem {
   id: string
@@ -34,19 +40,25 @@ export interface DocumentItem {
   visaSpecific?: boolean
 }
 
-export interface DocumentStatus {
-  completed: boolean
-  completedAt?: string
-}
-
 interface InteractiveDocumentChecklistProps {
   items: DocumentItem[]
-  statuses: Record<string, DocumentStatus>
-  onStatusChange?: (documentId: string, completed: boolean) => Promise<void>
+  statuses: Record<string, DocumentStatusEntry>
+  onStatusChange?: (documentId: string, update: Partial<DocumentStatusEntry>) => Promise<void>
   title?: string
   collapsible?: boolean
   defaultExpanded?: boolean
 }
+
+const STATUS_CONFIG: Record<DocumentStatus, { label: string; color: string; bg: string }> = {
+  not_started: { label: "Not Started", color: "text-muted-foreground", bg: "bg-muted" },
+  gathering: { label: "Gathering", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/40" },
+  ready: { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-900/40" },
+  submitted: { label: "Submitted", color: "text-primary", bg: "bg-primary/10" },
+  expiring: { label: "Expiring", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/40" },
+  expired: { label: "Expired", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/40" },
+}
+
+const STATUS_ORDER: DocumentStatus[] = ["not_started", "gathering", "ready", "submitted", "expiring", "expired"]
 
 const priorityConfig = {
   critical: {
@@ -54,28 +66,24 @@ const priorityConfig = {
     color: "text-red-600 dark:text-red-400",
     bgColor: "bg-red-50 dark:bg-red-950/30",
     borderColor: "border-red-200 dark:border-red-800",
-    icon: AlertCircle,
   },
   high: {
     label: "High",
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-50 dark:bg-amber-950/30",
     borderColor: "border-amber-200 dark:border-amber-800",
-    icon: AlertCircle,
   },
   medium: {
     label: "Medium",
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
     borderColor: "border-blue-200 dark:border-blue-800",
-    icon: Circle,
   },
   low: {
     label: "Low",
     color: "text-muted-foreground",
     bgColor: "bg-muted/30",
     borderColor: "border-border",
-    icon: Circle,
   },
 }
 
@@ -90,6 +98,18 @@ const categoryLabels: Record<string, string> = {
   other: "Other Documents",
 }
 
+function getExpiryState(expiryDate?: string): "expired" | "expiring_soon" | null {
+  if (!expiryDate) return null
+  const expiry = new Date(expiryDate)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (expiry < today) return "expired"
+  const soonThreshold = new Date(today)
+  soonThreshold.setDate(soonThreshold.getDate() + 30)
+  if (expiry <= soonThreshold) return "expiring_soon"
+  return null
+}
+
 export function InteractiveDocumentChecklist({
   items,
   statuses,
@@ -101,11 +121,15 @@ export function InteractiveDocumentChecklist({
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["critical", "high"]))
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
 
-  // Calculate progress
-  const completedCount = items.filter((item) => statuses[item.id]?.completed).length
+  // Calculate progress — "ready" or "submitted" count as done
+  const readyCount = items.filter((item) => {
+    const s = statuses[item.id]?.status
+    return s === "ready" || s === "submitted"
+  }).length
   const totalCount = items.length
-  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  const progress = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0
 
   // Group items by category
   const groupedItems = items.reduce(
@@ -118,20 +142,35 @@ export function InteractiveDocumentChecklist({
     {} as Record<string, DocumentItem[]>
   )
 
-  // Sort categories by priority (critical items first)
   const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
     const aPriority = groupedItems[a].some((i) => i.priority === "critical") ? 0 : 1
     const bPriority = groupedItems[b].some((i) => i.priority === "critical") ? 0 : 1
     return aPriority - bPriority
   })
 
-  const handleToggle = useCallback(
-    async (documentId: string, currentStatus: boolean) => {
+  const handleStatusSelect = useCallback(
+    async (documentId: string, newStatus: DocumentStatus) => {
       if (!onStatusChange) return
-
       setLoadingItems((prev) => new Set(prev).add(documentId))
       try {
-        await onStatusChange(documentId, !currentStatus)
+        await onStatusChange(documentId, { status: newStatus })
+      } finally {
+        setLoadingItems((prev) => {
+          const next = new Set(prev)
+          next.delete(documentId)
+          return next
+        })
+      }
+    },
+    [onStatusChange]
+  )
+
+  const handleDetailSave = useCallback(
+    async (documentId: string, fields: Partial<DocumentStatusEntry>) => {
+      if (!onStatusChange) return
+      setLoadingItems((prev) => new Set(prev).add(documentId))
+      try {
+        await onStatusChange(documentId, fields)
       } finally {
         setLoadingItems((prev) => {
           const next = new Set(prev)
@@ -146,11 +185,17 @@ export function InteractiveDocumentChecklist({
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev)
-      if (next.has(category)) {
-        next.delete(category)
-      } else {
-        next.add(category)
-      }
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }
+
+  const toggleDetail = (id: string) => {
+    setExpandedDetails((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
@@ -180,32 +225,17 @@ export function InteractiveDocumentChecklist({
           <div className="text-left">
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
             <p className="text-sm text-muted-foreground">
-              {completedCount} of {totalCount} documents ready
+              {readyCount} of {totalCount} documents ready
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Progress Circle */}
           <div className="relative w-12 h-12">
             <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="3" fill="none" className="text-muted/30" />
               <circle
-                cx="24"
-                cy="24"
-                r="18"
-                stroke="currentColor"
-                strokeWidth="3"
-                fill="none"
-                className="text-muted/30"
-              />
-              <circle
-                cx="24"
-                cy="24"
-                r="18"
-                stroke="currentColor"
-                strokeWidth="3"
-                fill="none"
-                strokeLinecap="round"
+                cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 18}
                 strokeDashoffset={2 * Math.PI * 18 * (1 - progress / 100)}
                 className={cn("transition-all duration-500", getProgressColor())}
@@ -215,7 +245,6 @@ export function InteractiveDocumentChecklist({
               {progress}%
             </span>
           </div>
-
           {collapsible && (
             <div className="text-muted-foreground">
               {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -224,12 +253,10 @@ export function InteractiveDocumentChecklist({
         </div>
       </button>
 
-      {/* Progress Bar */}
       <div className="px-6">
         <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Checklist Content */}
       {expanded && (
         <div className="p-6 pt-4 space-y-4">
           {progress === 100 && (
@@ -246,9 +273,12 @@ export function InteractiveDocumentChecklist({
 
           {sortedCategories.map((category) => {
             const categoryItems = groupedItems[category]
-            const categoryCompleted = categoryItems.filter((i) => statuses[i.id]?.completed).length
+            const categoryReady = categoryItems.filter((i) => {
+              const s = statuses[i.id]?.status
+              return s === "ready" || s === "submitted"
+            }).length
             const isExpanded = expandedCategories.has(category)
-            const hasCritical = categoryItems.some((i) => i.priority === "critical" && !statuses[i.id]?.completed)
+            const hasCritical = categoryItems.some((i) => i.priority === "critical" && statuses[i.id]?.status !== "ready" && statuses[i.id]?.status !== "submitted")
 
             return (
               <div key={category} className="border border-border rounded-xl overflow-hidden">
@@ -268,139 +298,145 @@ export function InteractiveDocumentChecklist({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
-                      {categoryCompleted}/{categoryItems.length}
+                      {categoryReady}/{categoryItems.length}
                     </span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                   </div>
                 </button>
 
                 {isExpanded && (
                   <div className="relative">
-                    {/* Vertical connector line */}
                     <div className="absolute left-[35px] top-0 bottom-0 w-0.5 bg-border" />
                     {categoryItems.map((item, itemIdx) => {
-                      const isCompleted = statuses[item.id]?.completed || false
+                      const entry = statuses[item.id] || { status: "not_started" as DocumentStatus }
+                      const currentStatus = entry.status || "not_started"
                       const isLoading = loadingItems.has(item.id)
                       const config = priorityConfig[item.priority]
                       const isLast = itemIdx === categoryItems.length - 1
+                      const isDone = currentStatus === "ready" || currentStatus === "submitted"
+                      const statusCfg = STATUS_CONFIG[currentStatus]
+                      const expiryState = getExpiryState(entry.expiryDate)
+                      const isDetailOpen = expandedDetails.has(item.id)
 
                       return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            "relative p-4 flex items-start gap-4 transition-all duration-200 border-b border-border",
-                            isCompleted && "bg-muted/10",
-                            isLast && "border-b-0"
-                          )}
-                        >
-                          {/* Checkbox */}
-                          <button
-                            onClick={() => handleToggle(item.id, isCompleted)}
-                            disabled={isLoading || !onStatusChange}
-                            className={cn(
-                              "relative z-10 mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                              isCompleted
-                                ? "bg-primary border-primary text-primary-foreground gm-success-glow"
-                                : "border-muted-foreground/30 hover:border-primary/50 bg-background",
-                              isLoading && "opacity-50"
-                            )}
-                          >
-                            {isLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : isCompleted ? (
-                              <CheckCircle2 className="w-4 h-4" />
-                            ) : null}
-                          </button>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p
-                                  className={cn(
-                                    "font-medium",
-                                    isCompleted ? "text-muted-foreground line-through" : "text-foreground"
-                                  )}
-                                >
-                                  {item.document}
-                                </p>
-                                {item.description && (
-                                  <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {item.required && (
-                                  <span className="text-xs text-muted-foreground">Required</span>
-                                )}
-                                <span
-                                  className={cn(
-                                    "px-2 py-0.5 text-xs font-medium rounded-full",
-                                    config.bgColor,
-                                    config.color
-                                  )}
-                                >
-                                  {config.label}
-                                </span>
-                              </div>
+                        <div key={item.id} className={cn("relative border-b border-border", isLast && "border-b-0")}>
+                          <div className={cn("p-4 flex items-start gap-4 transition-all duration-200", isDone && "bg-muted/10")}>
+                            {/* Status badge (clickable to cycle) */}
+                            <div className="relative z-10 mt-0.5 shrink-0">
+                              {isLoading ? (
+                                <div className="w-6 h-6 flex items-center justify-center">
+                                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : (
+                                <StatusDropdown
+                                  current={currentStatus}
+                                  onSelect={(s) => handleStatusSelect(item.id, s)}
+                                  disabled={!onStatusChange}
+                                />
+                              )}
                             </div>
 
-                            {/* Additional Info (whereToGet, estimatedTime, cost) */}
-                            {!isCompleted && (item.whereToGet || item.estimatedTime || item.cost) && (
-                              <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                                {item.whereToGet && (
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {item.whereToGet}
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className={cn("font-medium", isDone ? "text-muted-foreground line-through" : "text-foreground")}>
+                                      {item.document}
+                                    </p>
+                                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border-0", statusCfg.bg, statusCfg.color)}>
+                                      {statusCfg.label}
+                                    </Badge>
+                                    {expiryState === "expired" && (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5 gap-1">
+                                        <XCircle className="w-3 h-3" /> Expired
+                                      </Badge>
+                                    )}
+                                    {expiryState === "expiring_soon" && (
+                                      <Badge className="text-[10px] px-1.5 py-0 h-5 gap-1 bg-amber-500 hover:bg-amber-600 text-white">
+                                        <AlertTriangle className="w-3 h-3" /> Expiring soon
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {item.description && (
+                                    <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {item.required && <span className="text-xs text-muted-foreground">Required</span>}
+                                  <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", config.bgColor, config.color)}>
+                                    {config.label}
                                   </span>
-                                )}
-                                {item.estimatedTime && (
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    {item.estimatedTime}
-                                  </span>
-                                )}
-                                {item.cost && (
-                                  <span className="flex items-center gap-1">
-                                    <DollarSign className="w-3 h-3" />
-                                    {item.cost}
-                                  </span>
-                                )}
+                                </div>
                               </div>
-                            )}
 
-                            {/* Official Link */}
-                            {item.officialLink && !isCompleted && (
-                              <a
-                                href={item.officialLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                Official source
-                              </a>
-                            )}
+                              {/* Metadata row */}
+                              {!isDone && (item.whereToGet || item.estimatedTime || item.cost) && (
+                                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                  {item.whereToGet && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.whereToGet}</span>}
+                                  {item.estimatedTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.estimatedTime}</span>}
+                                  {item.cost && <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{item.cost}</span>}
+                                </div>
+                              )}
 
-                            {/* Tips */}
-                            {item.tips && item.tips.length > 0 && !isCompleted && (
-                              <div className="mt-2 p-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                                <span className="font-medium">Tip: </span>
-                                {item.tips[0]}
-                              </div>
-                            )}
+                              {/* Inline indicators for saved details */}
+                              {(entry.externalLink || entry.notes) && !isDetailOpen && (
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                  {entry.externalLink && (
+                                    <a href={entry.externalLink} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-primary hover:underline"
+                                      onClick={(e) => e.stopPropagation()}>
+                                      <LinkIcon className="w-3 h-3" /> Link
+                                    </a>
+                                  )}
+                                  {entry.notes && <span className="flex items-center gap-1"><StickyNote className="w-3 h-3" /> Has notes</span>}
+                                </div>
+                              )}
 
-                            {/* Completion date */}
-                            {isCompleted && statuses[item.id]?.completedAt && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Completed {new Date(statuses[item.id].completedAt!).toLocaleDateString()}
-                              </p>
-                            )}
+                              {/* Official Link */}
+                              {item.officialLink && !isDone && (
+                                <a href={item.officialLink} target="_blank" rel="noopener noreferrer"
+                                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <ExternalLink className="w-3 h-3" /> Official source
+                                </a>
+                              )}
+
+                              {/* Tips */}
+                              {item.tips && item.tips.length > 0 && !isDone && (
+                                <div className="mt-2 p-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                                  <span className="font-medium">Tip: </span>{item.tips[0]}
+                                </div>
+                              )}
+
+                              {/* Completion date */}
+                              {isDone && entry.completedAt && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Completed {new Date(entry.completedAt).toLocaleDateString()}
+                                </p>
+                              )}
+
+                              {/* Expand/collapse detail button */}
+                              {onStatusChange && (
+                                <button
+                                  onClick={() => toggleDetail(item.id)}
+                                  className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                                >
+                                  {isDetailOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  {isDetailOpen ? "Hide details" : "Add details"}
+                                </button>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Expandable detail drawer */}
+                          {isDetailOpen && onStatusChange && (
+                            <DocumentDetailDrawer
+                              entry={entry}
+                              onSave={(fields) => handleDetailSave(item.id, fields)}
+                              isLoading={isLoading}
+                            />
+                          )}
                         </div>
                       )
                     })}
@@ -413,22 +449,166 @@ export function InteractiveDocumentChecklist({
           {/* Summary Stats */}
           <div className="grid grid-cols-3 gap-3 pt-2">
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-semibold text-foreground font-mono">{completedCount}</p>
-              <p className="text-xs text-muted-foreground">Completed</p>
+              <p className="text-2xl font-semibold text-foreground font-mono">{readyCount}</p>
+              <p className="text-xs text-muted-foreground">Ready</p>
             </div>
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-semibold text-foreground font-mono">{totalCount - completedCount}</p>
+              <p className="text-2xl font-semibold text-foreground font-mono">{totalCount - readyCount}</p>
               <p className="text-xs text-muted-foreground">Remaining</p>
             </div>
             <div className="text-center p-3 rounded-xl bg-muted/30">
               <p className="text-2xl font-semibold text-foreground font-mono">
-                {items.filter((i) => i.priority === "critical" && !statuses[i.id]?.completed).length}
+                {items.filter((i) => {
+                  const s = statuses[i.id]?.status
+                  return i.priority === "critical" && s !== "ready" && s !== "submitted"
+                }).length}
               </p>
               <p className="text-xs text-muted-foreground">Critical</p>
             </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Status dropdown ──────────────────────────────────────────
+function StatusDropdown({ current, onSelect, disabled }: {
+  current: DocumentStatus
+  onSelect: (s: DocumentStatus) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const cfg = STATUS_CONFIG[current]
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+        className={cn(
+          "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-[8px] font-bold leading-none",
+          current === "not_started" && "border-muted-foreground/30 bg-background hover:border-primary/50",
+          current === "gathering" && "border-blue-400 bg-blue-100 dark:bg-blue-900/40 text-blue-600",
+          current === "ready" && "border-emerald-500 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600",
+          current === "submitted" && "border-primary bg-primary/20 text-primary",
+          current === "expiring" && "border-amber-500 bg-amber-100 dark:bg-amber-900/40 text-amber-600",
+          current === "expired" && "border-red-500 bg-red-100 dark:bg-red-900/40 text-red-600",
+        )}
+        title={cfg.label}
+      >
+        {current === "not_started" ? "" : current[0].toUpperCase()}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-8 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-36">
+            {STATUS_ORDER.map((s) => {
+              const sc = STATUS_CONFIG[s]
+              return (
+                <button
+                  key={s}
+                  onClick={() => { onSelect(s); setOpen(false) }}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors flex items-center gap-2",
+                    s === current && "bg-muted/30 font-medium"
+                  )}
+                >
+                  <span className={cn("w-2 h-2 rounded-full shrink-0", sc.bg)} />
+                  <span className={sc.color}>{sc.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Detail drawer (external link, notes, expiry date) ────────
+function DocumentDetailDrawer({ entry, onSave, isLoading }: {
+  entry: DocumentStatusEntry
+  onSave: (fields: Partial<DocumentStatusEntry>) => Promise<void>
+  isLoading: boolean
+}) {
+  const [link, setLink] = useState(entry.externalLink || "")
+  const [notes, setNotes] = useState(entry.notes || "")
+  const [expiryDate, setExpiryDate] = useState(entry.expiryDate?.split("T")[0] || "")
+  const [linkError, setLinkError] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    // Validate link
+    if (link && !link.startsWith("https://")) {
+      setLinkError("Link must start with https://")
+      return
+    }
+    setLinkError("")
+    setSaving(true)
+    try {
+      await onSave({
+        externalLink: link || undefined,
+        notes: notes || undefined,
+        expiryDate: expiryDate ? new Date(expiryDate).toISOString() : undefined,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="px-4 pb-4 pl-14 space-y-3 border-t border-border bg-muted/5">
+      {/* External link */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+          <LinkIcon className="w-3 h-3" /> External link (Google Drive, Dropbox, etc.)
+        </label>
+        <input
+          type="url"
+          value={link}
+          onChange={(e) => { setLink(e.target.value); setLinkError("") }}
+          placeholder="https://drive.google.com/..."
+          className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        {linkError && <p className="text-xs text-destructive mt-1">{linkError}</p>}
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+          <StickyNote className="w-3 h-3" /> Notes
+        </label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add notes about this document..."
+          rows={2}
+          className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+        />
+      </div>
+
+      {/* Expiry date */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+          <CalendarClock className="w-3 h-3" /> Expiry date (user-set, e.g. bank statements valid 3 months)
+        </label>
+        <input
+          type="date"
+          value={expiryDate}
+          onChange={(e) => setExpiryDate(e.target.value)}
+          className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      {/* Save button */}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={handleSave} disabled={saving || isLoading}>
+          {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+          Save details
+        </Button>
+      </div>
     </div>
   )
 }

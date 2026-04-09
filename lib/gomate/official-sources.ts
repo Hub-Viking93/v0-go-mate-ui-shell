@@ -24,6 +24,7 @@ export interface CountrySources {
   banking?: string;         // Central bank or financial regulator
   employment?: string;      // Labor ministry or job portal
   safety?: string;          // Police, emergency, travel advisory
+  tax?: string;             // Tax authority or revenue service
 }
 
 export interface EmbassyPattern {
@@ -165,7 +166,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.immobilienscout24.de/",
     banking: "https://www.bundesbank.de/en/",
     employment: "https://www.arbeitsagentur.de/en/welcome",
-    safety: "https://www.polizei.de/"
+    safety: "https://www.polizei.de/",
+    tax: "https://www.bzst.de/EN/"
   },
   
   "Portugal": {
@@ -174,7 +176,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.idealista.pt/",
     banking: "https://www.bportugal.pt/en",
     employment: "https://www.iefp.pt/",
-    safety: "https://www.psp.pt/"
+    safety: "https://www.psp.pt/",
+    tax: "https://www.portaldasfinancas.gov.pt/at/html/index.html"
   },
   
   "Spain": {
@@ -183,7 +186,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.idealista.com/",
     banking: "https://www.bde.es/bde/en/",
     employment: "https://www.sepe.es/",
-    safety: "https://www.policia.es/"
+    safety: "https://www.policia.es/",
+    tax: "https://sede.agenciatributaria.gob.es/"
   },
   
   "Netherlands": {
@@ -192,7 +196,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.funda.nl/",
     banking: "https://www.dnb.nl/en/",
     employment: "https://www.werk.nl/",
-    safety: "https://www.politie.nl/"
+    safety: "https://www.politie.nl/",
+    tax: "https://www.belastingdienst.nl/wps/wcm/connect/en/home/home"
   },
   
   "United Kingdom": {
@@ -201,7 +206,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.rightmove.co.uk/",
     banking: "https://www.bankofengland.co.uk/",
     employment: "https://www.gov.uk/jobsearch",
-    safety: "https://www.police.uk/"
+    safety: "https://www.police.uk/",
+    tax: "https://www.gov.uk/government/organisations/hm-revenue-customs"
   },
   
   "France": {
@@ -210,7 +216,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.seloger.com/",
     banking: "https://www.banque-france.fr/en",
     employment: "https://www.pole-emploi.fr/",
-    safety: "https://www.police-nationale.interieur.gouv.fr/"
+    safety: "https://www.police-nationale.interieur.gouv.fr/",
+    tax: "https://www.impots.gouv.fr/portail/"
   },
   
   "Italy": {
@@ -219,7 +226,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.immobiliare.it/",
     banking: "https://www.bancaditalia.it/",
     employment: "https://www.anpal.gov.it/",
-    safety: "https://www.poliziadistato.it/"
+    safety: "https://www.poliziadistato.it/",
+    tax: "https://www.agenziaentrate.gov.it/portale/web/english"
   },
   
   "Sweden": {
@@ -228,7 +236,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.hemnet.se/",
     banking: "https://www.riksbank.se/en-gb/",
     employment: "https://arbetsformedlingen.se/other-languages/english-engelska",
-    safety: "https://polisen.se/en/"
+    safety: "https://polisen.se/en/",
+    tax: "https://www.skatteverket.se/servicelankar/otherlanguages/inenglish.4.12815e4f14a62bc048f4edc.html"
   },
   
   "Switzerland": {
@@ -237,7 +246,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.homegate.ch/",
     banking: "https://www.snb.ch/en/",
     employment: "https://www.arbeit.swiss/",
-    safety: "https://www.fedpol.admin.ch/fedpol/en/home.html"
+    safety: "https://www.fedpol.admin.ch/fedpol/en/home.html",
+    tax: "https://www.estv.admin.ch/estv/en/home.html"
   },
   
   "Austria": {
@@ -246,7 +256,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.willhaben.at/iad/immobilien",
     banking: "https://www.oenb.at/en/",
     employment: "https://www.ams.at/",
-    safety: "https://www.polizei.gv.at/"
+    safety: "https://www.polizei.gv.at/",
+    tax: "https://www.bmf.gv.at/en.html"
   },
   
   "Ireland": {
@@ -255,7 +266,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.daft.ie/",
     banking: "https://www.centralbank.ie/",
     employment: "https://www.gov.ie/en/service/40cf48-find-a-job/",
-    safety: "https://www.garda.ie/"
+    safety: "https://www.garda.ie/",
+    tax: "https://www.revenue.ie/en/home.aspx"
   },
   
   "Poland": {
@@ -264,7 +276,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.otodom.pl/",
     banking: "https://www.nbp.pl/homen.aspx",
     employment: "https://www.praca.gov.pl/",
-    safety: "https://www.policja.pl/"
+    safety: "https://www.policja.pl/",
+    tax: "https://www.podatki.gov.pl/en/"
   },
   
   "Czech Republic": {
@@ -273,7 +286,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.sreality.cz/",
     banking: "https://www.cnb.cz/en/",
     employment: "https://www.mpsv.cz/web/en",
-    safety: "https://www.policie.cz/"
+    safety: "https://www.policie.cz/",
+    tax: "https://www.financnisprava.cz/en/"
   },
   
   "Hungary": {
@@ -282,7 +296,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://ingatlan.com/",
     banking: "https://www.mnb.hu/en",
     employment: "https://nfsz.munka.hu/",
-    safety: "https://www.police.hu/"
+    safety: "https://www.police.hu/",
+    tax: "https://nav.gov.hu/en"
   },
   
   "Denmark": {
@@ -291,7 +306,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.boligportal.dk/",
     banking: "https://www.nationalbanken.dk/en",
     employment: "https://jobnet.dk/",
-    safety: "https://politi.dk/en"
+    safety: "https://politi.dk/en",
+    tax: "https://skat.dk/en-us"
   },
   
   "Norway": {
@@ -300,7 +316,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.finn.no/realestate/",
     banking: "https://www.norges-bank.no/en/",
     employment: "https://www.nav.no/en/home",
-    safety: "https://www.politiet.no/en/"
+    safety: "https://www.politiet.no/en/",
+    tax: "https://www.skatteetaten.no/en/"
   },
   
   "Belgium": {
@@ -309,7 +326,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.immoweb.be/",
     banking: "https://www.nbb.be/en",
     employment: "https://www.actiris.brussels/en/",
-    safety: "https://www.police.be/"
+    safety: "https://www.police.be/",
+    tax: "https://finance.belgium.be/en/taxation"
   },
   
   "Greece": {
@@ -318,7 +336,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.spitogatos.gr/",
     banking: "https://www.bankofgreece.gr/en/",
     employment: "https://www.dypa.gov.gr/",
-    safety: "https://www.astynomia.gr/"
+    safety: "https://www.astynomia.gr/",
+    tax: "https://www.aade.gr/en"
   },
   
   "Finland": {
@@ -327,7 +346,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.oikotie.fi/",
     banking: "https://www.suomenpankki.fi/en/",
     employment: "https://www.te-palvelut.fi/en/",
-    safety: "https://poliisi.fi/en/"
+    safety: "https://poliisi.fi/en/",
+    tax: "https://www.vero.fi/en/"
   },
   
   "Croatia": {
@@ -336,7 +356,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.njuskalo.hr/nekretnine",
     banking: "https://www.hnb.hr/home",
     employment: "https://www.hzz.hr/",
-    safety: "https://mup.gov.hr/"
+    safety: "https://mup.gov.hr/",
+    tax: "https://www.porezna-uprava.hr/"
   },
 
   // =========================================================================
@@ -349,7 +370,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://suumo.jp/",
     banking: "https://www.boj.or.jp/en/",
     employment: "https://www.hellowork.mhlw.go.jp/",
-    safety: "https://www.npa.go.jp/english/"
+    safety: "https://www.npa.go.jp/english/",
+    tax: "https://www.nta.go.jp/english/"
   },
   
   "South Korea": {
@@ -358,7 +380,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zigbang.com/",
     banking: "https://www.bok.or.kr/eng/main/main.do",
     employment: "https://www.work.go.kr/",
-    safety: "https://www.police.go.kr/eng/index.do"
+    safety: "https://www.police.go.kr/eng/index.do",
+    tax: "https://www.nts.go.kr/english/main.do"
   },
   
   "Thailand": {
@@ -367,7 +390,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.ddproperty.com/",
     banking: "https://www.bot.or.th/en/",
     employment: "https://www.doe.go.th/",
-    safety: "https://www.royalthaipolice.go.th/"
+    safety: "https://www.royalthaipolice.go.th/",
+    tax: "https://www.rd.go.th/english/"
   },
   
   "Singapore": {
@@ -376,7 +400,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyguru.com.sg/",
     banking: "https://www.mas.gov.sg/",
     employment: "https://www.mycareersfuture.gov.sg/",
-    safety: "https://www.police.gov.sg/"
+    safety: "https://www.police.gov.sg/",
+    tax: "https://www.iras.gov.sg/"
   },
   
   "UAE": {
@@ -385,7 +410,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyfinder.ae/",
     banking: "https://www.centralbank.ae/en",
     employment: "https://www.mohre.gov.ae/en/services/work-permit.aspx",
-    safety: "https://www.dubaipolice.gov.ae/"
+    safety: "https://www.dubaipolice.gov.ae/",
+    tax: "https://tax.gov.ae/en/"
   },
   
   "India": {
@@ -394,7 +420,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.99acres.com/",
     banking: "https://www.rbi.org.in/",
     employment: "https://www.ncs.gov.in/",
-    safety: "https://www.mha.gov.in/"
+    safety: "https://www.mha.gov.in/",
+    tax: "https://www.incometax.gov.in/iec/foportal/"
   },
   
   "Vietnam": {
@@ -403,7 +430,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://batdongsan.com.vn/",
     banking: "https://www.sbv.gov.vn/",
     employment: "https://www.molisa.gov.vn/",
-    safety: "https://bocongan.gov.vn/"
+    safety: "https://bocongan.gov.vn/",
+    tax: "https://www.gdt.gov.vn/wps/portal/english"
   },
   
   "Malaysia": {
@@ -412,7 +440,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyguru.com.my/",
     banking: "https://www.bnm.gov.my/",
     employment: "https://www.mohr.gov.my/",
-    safety: "https://www.rmp.gov.my/"
+    safety: "https://www.rmp.gov.my/",
+    tax: "https://www.hasil.gov.my/"
   },
   
   "Indonesia": {
@@ -421,7 +450,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.rumah123.com/",
     banking: "https://www.bi.go.id/en/",
     employment: "https://kemnaker.go.id/",
-    safety: "https://www.polri.go.id/"
+    safety: "https://www.polri.go.id/",
+    tax: "https://www.pajak.go.id/"
   },
   
   "Philippines": {
@@ -430,7 +460,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.lamudi.com.ph/",
     banking: "https://www.bsp.gov.ph/",
     employment: "https://www.dole.gov.ph/",
-    safety: "https://pnp.gov.ph/"
+    safety: "https://pnp.gov.ph/",
+    tax: "https://www.bir.gov.ph/"
   },
   
   "Taiwan": {
@@ -439,7 +470,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.591.com.tw/",
     banking: "https://www.cbc.gov.tw/en/",
     employment: "https://www.mol.gov.tw/",
-    safety: "https://www.npa.gov.tw/"
+    safety: "https://www.npa.gov.tw/",
+    tax: "https://www.ntbt.gov.tw/English/"
   },
   
   "Hong Kong": {
@@ -448,7 +480,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.28hse.com/",
     banking: "https://www.hkma.gov.hk/",
     employment: "https://www.labour.gov.hk/",
-    safety: "https://www.police.gov.hk/"
+    safety: "https://www.police.gov.hk/",
+    tax: "https://www.ird.gov.hk/eng/"
   },
 
   // =========================================================================
@@ -461,7 +494,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zillow.com/",
     banking: "https://www.federalreserve.gov/",
     employment: "https://www.dol.gov/",
-    safety: "https://www.usa.gov/crime"
+    safety: "https://www.usa.gov/crime",
+    tax: "https://www.irs.gov/"
   },
   
   "Canada": {
@@ -470,7 +504,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.realtor.ca/",
     banking: "https://www.bankofcanada.ca/",
     employment: "https://www.jobbank.gc.ca/",
-    safety: "https://www.rcmp-grc.gc.ca/"
+    safety: "https://www.rcmp-grc.gc.ca/",
+    tax: "https://www.canada.ca/en/revenue-agency.html"
   },
   
   "Mexico": {
@@ -479,7 +514,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.inmuebles24.com/",
     banking: "https://www.banxico.org.mx/",
     employment: "https://www.empleo.gob.mx/",
-    safety: "https://www.gob.mx/segob"
+    safety: "https://www.gob.mx/segob",
+    tax: "https://www.sat.gob.mx/"
   },
   
   "Brazil": {
@@ -488,7 +524,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zapimoveis.com.br/",
     banking: "https://www.bcb.gov.br/en",
     employment: "https://empregabrasil.mte.gov.br/",
-    safety: "https://www.gov.br/pf/pt-br"
+    safety: "https://www.gov.br/pf/pt-br",
+    tax: "https://www.gov.br/receitafederal/pt-br"
   },
   
   "Argentina": {
@@ -497,7 +534,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zonaprop.com.ar/",
     banking: "https://www.bcra.gob.ar/",
     employment: "https://www.argentina.gob.ar/trabajo",
-    safety: "https://www.argentina.gob.ar/seguridad"
+    safety: "https://www.argentina.gob.ar/seguridad",
+    tax: "https://www.afip.gob.ar/"
   },
   
   "Chile": {
@@ -506,7 +544,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.portalinmobiliario.com/",
     banking: "https://www.bcentral.cl/",
     employment: "https://www.chilevalora.cl/",
-    safety: "https://www.carabineros.cl/"
+    safety: "https://www.carabineros.cl/",
+    tax: "https://www.sii.cl/"
   },
   
   "Colombia": {
@@ -515,7 +554,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.fincaraiz.com.co/",
     banking: "https://www.banrep.gov.co/",
     employment: "https://www.mintrabajo.gov.co/",
-    safety: "https://www.policia.gov.co/"
+    safety: "https://www.policia.gov.co/",
+    tax: "https://www.dian.gov.co/"
   },
   
   "Costa Rica": {
@@ -524,7 +564,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/costa-rica",
     banking: "https://www.bccr.fi.cr/",
     employment: "https://www.mtss.go.cr/",
-    safety: "https://www.seguridadpublica.go.cr/"
+    safety: "https://www.seguridadpublica.go.cr/",
+    tax: "https://www.hacienda.go.cr/"
   },
   
   "Panama": {
@@ -533,7 +574,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/panama",
     banking: "https://www.superbancos.gob.pa/",
     employment: "https://www.mitradel.gob.pa/",
-    safety: "https://www.policia.gob.pa/"
+    safety: "https://www.policia.gob.pa/",
+    tax: "https://dgi.mef.gob.pa/"
   },
   
   "Peru": {
@@ -542,7 +584,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.adondevivir.com/",
     banking: "https://www.bcrp.gob.pe/",
     employment: "https://www.gob.pe/mtpe",
-    safety: "https://www.policia.gob.pe/"
+    safety: "https://www.policia.gob.pe/",
+    tax: "https://www.sunat.gob.pe/"
   },
 
   // =========================================================================
@@ -555,7 +598,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.realestate.com.au/",
     banking: "https://www.rba.gov.au/",
     employment: "https://www.seek.com.au/",
-    safety: "https://www.afp.gov.au/"
+    safety: "https://www.afp.gov.au/",
+    tax: "https://www.ato.gov.au/"
   },
   
   "New Zealand": {
@@ -564,7 +608,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.trademe.co.nz/property",
     banking: "https://www.rbnz.govt.nz/",
     employment: "https://www.seek.co.nz/",
-    safety: "https://www.police.govt.nz/"
+    safety: "https://www.police.govt.nz/",
+    tax: "https://www.ird.govt.nz/"
   },
   
   "Fiji": {
@@ -573,7 +618,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.fijirealestate.com/",
     banking: "https://www.rbf.gov.fj/",
     employment: "https://www.employment.gov.fj/",
-    safety: "https://www.fiji.gov.fj/police"
+    safety: "https://www.fiji.gov.fj/police",
+    tax: "https://www.frcs.org.fj/"
   },
 
   // =========================================================================
@@ -586,7 +632,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.property24.com/",
     banking: "https://www.resbank.co.za/",
     employment: "https://www.labour.gov.za/",
-    safety: "https://www.saps.gov.za/"
+    safety: "https://www.saps.gov.za/",
+    tax: "https://www.sars.gov.za/"
   },
   
   "Morocco": {
@@ -595,7 +642,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.mubawab.ma/",
     banking: "https://www.bkam.ma/",
     employment: "https://www.anapec.org/",
-    safety: "https://www.police.gov.ma/"
+    safety: "https://www.police.gov.ma/",
+    tax: "https://www.tax.gov.ma/"
   },
   
   "Egypt": {
@@ -604,7 +652,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyfinder.eg/",
     banking: "https://www.cbe.org.eg/",
     employment: "https://www.manpower.gov.eg/",
-    safety: "https://www.moi.gov.eg/"
+    safety: "https://www.moi.gov.eg/",
+    tax: "https://www.eta.gov.eg/"
   },
   
   "Kenya": {
@@ -613,7 +662,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.buyrentkenya.com/",
     banking: "https://www.centralbank.go.ke/",
     employment: "https://www.labour.go.ke/",
-    safety: "https://www.nationalpolice.go.ke/"
+    safety: "https://www.nationalpolice.go.ke/",
+    tax: "https://www.kra.go.ke/"
   },
   
   "Nigeria": {
@@ -622,7 +672,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertypro.ng/",
     banking: "https://www.cbn.gov.ng/",
     employment: "https://www.labour.gov.ng/",
-    safety: "https://www.npf.gov.ng/"
+    safety: "https://www.npf.gov.ng/",
+    tax: "https://www.firs.gov.ng/"
   },
 
   // =========================================================================
@@ -635,7 +686,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.imobiliare.ro/",
     banking: "https://www.bnr.ro/",
     employment: "https://www.anofm.ro/",
-    safety: "https://www.politiaromana.ro/"
+    safety: "https://www.politiaromana.ro/",
+    tax: "https://www.anaf.ro/"
   },
   
   "Bulgaria": {
@@ -644,7 +696,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.imot.bg/",
     banking: "https://www.bnb.bg/",
     employment: "https://www.az.government.bg/",
-    safety: "https://www.mvr.bg/en/"
+    safety: "https://www.mvr.bg/en/",
+    tax: "https://www.nra.bg/en/"
   },
   
   "Estonia": {
@@ -653,7 +706,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.kv.ee/",
     banking: "https://www.eestipank.ee/en",
     employment: "https://www.tootukassa.ee/en",
-    safety: "https://www.politsei.ee/en/"
+    safety: "https://www.politsei.ee/en/",
+    tax: "https://www.emta.ee/en"
   },
   
   "Latvia": {
@@ -662,7 +716,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.ss.lv/",
     banking: "https://www.bank.lv/en/",
     employment: "https://www.nva.gov.lv/en",
-    safety: "https://www.vp.gov.lv/"
+    safety: "https://www.vp.gov.lv/",
+    tax: "https://www.vid.gov.lv/en"
   },
   
   "Lithuania": {
@@ -671,7 +726,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.aruodas.lt/",
     banking: "https://www.lb.lt/en/",
     employment: "https://uzt.lt/en/",
-    safety: "https://policija.lt/"
+    safety: "https://policija.lt/",
+    tax: "https://www.vmi.lt/evmi/en/"
   },
   
   "Slovakia": {
@@ -680,7 +736,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.nehnutelnosti.sk/",
     banking: "https://www.nbs.sk/en/",
     employment: "https://www.upsvr.gov.sk/",
-    safety: "https://www.minv.sk/?policia"
+    safety: "https://www.minv.sk/?policia",
+    tax: "https://www.financnasprava.sk/en/"
   },
   
   "Slovenia": {
@@ -689,7 +746,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.nepremicnine.net/",
     banking: "https://www.bsi.si/en/",
     employment: "https://www.ess.gov.si/",
-    safety: "https://www.policija.si/"
+    safety: "https://www.policija.si/",
+    tax: "https://www.fu.gov.si/en/"
   },
   
   "Malta": {
@@ -698,7 +756,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.maltapark.com/",
     banking: "https://www.centralbankmalta.org/",
     employment: "https://jobsplus.gov.mt/",
-    safety: "https://pulizija.gov.mt/"
+    safety: "https://pulizija.gov.mt/",
+    tax: "https://cfr.gov.mt/"
   },
   
   "Luxembourg": {
@@ -707,7 +766,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.athome.lu/",
     banking: "https://www.bcl.lu/en/",
     employment: "https://adem.public.lu/en.html",
-    safety: "https://police.public.lu/"
+    safety: "https://police.public.lu/",
+    tax: "https://impotsdirects.public.lu/en.html"
   },
   
   "Cyprus": {
@@ -716,7 +776,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.bazaraki.com/real-estate/",
     banking: "https://www.centralbank.cy/",
     employment: "https://www.mlsi.gov.cy/",
-    safety: "https://www.police.gov.cy/"
+    safety: "https://www.police.gov.cy/",
+    tax: "https://www.mof.gov.cy/mof/TAX/taxdep.nsf/"
   },
   
   "Iceland": {
@@ -725,7 +786,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.mbl.is/fasteignir/",
     banking: "https://www.cb.is/",
     employment: "https://www.vinnumalastofnun.is/en",
-    safety: "https://www.logreglan.is/english/"
+    safety: "https://www.logreglan.is/english/",
+    tax: "https://www.rsk.is/english/"
   },
   
   "Serbia": {
@@ -734,7 +796,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.nekretnine.rs/",
     banking: "https://www.nbs.rs/en/",
     employment: "https://www.nsz.gov.rs/",
-    safety: "https://www.mup.gov.rs/"
+    safety: "https://www.mup.gov.rs/",
+    tax: "https://www.purs.gov.rs/en.html"
   },
   
   "Albania": {
@@ -743,7 +806,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.merrjep.al/",
     banking: "https://www.bankofalbania.org/",
     employment: "https://www.shkp.gov.al/",
-    safety: "https://www.asp.gov.al/"
+    safety: "https://www.asp.gov.al/",
+    tax: "https://www.tatime.gov.al/"
   },
   
   "Montenegro": {
@@ -752,7 +816,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.nekretnine.me/",
     banking: "https://www.cbcg.me/en",
     employment: "https://www.zzzcg.me/",
-    safety: "https://www.gov.me/en/mup"
+    safety: "https://www.gov.me/en/mup",
+    tax: "https://www.tax.gov.me/"
   },
   
   "North Macedonia": {
@@ -761,7 +826,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.pazar3.mk/",
     banking: "https://www.nbrm.mk/",
     employment: "https://av.gov.mk/",
-    safety: "https://mvr.gov.mk/"
+    safety: "https://mvr.gov.mk/",
+    tax: "https://www.ujp.gov.mk/"
   },
 
   // =========================================================================
@@ -774,7 +840,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.fang.com/",
     banking: "https://www.pbc.gov.cn/en/",
     employment: "https://www.mohrss.gov.cn/",
-    safety: "https://www.mps.gov.cn/"
+    safety: "https://www.mps.gov.cn/",
+    tax: "https://www.chinatax.gov.cn/"
   },
   
   "Israel": {
@@ -783,7 +850,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.yad2.co.il/",
     banking: "https://www.boi.org.il/en/",
     employment: "https://www.gov.il/en/departments/ministry_of_labor",
-    safety: "https://www.police.gov.il/"
+    safety: "https://www.police.gov.il/",
+    tax: "https://www.gov.il/en/departments/israel_tax_authority"
   },
   
   "Jordan": {
@@ -792,7 +860,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://jo.opensooq.com/",
     banking: "https://www.cbj.gov.jo/",
     employment: "https://mol.gov.jo/",
-    safety: "https://www.psd.gov.jo/"
+    safety: "https://www.psd.gov.jo/",
+    tax: "https://www.istd.gov.jo/"
   },
   
   "Qatar": {
@@ -801,7 +870,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyfinder.qa/",
     banking: "https://www.qcb.gov.qa/",
     employment: "https://www.adlsa.gov.qa/",
-    safety: "https://www.moi.gov.qa/"
+    safety: "https://www.moi.gov.qa/",
+    tax: "https://www.gta.gov.qa/en/"
   },
   
   "Saudi Arabia": {
@@ -810,7 +880,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://sa.aqar.fm/",
     banking: "https://www.sama.gov.sa/en-us/",
     employment: "https://hrsd.gov.sa/en",
-    safety: "https://www.moi.gov.sa/"
+    safety: "https://www.moi.gov.sa/",
+    tax: "https://zatca.gov.sa/en/"
   },
   
   "Bahrain": {
@@ -819,7 +890,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyfinder.bh/",
     banking: "https://www.cbb.gov.bh/",
     employment: "https://www.lmra.bh/",
-    safety: "https://www.interior.gov.bh/"
+    safety: "https://www.interior.gov.bh/",
+    tax: "https://www.nbr.gov.bh/"
   },
   
   "Kuwait": {
@@ -828,7 +900,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.4sale.com.kw/",
     banking: "https://www.cbk.gov.kw/",
     employment: "https://www.manpower.gov.kw/",
-    safety: "https://www.moi.gov.kw/"
+    safety: "https://www.moi.gov.kw/",
+    tax: "https://mof.gov.kw/en/"
   },
   
   "Oman": {
@@ -837,7 +910,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.propertyfinder.om/",
     banking: "https://cbo.gov.om/",
     employment: "https://www.mol.gov.om/",
-    safety: "https://www.rop.gov.om/"
+    safety: "https://www.rop.gov.om/",
+    tax: "https://tms.taxoman.gov.om/"
   },
   
   "Sri Lanka": {
@@ -846,7 +920,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.lankapropertyweb.com/",
     banking: "https://www.cbsl.gov.lk/",
     employment: "https://www.labourdept.gov.lk/",
-    safety: "https://www.police.lk/"
+    safety: "https://www.police.lk/",
+    tax: "https://www.ird.gov.lk/"
   },
   
   "Nepal": {
@@ -855,7 +930,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://hamrobazaar.com/",
     banking: "https://www.nrb.org.np/",
     employment: "https://moless.gov.np/",
-    safety: "https://www.nepalpolice.gov.np/"
+    safety: "https://www.nepalpolice.gov.np/",
+    tax: "https://ird.gov.np/"
   },
   
   "Bangladesh": {
@@ -864,7 +940,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.bproperty.com/",
     banking: "https://www.bb.org.bd/",
     employment: "https://bmet.gov.bd/",
-    safety: "https://www.police.gov.bd/"
+    safety: "https://www.police.gov.bd/",
+    tax: "https://nbr.gov.bd/"
   },
   
   "Cambodia": {
@@ -873,7 +950,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.realestate.com.kh/",
     banking: "https://www.nbc.gov.kh/",
     employment: "https://www.mlvt.gov.kh/",
-    safety: "https://www.police.gov.kh/"
+    safety: "https://www.police.gov.kh/",
+    tax: "https://www.tax.gov.kh/"
   },
   
   "Myanmar": {
@@ -882,7 +960,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.imyanmarhouse.com/",
     banking: "https://www.cbm.gov.mm/",
     employment: "https://www.mol.gov.mm/",
-    safety: "https://www.mip.gov.mm/"
+    safety: "https://www.mip.gov.mm/",
+    tax: "https://www.ird.gov.mm/"
   },
   
   "Pakistan": {
@@ -891,7 +970,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zameen.com/",
     banking: "https://www.sbp.org.pk/",
     employment: "https://ophrd.gov.pk/",
-    safety: "https://www.police.gov.pk/"
+    safety: "https://www.police.gov.pk/",
+    tax: "https://www.fbr.gov.pk/"
   },
   
   "Kazakhstan": {
@@ -900,7 +980,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://krisha.kz/",
     banking: "https://www.nationalbank.kz/",
     employment: "https://www.enbek.kz/",
-    safety: "https://www.gov.kz/memleket/entities/qriim"
+    safety: "https://www.gov.kz/memleket/entities/qriim",
+    tax: "https://kgd.gov.kz/en"
   },
 
   // =========================================================================
@@ -913,7 +994,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.gallito.com.uy/",
     banking: "https://www.bcu.gub.uy/",
     employment: "https://www.mtss.gub.uy/",
-    safety: "https://www.minterior.gub.uy/"
+    safety: "https://www.minterior.gub.uy/",
+    tax: "https://www.dgi.gub.uy/"
   },
   
   "Ecuador": {
@@ -922,7 +1004,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.plusvalia.com/",
     banking: "https://www.bce.fin.ec/",
     employment: "https://www.trabajo.gob.ec/",
-    safety: "https://www.ministeriodegobierno.gob.ec/"
+    safety: "https://www.ministeriodegobierno.gob.ec/",
+    tax: "https://www.sri.gob.ec/"
   },
   
   "Bolivia": {
@@ -931,7 +1014,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.clasificados.com.bo/",
     banking: "https://www.bcb.gob.bo/",
     employment: "https://www.mintrabajo.gob.bo/",
-    safety: "https://www.policia.bo/"
+    safety: "https://www.policia.bo/",
+    tax: "https://www.impuestos.gob.bo/"
   },
   
   "Paraguay": {
@@ -940,7 +1024,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.clasipar.com.py/",
     banking: "https://www.bcp.gov.py/",
     employment: "https://www.mtess.gov.py/",
-    safety: "https://www.policianacional.gov.py/"
+    safety: "https://www.policianacional.gov.py/",
+    tax: "https://www.set.gov.py/"
   },
   
   "Guatemala": {
@@ -949,7 +1034,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/guatemala",
     banking: "https://www.banguat.gob.gt/",
     employment: "https://www.mintrabajo.gob.gt/",
-    safety: "https://pnc.gob.gt/"
+    safety: "https://pnc.gob.gt/",
+    tax: "https://portal.sat.gob.gt/"
   },
   
   "Honduras": {
@@ -958,7 +1044,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/honduras",
     banking: "https://www.bch.hn/",
     employment: "https://www.trabajo.gob.hn/",
-    safety: "https://www.policianacional.gob.hn/"
+    safety: "https://www.policianacional.gob.hn/",
+    tax: "https://www.sar.gob.hn/"
   },
   
   "Nicaragua": {
@@ -967,7 +1054,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/nicaragua",
     banking: "https://www.bcn.gob.ni/",
     employment: "https://www.mitrab.gob.ni/",
-    safety: "https://www.policia.gob.ni/"
+    safety: "https://www.policia.gob.ni/",
+    tax: "https://www.dgi.gob.ni/"
   },
   
   "El Salvador": {
@@ -976,7 +1064,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.encuentra24.com/el-salvador",
     banking: "https://www.bcr.gob.sv/",
     employment: "https://www.mtps.gob.sv/",
-    safety: "https://www.pnc.gob.sv/"
+    safety: "https://www.pnc.gob.sv/",
+    tax: "https://www.mh.gob.sv/"
   },
   
   "Dominican Republic": {
@@ -985,7 +1074,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.corotos.com.do/",
     banking: "https://www.bancentral.gov.do/",
     employment: "https://mt.gob.do/",
-    safety: "https://www.policianacional.gob.do/"
+    safety: "https://www.policianacional.gob.do/",
+    tax: "https://dgii.gov.do/"
   },
   
   "Jamaica": {
@@ -994,7 +1084,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jamaicaclassifiedsonline.com/",
     banking: "https://boj.org.jm/",
     employment: "https://www.mlss.gov.jm/",
-    safety: "https://www.jcf.gov.jm/"
+    safety: "https://www.jcf.gov.jm/",
+    tax: "https://www.tajportal.gov.jm/"
   },
 
   // =========================================================================
@@ -1007,7 +1098,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.mubawab.tn/",
     banking: "https://www.bct.gov.tn/",
     employment: "https://www.emploi.gov.tn/",
-    safety: "https://www.interieur.gov.tn/"
+    safety: "https://www.interieur.gov.tn/",
+    tax: "https://www.finances.gov.tn/"
   },
   
   "Ghana": {
@@ -1016,7 +1108,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.meqasa.com/",
     banking: "https://www.bog.gov.gh/",
     employment: "https://www.melr.gov.gh/",
-    safety: "https://police.gov.gh/"
+    safety: "https://police.gov.gh/",
+    tax: "https://gra.gov.gh/"
   },
   
   "Tanzania": {
@@ -1025,7 +1118,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.zoomtanzania.com/",
     banking: "https://www.bot.go.tz/",
     employment: "https://www.kazi.go.tz/",
-    safety: "https://www.polisi.go.tz/"
+    safety: "https://www.polisi.go.tz/",
+    tax: "https://www.tra.go.tz/"
   },
   
   "Uganda": {
@@ -1034,7 +1128,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.lamudi.co.ug/",
     banking: "https://www.bou.or.ug/",
     employment: "https://www.mglsd.go.ug/",
-    safety: "https://www.upf.go.ug/"
+    safety: "https://www.upf.go.ug/",
+    tax: "https://www.ura.go.ug/"
   },
   
   "Rwanda": {
@@ -1043,7 +1138,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jumia.rw/",
     banking: "https://www.bnr.rw/",
     employment: "https://www.mifotra.gov.rw/",
-    safety: "https://www.police.gov.rw/"
+    safety: "https://www.police.gov.rw/",
+    tax: "https://www.rra.gov.rw/"
   },
   
   "Ethiopia": {
@@ -1052,7 +1148,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://ethiopianproperties.com/",
     banking: "https://www.nbe.gov.et/",
     employment: "https://www.molsa.gov.et/",
-    safety: "https://www.efp.gov.et/"
+    safety: "https://www.efp.gov.et/",
+    tax: "https://www.mor.gov.et/"
   },
   
   "Senegal": {
@@ -1061,7 +1158,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.expat-dakar.com/",
     banking: "https://www.bceao.int/",
     employment: "https://www.emploi.gouv.sn/",
-    safety: "https://www.dgpn.sn/"
+    safety: "https://www.dgpn.sn/",
+    tax: "https://www.impotsetdomaines.gouv.sn/"
   },
   
   "Ivory Coast": {
@@ -1070,7 +1168,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jumia-house.ci/",
     banking: "https://www.bceao.int/",
     employment: "https://www.emploi.gouv.ci/",
-    safety: "https://www.police.gouv.ci/"
+    safety: "https://www.police.gouv.ci/",
+    tax: "https://www.dgi.gouv.ci/"
   },
   
   "Mauritius": {
@@ -1079,7 +1178,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.lexpressproperty.com/",
     banking: "https://www.bom.mu/",
     employment: "https://labour.govmu.org/",
-    safety: "https://police.govmu.org/"
+    safety: "https://police.govmu.org/",
+    tax: "https://www.mra.mu/"
   },
   
   "Namibia": {
@@ -1088,7 +1188,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.myproperty.com.na/",
     banking: "https://www.bon.com.na/",
     employment: "https://mol.gov.na/",
-    safety: "https://www.nampol.gov.na/"
+    safety: "https://www.nampol.gov.na/",
+    tax: "https://www.ird.gov.na/"
   },
 
   // =========================================================================
@@ -1101,7 +1202,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://realt.by/",
     banking: "https://www.nbrb.by/",
     employment: "https://www.mintrud.gov.by/",
-    safety: "https://mvd.gov.by/"
+    safety: "https://mvd.gov.by/",
+    tax: "https://www.nalog.gov.by/"
   },
   
   "Ukraine": {
@@ -1110,7 +1212,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://dom.ria.com/",
     banking: "https://bank.gov.ua/",
     employment: "https://www.dcz.gov.ua/",
-    safety: "https://www.npu.gov.ua/"
+    safety: "https://www.npu.gov.ua/",
+    tax: "https://tax.gov.ua/en/"
   },
   
   "Moldova": {
@@ -1119,7 +1222,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.999.md/",
     banking: "https://www.bnm.md/",
     employment: "https://www.anofm.md/",
-    safety: "https://politia.md/"
+    safety: "https://politia.md/",
+    tax: "https://www.sfs.md/"
   },
   
   "Georgia": {
@@ -1128,7 +1232,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.myhome.ge/",
     banking: "https://nbg.gov.ge/",
     employment: "https://worknet.gov.ge/",
-    safety: "https://police.ge/"
+    safety: "https://police.ge/",
+    tax: "https://rs.ge/en"
   },
   
   "Armenia": {
@@ -1137,7 +1242,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.list.am/",
     banking: "https://www.cba.am/",
     employment: "https://employment.am/",
-    safety: "https://www.police.am/"
+    safety: "https://www.police.am/",
+    tax: "https://www.petekamutner.am/en/"
   },
   
   "Azerbaijan": {
@@ -1146,7 +1252,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://bina.az/",
     banking: "https://www.cbar.az/",
     employment: "https://www.e-gov.az/en/services/by-category/133",
-    safety: "https://mia.gov.az/"
+    safety: "https://mia.gov.az/",
+    tax: "https://www.taxes.gov.az/en"
   },
   
   "Bosnia and Herzegovina": {
@@ -1155,7 +1262,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.olx.ba/",
     banking: "https://www.cbbh.ba/",
     employment: "https://www.arz.gov.ba/",
-    safety: "https://www.fup.gov.ba/"
+    safety: "https://www.fup.gov.ba/",
+    tax: "https://www.uino.gov.ba/"
   },
   
   "Kosovo": {
@@ -1164,7 +1272,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.merrjep.com/",
     banking: "https://bqk-kos.org/",
     employment: "https://aprk.rks-gov.net/",
-    safety: "https://www.kosovopolice.com/"
+    safety: "https://www.kosovopolice.com/",
+    tax: "https://www.atk-ks.org/"
   },
   
   "Vatican City": {
@@ -1182,7 +1291,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.olx.com.lb/",
     banking: "https://www.bdl.gov.lb/",
     employment: "https://www.labor.gov.lb/",
-    safety: "https://www.isf.gov.lb/"
+    safety: "https://www.isf.gov.lb/",
+    tax: "https://www.finance.gov.lb/"
   },
   
   "Iraq": {
@@ -1191,7 +1301,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.opensooq.com/iq",
     banking: "https://cbi.iq/",
     employment: "https://www.molsa.gov.iq/",
-    safety: "https://moi.gov.iq/"
+    safety: "https://moi.gov.iq/",
+    tax: "https://tax.mof.gov.iq/"
   },
   
   "Iran": {
@@ -1200,7 +1311,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.divar.ir/",
     banking: "https://www.cbi.ir/",
     employment: "https://www.mcls.gov.ir/",
-    safety: "https://www.police.ir/"
+    safety: "https://www.police.ir/",
+    tax: "https://www.tax.gov.ir/"
   },
   
   "Syria": {
@@ -1238,7 +1350,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.olx.uz/",
     banking: "https://cbu.uz/",
     employment: "https://ish.mehnat.uz/",
-    safety: "https://www.iiv.uz/"
+    safety: "https://www.iiv.uz/",
+    tax: "https://soliq.uz/en"
   },
   
   "Tajikistan": {
@@ -1247,7 +1360,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://tj.lalafo.tj/",
     banking: "https://nbt.tj/",
     employment: "https://www.mehnat.tj/",
-    safety: "https://www.vkd.tj/"
+    safety: "https://www.vkd.tj/",
+    tax: "https://andoz.tj/"
   },
   
   "Kyrgyzstan": {
@@ -1256,7 +1370,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.house.kg/",
     banking: "https://www.nbkr.kg/",
     employment: "https://mlsp.gov.kg/",
-    safety: "https://mvd.gov.kg/"
+    safety: "https://mvd.gov.kg/",
+    tax: "https://sti.gov.kg/"
   },
   
   "Mongolia": {
@@ -1265,7 +1380,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.unegui.mn/",
     banking: "https://www.mongolbank.mn/",
     employment: "https://www.mlsp.gov.mn/",
-    safety: "https://police.gov.mn/"
+    safety: "https://police.gov.mn/",
+    tax: "https://mta.mn/"
   },
   
   "Brunei": {
@@ -1274,7 +1390,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.bruneida.com/",
     banking: "https://www.bdcb.gov.bn/",
     employment: "https://www.jpm.gov.bn/",
-    safety: "https://www.police.gov.bn/"
+    safety: "https://www.police.gov.bn/",
+    tax: "https://www.mofe.gov.bn/"
   },
   
   "Laos": {
@@ -1283,7 +1400,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://laos.lalafo.com/",
     banking: "https://www.bol.gov.la/",
     employment: "https://www.molsw.gov.la/",
-    safety: "https://www.mps.gov.la/"
+    safety: "https://www.mps.gov.la/",
+    tax: "https://www.tax.gov.la/"
   },
   
   "Timor-Leste": {
@@ -1291,7 +1409,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.timorleste.tl/",
     banking: "https://www.bancocentral.tl/",
     employment: "https://www.sejd.gov.tl/",
-    safety: "https://www.pntl.gov.tl/"
+    safety: "https://www.pntl.gov.tl/",
+    tax: "https://www.mof.gov.tl/"
   },
   
   "Maldives": {
@@ -1300,7 +1419,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.maldives.com/",
     banking: "https://www.mma.gov.mv/",
     employment: "https://www.employment.gov.mv/",
-    safety: "https://www.police.gov.mv/"
+    safety: "https://www.police.gov.mv/",
+    tax: "https://www.mira.gov.mv/"
   },
 
   // =========================================================================
@@ -1312,7 +1432,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.minrex.gob.cu/es/servicios-consulares",
     banking: "https://www.bc.gob.cu/",
     employment: "https://www.mtss.gob.cu/",
-    safety: "https://www.minint.gob.cu/"
+    safety: "https://www.minint.gob.cu/",
+    tax: "https://www.onat.gob.cu/"
   },
   
   "Haiti": {
@@ -1320,7 +1441,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.mae.gouv.ht/",
     banking: "https://www.brh.ht/",
     employment: "https://www.mast.gouv.ht/",
-    safety: "https://www.pnh.ht/"
+    safety: "https://www.pnh.ht/",
+    tax: "https://www.dgi.gouv.ht/"
   },
   
   "Trinidad and Tobago": {
@@ -1329,7 +1451,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.trinidadexpress.com/classifieds/",
     banking: "https://www.central-bank.org.tt/",
     employment: "https://www.labour.gov.tt/",
-    safety: "https://www.ttps.gov.tt/"
+    safety: "https://www.ttps.gov.tt/",
+    tax: "https://www.ird.gov.tt/"
   },
   
   "Bahamas": {
@@ -1338,7 +1461,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.coldwellbankerbahamas.com/",
     banking: "https://www.centralbankbahamas.com/",
     employment: "https://www.bahamas.gov.bs/",
-    safety: "https://www.royalbahamaspolice.org/"
+    safety: "https://www.royalbahamaspolice.org/",
+    tax: "https://inlandrevenue.finance.gov.bs/"
   },
   
   "Barbados": {
@@ -1347,7 +1471,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.terracaribbeanrealty.com/",
     banking: "https://www.centralbank.org.bb/",
     employment: "https://labour.gov.bb/",
-    safety: "https://www.barbadospolice.gov.bb/"
+    safety: "https://www.barbadospolice.gov.bb/",
+    tax: "https://www.bra.gov.bb/"
   },
   
   "Belize": {
@@ -1356,7 +1481,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.belizerealestate.com/",
     banking: "https://www.centralbank.org.bz/",
     employment: "https://www.labour.gov.bz/",
-    safety: "https://www.police.gov.bz/"
+    safety: "https://www.police.gov.bz/",
+    tax: "https://www.incometaxbelize.gov.bz/"
   },
   
   "Guyana": {
@@ -1365,7 +1491,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.guyanaproperties.com/",
     banking: "https://www.bankofguyana.org.gy/",
     employment: "https://www.mlhsss.gov.gy/",
-    safety: "https://www.guyanapoliceforce.gy/"
+    safety: "https://www.guyanapoliceforce.gy/",
+    tax: "https://www.gra.gov.gy/"
   },
   
   "Suriname": {
@@ -1374,7 +1501,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.suriname.nu/",
     banking: "https://www.cbvs.sr/",
     employment: "https://www.gov.sr/",
-    safety: "https://www.politie.sr/"
+    safety: "https://www.politie.sr/",
+    tax: "https://www.belastingdienst.sr/"
   },
   
   "Grenada": {
@@ -1383,7 +1511,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.century21grenada.com/",
     banking: "https://www.eccb-centralbank.org/",
     employment: "https://www.gov.gd/",
-    safety: "https://www.rgpf.gd/"
+    safety: "https://www.rgpf.gd/",
+    tax: "https://www.ird.gd/"
   },
   
   "Saint Lucia": {
@@ -1392,7 +1521,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.coldwellbankersaintlucia.com/",
     banking: "https://www.eccb-centralbank.org/",
     employment: "https://www.govt.lc/",
-    safety: "https://www.rslpf.com/"
+    safety: "https://www.rslpf.com/",
+    tax: "https://www.ird.gov.lc/"
   },
 
   // =========================================================================
@@ -1405,7 +1535,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.ouedkniss.com/",
     banking: "https://www.bank-of-algeria.dz/",
     employment: "https://www.anem.dz/",
-    safety: "https://www.dgsn.dz/"
+    safety: "https://www.dgsn.dz/",
+    tax: "https://www.mfdgi.gov.dz/"
   },
   
   "Libya": {
@@ -1421,7 +1552,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.meucanto.ao/",
     banking: "https://www.bna.ao/",
     employment: "https://www.maptss.gov.ao/",
-    safety: "https://www.minint.gov.ao/"
+    safety: "https://www.minint.gov.ao/",
+    tax: "https://www.agt.minfin.gov.ao/"
   },
   
   "Mozambique": {
@@ -1430,7 +1562,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.olx.co.mz/",
     banking: "https://www.bancomoc.mz/",
     employment: "https://www.mitrab.gov.mz/",
-    safety: "https://www.mint.gov.mz/"
+    safety: "https://www.mint.gov.mz/",
+    tax: "https://www.at.gov.mz/"
   },
   
   "Zimbabwe": {
@@ -1439,7 +1572,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.classifieds.co.zw/",
     banking: "https://www.rbz.co.zw/",
     employment: "https://www.labour.gov.zw/",
-    safety: "https://www.zrp.gov.zw/"
+    safety: "https://www.zrp.gov.zw/",
+    tax: "https://www.zimra.co.zw/"
   },
   
   "Zambia": {
@@ -1448,7 +1582,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.property24.co.zm/",
     banking: "https://www.boz.zm/",
     employment: "https://www.mlss.gov.zm/",
-    safety: "https://www.zambiapolice.gov.zm/"
+    safety: "https://www.zambiapolice.gov.zm/",
+    tax: "https://www.zra.org.zm/"
   },
   
   "Botswana": {
@@ -1457,7 +1592,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.property24.co.bw/",
     banking: "https://www.bankofbotswana.bw/",
     employment: "https://www.gov.bw/employment-and-labour",
-    safety: "https://www.gov.bw/botswana-police-service"
+    safety: "https://www.gov.bw/botswana-police-service",
+    tax: "https://www.burs.org.bw/"
   },
   
   "Malawi": {
@@ -1466,7 +1602,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.property.mw/",
     banking: "https://www.rbm.mw/",
     employment: "https://www.labour.gov.mw/",
-    safety: "https://www.police.gov.mw/"
+    safety: "https://www.police.gov.mw/",
+    tax: "https://www.mra.mw/"
   },
   
   "Madagascar": {
@@ -1475,7 +1612,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jumia-house.mg/",
     banking: "https://www.banky-foiben-madagasikara.mg/",
     employment: "https://www.emploi.gov.mg/",
-    safety: "https://www.police.gov.mg/"
+    safety: "https://www.police.gov.mg/",
+    tax: "https://www.impots.mg/"
   },
   
   "Cameroon": {
@@ -1484,7 +1622,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jumia.cm/",
     banking: "https://www.beac.int/",
     employment: "https://www.minefop.gov.cm/",
-    safety: "https://www.dgsn.cm/"
+    safety: "https://www.dgsn.cm/",
+    tax: "https://www.impots.cm/"
   },
   
   "Democratic Republic of the Congo": {
@@ -1493,7 +1632,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.jumia.cd/",
     banking: "https://www.bcc.cd/",
     employment: "https://www.travail.gouv.cd/",
-    safety: "https://www.police.gouv.cd/"
+    safety: "https://www.police.gouv.cd/",
+    tax: "https://www.dgi.gouv.cd/"
   },
   
   "Sudan": {
@@ -1524,7 +1664,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.malipages.com/",
     banking: "https://www.bceao.int/",
     employment: "https://www.anpe-mali.org/",
-    safety: "https://www.dgpn.ml/"
+    safety: "https://www.dgpn.ml/",
+    tax: "https://www.dgi.gouv.ml/"
   },
   
   "Niger": {
@@ -1544,7 +1685,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://en.gouv.mc/Government-Institutions/The-Government/Ministry-of-State",
     housing: "https://www.montecarlorealestate.com/",
     banking: "https://www.gouv.mc/Government-Institutions/Directorate-of-Budget-and-Treasury",
-    safety: "https://www.gouv.mc/Government-Institutions/The-Government/Department-of-the-Interior/Public-Security-Department"
+    safety: "https://www.gouv.mc/Government-Institutions/The-Government/Department-of-the-Interior/Public-Security-Department",
+    tax: "https://en.service-public-particuliers.gouv.mc/Tax"
   },
   
   "Andorra": {
@@ -1553,7 +1695,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.habitaclia.ad/",
     banking: "https://www.inaf.ad/",
     employment: "https://www.treball.ad/",
-    safety: "https://www.policia.ad/"
+    safety: "https://www.policia.ad/",
+    tax: "https://www.impostos.ad/"
   },
   
   "Liechtenstein": {
@@ -1562,14 +1705,16 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.immoscout24.li/",
     banking: "https://www.fma-li.li/",
     employment: "https://www.ams.li/",
-    safety: "https://www.landespolizei.li/"
+    safety: "https://www.landespolizei.li/",
+    tax: "https://www.llv.li/en/national-administration/office-of-tax-affairs"
   },
   
   "San Marino": {
     immigration: "https://www.esteri.sm/",
     visa: "https://www.esteri.sm/",
     banking: "https://www.bcsm.sm/",
-    safety: "https://www.gendarmeriarepubblicasanmarino.sm/"
+    safety: "https://www.gendarmeriarepubblicasanmarino.sm/",
+    tax: "https://www.finanze.sm/"
   },
   
   "Russia": {
@@ -1578,7 +1723,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.cian.ru/",
     banking: "https://www.cbr.ru/",
     employment: "https://www.rostrud.gov.ru/",
-    safety: "https://www.mvd.ru/"
+    safety: "https://www.mvd.ru/",
+    tax: "https://www.nalog.gov.ru/eng/"
   },
 
   // =========================================================================
@@ -1597,7 +1743,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.bhutanjobs.bt/",
     banking: "https://www.rma.org.bt/",
     employment: "https://www.molhr.gov.bt/",
-    safety: "https://www.rbp.gov.bt/"
+    safety: "https://www.rbp.gov.bt/",
+    tax: "https://www.drc.gov.bt/"
   },
 
   // =========================================================================
@@ -1609,7 +1756,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.foreignaffairs.gov.ag/",
     housing: "https://www.antiguarealestate.com/",
     banking: "https://www.eccb-centralbank.org/",
-    safety: "https://www.antiguapolice.com/"
+    safety: "https://www.antiguapolice.com/",
+    tax: "https://ird.gov.ag/"
   },
   
   "Saint Kitts and Nevis": {
@@ -1617,7 +1765,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.foreign.gov.kn/",
     housing: "https://www.stkittsrealestate.com/",
     banking: "https://www.eccb-centralbank.org/",
-    safety: "https://www.rskpf.com/"
+    safety: "https://www.rskpf.com/",
+    tax: "https://ird.gov.kn/"
   },
   
   "Saint Vincent and the Grenadines": {
@@ -1625,7 +1774,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.foreign.gov.vc/",
     housing: "https://www.svgrealestate.com/",
     banking: "https://www.eccb-centralbank.org/",
-    safety: "https://www.rsvgpf.org/"
+    safety: "https://www.rsvgpf.org/",
+    tax: "https://ird.gov.vc/"
   },
   
   "Dominica": {
@@ -1633,7 +1783,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.dominica.gov.dm/services/visa-and-immigration",
     housing: "https://www.dominicarealestate.dm/",
     banking: "https://www.eccb-centralbank.org/",
-    safety: "https://www.dominicapolice.dm/"
+    safety: "https://www.dominicapolice.dm/",
+    tax: "https://ird.gov.dm/"
   },
   
   "Venezuela": {
@@ -1642,7 +1793,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.tucasa.com.ve/",
     banking: "https://www.bcv.org.ve/",
     employment: "https://www.mpppst.gob.ve/",
-    safety: "https://www.mpprij.gob.ve/"
+    safety: "https://www.mpprij.gob.ve/",
+    tax: "https://www.seniat.gob.ve/"
   },
 
   // =========================================================================
@@ -1654,7 +1806,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.mae.gov.bf/",
     banking: "https://www.bceao.int/",
     employment: "https://www.anpe.bf/",
-    safety: "https://www.police.gov.bf/"
+    safety: "https://www.police.gov.bf/",
+    tax: "https://www.dgi.bf/"
   },
   
   "Benin": {
@@ -1663,7 +1816,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.expat.com/en/housing/africa/benin/",
     banking: "https://www.bceao.int/",
     employment: "https://www.anpe.bj/",
-    safety: "https://www.police.gouv.bj/"
+    safety: "https://www.police.gouv.bj/",
+    tax: "https://www.impots.bj/"
   },
   
   "Togo": {
@@ -1671,7 +1825,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.mae.gouv.tg/",
     banking: "https://www.bceao.int/",
     employment: "https://www.anpe.tg/",
-    safety: "https://www.securite.gouv.tg/"
+    safety: "https://www.securite.gouv.tg/",
+    tax: "https://www.otr.tg/"
   },
   
   "Chad": {
@@ -1746,7 +1901,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.seychellespropertyonline.com/",
     banking: "https://www.cbs.sc/",
     employment: "https://www.employment.gov.sc/",
-    safety: "https://www.sps.gov.sc/"
+    safety: "https://www.sps.gov.sc/",
+    tax: "https://www.src.gov.sc/"
   },
   
   "Cape Verde": {
@@ -1755,7 +1911,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.imobiliaria.cv/",
     banking: "https://www.bcv.cv/",
     employment: "https://www.emprego.cv/",
-    safety: "https://www.pn.cv/"
+    safety: "https://www.pn.cv/",
+    tax: "https://www.dnre.gov.cv/"
   },
   
   "Guinea": {
@@ -1813,7 +1970,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.gov.ls/",
     banking: "https://www.centralbank.org.ls/",
     employment: "https://www.labour.gov.ls/",
-    safety: "https://www.lmps.org.ls/"
+    safety: "https://www.lmps.org.ls/",
+    tax: "https://www.lra.org.ls/"
   },
   
   "Eswatini": {
@@ -1821,7 +1979,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.gov.sz/index.php/ministries-departments/immigration",
     banking: "https://www.centralbank.org.sz/",
     employment: "https://www.gov.sz/",
-    safety: "https://www.royalswazilandpolice.org.sz/"
+    safety: "https://www.royalswazilandpolice.org.sz/",
+    tax: "https://www.sra.org.sz/"
   },
   
   "Sao Tome and Principe": {
@@ -1841,7 +2000,8 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.hausples.com.pg/",
     banking: "https://www.bankpng.gov.pg/",
     employment: "https://www.labour.gov.pg/",
-    safety: "https://www.police.gov.pg/"
+    safety: "https://www.police.gov.pg/",
+    tax: "https://www.irc.gov.pg/"
   },
   
   "Samoa": {
@@ -1849,14 +2009,16 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     visa: "https://www.mfat.gov.ws/",
     banking: "https://www.cbs.gov.ws/",
     employment: "https://www.mcil.gov.ws/",
-    safety: "https://www.police.gov.ws/"
+    safety: "https://www.police.gov.ws/",
+    tax: "https://www.revenue.gov.ws/"
   },
   
   "Tonga": {
     immigration: "https://www.immigration.gov.to/",
     visa: "https://www.gov.to/",
     banking: "https://www.reservebank.to/",
-    safety: "https://www.police.gov.to/"
+    safety: "https://www.police.gov.to/",
+    tax: "https://www.revenue.gov.to/"
   },
   
   "Vanuatu": {
@@ -1865,14 +2027,16 @@ export const OFFICIAL_SOURCES: Record<string, CountrySources> = {
     housing: "https://www.vanuatuproperty.com/",
     banking: "https://www.rbv.gov.vu/",
     employment: "https://www.dol.gov.vu/",
-    safety: "https://www.police.gov.vu/"
+    safety: "https://www.police.gov.vu/",
+    tax: "https://customsinlandrevenue.gov.vu/"
   },
   
   "Solomon Islands": {
     immigration: "https://www.commerce.gov.sb/",
     visa: "https://evisa.gov.sb/",
     banking: "https://www.cbsi.com.sb/",
-    safety: "https://www.rsipf.gov.sb/"
+    safety: "https://www.rsipf.gov.sb/",
+    tax: "https://www.ird.gov.sb/"
   },
   
   "Kiribati": {
@@ -2110,9 +2274,10 @@ export function getRegistryStats(): {
     housing: 0,
     banking: 0,
     employment: 0,
-    safety: 0
+    safety: 0,
+    tax: 0
   };
-  
+
   for (const sources of Object.values(OFFICIAL_SOURCES)) {
     if (sources.immigration) coverage.immigration++;
     if (sources.visa) coverage.visa++;
@@ -2120,6 +2285,7 @@ export function getRegistryStats(): {
     if (sources.banking) coverage.banking++;
     if (sources.employment) coverage.employment++;
     if (sources.safety) coverage.safety++;
+    if (sources.tax) coverage.tax++;
   }
   
   return {
@@ -2166,6 +2332,7 @@ export function getOfficialSources(country: string): CountryOfficialSources | nu
     banking: sources.banking,
     employment: sources.employment,
     safety: sources.safety,
+    tax: sources.tax,
   };
 }
 
@@ -2183,8 +2350,9 @@ export function getOfficialSourcesArray(country: string): OfficialSource[] {
     banking: "banking",
     employment: "employment",
     safety: "safety",
+    tax: "tax",
   };
-  
+
   const nameMap: Record<keyof CountrySources, string> = {
     immigration: "Immigration Authority",
     visa: "Visa Portal",
@@ -2192,6 +2360,7 @@ export function getOfficialSourcesArray(country: string): OfficialSource[] {
     banking: "Banking Authority",
     employment: "Employment Services",
     safety: "Safety Information",
+    tax: "Tax Authority",
   };
   
   return (Object.entries(sources) as [keyof CountrySources, string | undefined][])

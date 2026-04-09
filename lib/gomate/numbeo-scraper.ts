@@ -911,6 +911,15 @@ export async function compareCostOfLiving(
     return { from: fromData, to: toData, comparison: null }
   }
 
+  // If either side is the generic fallback (no real data), the comparison
+  // is meaningless — both sides would share the same default indices,
+  // producing a bogus "0% difference" result.
+  const isGenericFrom = fromData.source?.includes("generic fallback")
+  const isGenericTo = toData.source?.includes("generic fallback")
+  if (isGenericFrom || isGenericTo) {
+    return { from: fromData, to: toData, comparison: null }
+  }
+
   // Use costOfLivingIndex for comparison when available — these are
   // currency-independent indices relative to NYC = 100, so they
   // produce accurate cross-currency comparisons without conversion.
@@ -919,8 +928,13 @@ export async function compareCostOfLiving(
   const fromRentIndex = fromData.rentIndex || 0
   const toRentIndex = toData.rentIndex || 0
 
+  // If either side lacks a real index, we can't compute a meaningful comparison
+  if (fromIndex === 0 || toIndex === 0) {
+    return { from: fromData, to: toData, comparison: null }
+  }
+
   const rentDiff = fromRentIndex > 0 ? ((toRentIndex - fromRentIndex) / fromRentIndex) * 100 : 0
-  const overallDiff = fromIndex > 0 ? ((toIndex - fromIndex) / fromIndex) * 100 : 0
+  const overallDiff = ((toIndex - fromIndex) / fromIndex) * 100
 
   let summary = ""
   if (overallDiff > 20) {

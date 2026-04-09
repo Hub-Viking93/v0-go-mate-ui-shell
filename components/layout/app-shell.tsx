@@ -15,18 +15,19 @@ import {
   BookOpen,
   ListChecks,
   Settings,
-  Plane,
   Globe,
   LogOut,
   Menu,
+  Shield,
 } from "lucide-react"
+import { LegalFooter } from "@/components/legal-disclaimer"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Visa Tracker", href: "/visa-tracker", icon: Shield },
   { name: "Settling In", href: "/settling-in", icon: ListChecks },
   { name: "Guides", href: "/guides", icon: BookOpen },
-  { name: "Booking", href: "/booking", icon: Plane },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
@@ -149,6 +150,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-20 lg:pb-0">
           {children}
         </div>
+        <LegalFooter />
       </main>
 
       {/* Floating AI Chat Button - visible on all pages except /chat */}

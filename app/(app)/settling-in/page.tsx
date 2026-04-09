@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { ContentDisclaimer } from "@/components/legal-disclaimer"
 import {
   ArrowLeft,
   ListChecks,
@@ -24,6 +25,7 @@ import {
   Users,
   Scale,
   MoreHorizontal,
+  Calendar,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -37,7 +39,10 @@ import {
 } from "@/components/settling-in-task-card"
 import { SETTLING_CATEGORIES } from "@/lib/gomate/settling-in-generator"
 import { ComplianceTimeline } from "@/components/compliance-timeline"
+import { ComplianceCalendar } from "@/components/compliance-calendar"
+import { WellbeingCheckin } from "@/components/wellbeing-checkin"
 import { cn } from "@/lib/utils"
+import { CommonlyForgottenSection } from "@/components/commonly-forgotten-section"
 
 // Map category keys to icons and colors
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -87,8 +92,53 @@ export default function SettlingInPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [planStage, setPlanStage] = useState<string | null>(null)
+  const [planId, setPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<"all" | "first30">("all")
+  const [activeTab, setActiveTab] = useState<"tasks" | "calendar">("tasks")
+
+  // Compute days since arrival
+  const daysSinceArrival = arrivalDate
+    ? Math.floor((Date.now() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24))
+    : null
+
+  // Auto-activate first 30 days mode for first 7 days after arrival
+  useEffect(() => {
+    if (daysSinceArrival !== null && daysSinceArrival >= 0 && daysSinceArrival < 7) {
+      const saved = localStorage.getItem("gomate:settling-view")
+      if (!saved) setViewMode("first30")
+    } else if (daysSinceArrival !== null && daysSinceArrival > 30) {
+      setViewMode("all")
+    } else {
+      const saved = localStorage.getItem("gomate:settling-view")
+      if (saved === "first30" || saved === "all") setViewMode(saved)
+    }
+  }, [daysSinceArrival])
+
+  function handleViewToggle(mode: "all" | "first30") {
+    setViewMode(mode)
+    localStorage.setItem("gomate:settling-view", mode)
+  }
+
+  // Filter tasks for first 30 days mode
+  const filteredTasks = viewMode === "first30"
+    ? tasks.filter((t) =>
+        t.status !== "completed" && (
+          t.is_legal_requirement ||
+          (t.deadline_days !== null && t.deadline_days <= 30)
+        )
+      ).sort((a, b) => {
+        // Legal requirements first
+        if (a.is_legal_requirement !== b.is_legal_requirement) return a.is_legal_requirement ? -1 : 1
+        // Then by deadline_days ASC
+        const aDeadline = a.deadline_days ?? 999
+        const bDeadline = b.deadline_days ?? 999
+        if (aDeadline !== bDeadline) return aDeadline - bDeadline
+        // Then by sort_order
+        return a.sort_order - b.sort_order
+      })
+    : tasks
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -104,6 +154,7 @@ export default function SettlingInPage() {
       }
       const data = await res.json()
       setPlanStage(data.stage || null)
+      setPlanId(data.planId || null)
       setTasks(data.tasks || [])
       setStats(data.stats || null)
       setArrivalDate(data.arrivalDate || null)
@@ -179,10 +230,11 @@ export default function SettlingInPage() {
     })
   }
 
-  // Group tasks by category
+  // Group tasks by category (uses filteredTasks for first30 mode)
+  const tasksForGrouping = viewMode === "first30" ? filteredTasks : tasks
   const grouped = SETTLING_CATEGORIES.map((cat) => ({
     ...cat,
-    tasks: tasks.filter((t) => t.category === cat.key),
+    tasks: tasksForGrouping.filter((t) => t.category === cat.key),
   })).filter((g) => g.tasks.length > 0)
 
   // Tier gate
@@ -219,7 +271,80 @@ export default function SettlingInPage() {
             </Link>
           </Button>
         </div>
+
+        {/* View mode toggle + Day counter */}
+        {generated && tasks.length > 0 && arrivalDate && (
+          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
+            {/* Day counter */}
+            {daysSinceArrival !== null && daysSinceArrival >= 0 && daysSinceArrival <= 30 && viewMode === "first30" && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#5EE89C]" />
+                  <span className="text-white font-bold text-lg">Day {daysSinceArrival + 1}</span>
+                  <span className="text-white/50 text-sm">of 30</span>
+                </div>
+                <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#5EE89C] rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(((daysSinceArrival + 1) / 30) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {viewMode === "first30" && (
+              <span className="text-white/60 text-sm">
+                {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""} remaining
+              </span>
+            )}
+            <div className="flex items-center rounded-lg bg-white/10 p-0.5">
+              <button
+                onClick={() => handleViewToggle("first30")}
+                className={cn(
+                  "px-3 py-1 text-xs rounded-md transition-colors",
+                  viewMode === "first30" ? "bg-white/20 text-white font-medium" : "text-white/60 hover:text-white"
+                )}
+              >
+                First 30 Days
+              </button>
+              <button
+                onClick={() => handleViewToggle("all")}
+                className={cn(
+                  "px-3 py-1 text-xs rounded-md transition-colors",
+                  viewMode === "all" ? "bg-white/20 text-white font-medium" : "text-white/60 hover:text-white"
+                )}
+              >
+                All Tasks
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Tab toggle: Tasks / Calendar */}
+      {!loading && generated && tasks.length > 0 && (
+        <div className="flex items-center rounded-lg border border-border bg-muted/30 p-1 w-fit">
+          <button
+            onClick={() => setActiveTab("tasks")}
+            className={cn(
+              "px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5",
+              activeTab === "tasks" ? "bg-background text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <ListChecks className="w-4 h-4" />
+            Tasks
+          </button>
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={cn(
+              "px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5",
+              activeTab === "calendar" ? "bg-background text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Calendar className="w-4 h-4" />
+            Calendar
+          </button>
+        </div>
+      )}
 
       {/* Loading state */}
       {loading && (
@@ -277,7 +402,7 @@ export default function SettlingInPage() {
             </h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
               Based on your relocation profile, we will create a personalized task list
-              for everything you need to do after arriving at your destination.
+              of common steps to consider after arriving at your destination.
             </p>
           </div>
           <Button onClick={handleGenerate} disabled={generating}>
@@ -352,8 +477,25 @@ export default function SettlingInPage() {
         </div>
       )}
 
-      {/* Compliance Timeline */}
-      {!loading && generated && arrivalDate && tasks.length > 0 && (
+      {/* Content Disclaimer */}
+      {!loading && generated && tasks.length > 0 && <ContentDisclaimer />}
+
+      {/* Wellbeing Check-In */}
+      {!loading && generated && arrivalDate && planStage === "arrived" && (
+        <WellbeingCheckin arrivalDate={arrivalDate} />
+      )}
+
+      {/* Calendar tab */}
+      {!loading && generated && activeTab === "calendar" && tasks.length > 0 && (
+        <ComplianceCalendar
+          tasks={tasks}
+          onMarkDone={(taskId) => handleStatusChange(taskId, "completed")}
+          className="gm-animate-in"
+        />
+      )}
+
+      {/* Compliance Timeline (tasks tab only) */}
+      {!loading && generated && activeTab === "tasks" && arrivalDate && tasks.length > 0 && (
         <ComplianceTimeline
           tasks={tasks}
           arrivalDate={arrivalDate}
@@ -361,8 +503,56 @@ export default function SettlingInPage() {
         />
       )}
 
-      {/* Task categories */}
-      {!loading && generated && grouped.length > 0 && (
+      {/* First 30 Days: flat priority list */}
+      {!loading && generated && activeTab === "tasks" && viewMode === "first30" && filteredTasks.length > 0 && (
+        <div className="gm-card-static overflow-hidden">
+          <div className="p-4 border-b border-border bg-muted/20">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              Focus: Get Settled
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Priority tasks for your first 30 days
+            </p>
+          </div>
+          <div className="border-t border-border">
+            {filteredTasks.map((task) => (
+              <SettlingInTaskCard
+                key={task.id}
+                task={task}
+                arrivalDate={arrivalDate}
+                onStatusChange={handleStatusChange}
+                allTasks={tasks}
+              />
+            ))}
+          </div>
+          <div className="p-3 border-t border-border">
+            <button
+              onClick={() => handleViewToggle("all")}
+              className="text-xs text-primary hover:underline"
+            >
+              See all {tasks.length} tasks →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* First 30 days empty state */}
+      {!loading && generated && activeTab === "tasks" && viewMode === "first30" && filteredTasks.length === 0 && tasks.length > 0 && (
+        <div className="gm-card-static p-6 text-center space-y-3">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+          <p className="text-foreground font-medium">All first 30 days tasks completed!</p>
+          <button
+            onClick={() => handleViewToggle("all")}
+            className="text-sm text-primary hover:underline"
+          >
+            View all tasks →
+          </button>
+        </div>
+      )}
+
+      {/* Task categories (all tasks mode) */}
+      {!loading && generated && activeTab === "tasks" && viewMode === "all" && grouped.length > 0 && (
         <div className="space-y-3">
           {grouped.map((group, groupIdx) => {
             const isExpanded = expandedCategories.has(group.key)
@@ -466,8 +656,17 @@ export default function SettlingInPage() {
         </div>
       )}
 
+      {/* Commonly Forgotten Items */}
+      {!loading && planId && planStage === "arrived" && (
+        <CommonlyForgottenSection
+          planId={planId}
+          destination={undefined}
+          stage="arrived"
+        />
+      )}
+
       {/* Empty state after generation */}
-      {!loading && generated && tasks.length === 0 && (
+      {!loading && generated && activeTab === "tasks" && tasks.length === 0 && (
         <div className="gm-card-static p-8 text-center space-y-3">
           <p className="text-muted-foreground">No tasks found.</p>
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
