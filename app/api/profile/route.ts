@@ -8,6 +8,9 @@ import {
   getOwnedPlan,
 } from "@/lib/gomate/core-state"
 import { computePlanChangeSummary } from "@/lib/gomate/plan-diff"
+import { performVisaResearch } from "@/lib/gomate/research-visa"
+import { performLocalRequirementsResearch } from "@/lib/gomate/research-local-requirements"
+import { performChecklistResearch } from "@/lib/gomate/research-checklist"
 
 // GET - Fetch the current user's plan and profile
 export async function GET() {
@@ -232,10 +235,56 @@ export async function PATCH(req: Request) {
             finalPlan = completedPlan
           }
 
+          // Kick off research for visa, local requirements, and checklist
+          // in the background. /api/research/trigger is gated on plan.locked,
+          // and the chat page calls it before lock — so without this hook
+          // research never runs, and /documents stays empty for the user.
+          // Fire-and-forget: lock returns immediately; research populates
+          // plan.checklist_items, plan.visa_research, plan.local_requirements_research
+          // a few seconds later.
+          if (finalPlan?.research_status !== "in_progress" && finalPlan?.research_status !== "completed") {
+            void (async () => {
+              try {
+                await supabase
+                  .from("relocation_plans")
+                  .update({ research_status: "in_progress" })
+                  .eq("id", currentPlan.id)
+                  .eq("user_id", user.id)
+
+                const results = await Promise.allSettled([
+                  performVisaResearch(supabase, currentPlan.id, user.id, false),
+                  performLocalRequirementsResearch(supabase, currentPlan.id, user.id, false, false),
+                  performChecklistResearch(supabase, user.id, currentPlan.id),
+                ])
+
+                const anyFailed = results.some(
+                  (r) => r.status === "rejected" || (r.status === "fulfilled" && r.value && typeof r.value === "object" && "ok" in r.value && (r.value as { ok: boolean }).ok === false)
+                )
+                await supabase
+                  .from("relocation_plans")
+                  .update({
+                    research_status: anyFailed ? "partial" : "completed",
+                    research_completed_at: new Date().toISOString(),
+                  })
+                  .eq("id", currentPlan.id)
+                  .eq("user_id", user.id)
+              } catch (researchError) {
+                console.error("[GoMate] Post-lock research error:", researchError)
+                await supabase
+                  .from("relocation_plans")
+                  .update({ research_status: "failed" })
+                  .eq("id", currentPlan.id)
+                  .eq("user_id", user.id)
+                  .then(() => undefined, () => undefined)
+              }
+            })()
+          }
+
           // Surface to the client whether the guide is ready yet
           return NextResponse.json({
             plan: attachDerivedPlanState(finalPlan),
             guideReady,
+            researchStarted: true,
           })
         }
       } catch (guideError) {

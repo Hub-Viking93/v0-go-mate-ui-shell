@@ -164,7 +164,7 @@ const TAX_REGISTRATION_MAP: Record<string, TaxRegistrationFallback> = {
       "If you have a Working Holiday Visa, your tax rate is different — make sure your employer knows your visa subclass.",
     ],
   },
-  "UNITED KINGDOM": {
+  UNITED_KINGDOM: {
     idName: "National Insurance Number (NINo)",
     officeName: "HMRC / DWP",
     steps: [
@@ -181,6 +181,31 @@ const TAX_REGISTRATION_MAP: Record<string, TaxRegistrationFallback> = {
     tips: [
       "You can start working before your NINo arrives — give your employer your application reference and they will use an 'emergency tax code' until the real one is assigned.",
       "Make sure HMRC has your correct address — the NINo letter is sent by Royal Mail and is not re-sent if lost in transit.",
+    ],
+  },
+  ITALY: {
+    idName: "Codice Fiscale (Tax Code)",
+    officeName: "Agenzia delle Entrate",
+    steps: [
+      "Apply for a Codice Fiscale at any Agenzia delle Entrate office — bring your passport and a completed AA4/8 form",
+      "EU citizens can get it the same day; non-EU citizens may need to first obtain a residence permit (Permesso di soggiorno) from the Questura",
+      "Receive your Codice Fiscale on a tessera sanitaria card by post within 4–8 weeks (paper certificate available immediately)",
+      "Provide your Codice Fiscale to your employer for payroll (modello CU) and to your bank for any account opening",
+      "Register with the Servizio Sanitario Nazionale (SSN) at your local ASL — required for all residents and tied to the Codice Fiscale",
+      "File your annual tax return (modello 730 or modello Redditi) by the September deadline if you have Italian income or deductible expenses",
+    ],
+    documents: [
+      "Passport",
+      "Completed AA4/8 form (downloadable from agenziaentrate.gov.it)",
+      "Visa or permesso di soggiorno (non-EU)",
+      "Italian address (rental contract or hosting declaration)",
+      "Birth certificate (apostilled and translated, in some cases)",
+    ],
+    estimatedTime: "Same-day for the paper certificate; tessera sanitaria card arrives in 4–8 weeks",
+    cost: "Free for the Codice Fiscale itself; permesso di soggiorno fees vary",
+    tips: [
+      "Without a Codice Fiscale you can't sign a rental contract, open a bank account, or receive a salary in Italy — get this on day 1.",
+      "If you qualify under the Jure Sanguinis citizenship process (Italian descent), you can apply for the Codice Fiscale at the consulate before arriving.",
     ],
   },
   FRANCE: {

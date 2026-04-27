@@ -9,6 +9,7 @@
 
 import { fetchWithRetry } from "./fetch-with-retry"
 import { getCurrencyFromCountry } from "./currency"
+import { estimateCostOfLiving } from "./cost-of-living-estimator"
 
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY // Declare the variable here
@@ -890,8 +891,26 @@ export async function getCostOfLivingFromNumbeo(
     }
   }
 
-  // THIRD: Return generic fallback as last resort
-  console.log("[GoMate] No specific data found, using generic fallback for:", city || country)
+  // THIRD: try the LLM-cached estimator. This replaces the old "1200
+  // placeholder in local currency" behaviour that produced absurd numbers
+  // like 1200 PKR (≈ $4) for Lahore rent. The estimator caches per
+  // (city, country) so subsequent users hit the cache.
+  if (city) {
+    try {
+      const estimate = await estimateCostOfLiving(city, country)
+      if (estimate) {
+        console.log("[GoMate] Using LLM cost-of-living estimate for:", city, country)
+        return estimate
+      }
+    } catch (err) {
+      console.warn("[GoMate] LLM cost-of-living estimator failed:", err instanceof Error ? err.message : err)
+    }
+  }
+
+  // FOURTH (last resort): Return generic fallback. Numbers here are
+  // USD-magnitude placeholders — caller MUST surface an "Estimated" UI
+  // state so the user knows these aren't real for their destination.
+  console.log("[GoMate] Falling through to generic fallback for:", city || country)
   return getGenericFallbackData(city, country)
 }
 

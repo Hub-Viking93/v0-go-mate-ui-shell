@@ -29,6 +29,12 @@ export async function GET(request: Request) {
     )
   }
 
+  // True only when the value really came from a live Numbeo scrape. LLM
+  // estimates and generic fallbacks both flip this to true so the UI's
+  // "Estimated" badge fires.
+  const isLive = (d: { source?: string } | null | undefined) =>
+    typeof d?.source === "string" && d.source.toLowerCase().includes("numbeo")
+
   try {
     // If comparison is requested
     if (compareFrom && compareFromCountry) {
@@ -38,28 +44,29 @@ export async function GET(request: Request) {
         city || country,
         country
       )
-      // Always return a valid response, use generic fallbacks if needed
+      const fromOut = comparison.from || getGenericFallbackData(compareFrom, compareFromCountry)
+      const toOut = comparison.to || getGenericFallbackData(city || country, country)
+      const isFallback =
+        !comparison.from || !comparison.to || !isLive(fromOut) || !isLive(toOut)
       return NextResponse.json({
         ...comparison,
-        from: comparison.from || getGenericFallbackData(compareFrom, compareFromCountry),
-        to: comparison.to || getGenericFallbackData(city || country, country),
-        isFallback: !comparison.from || !comparison.to,
+        from: fromOut,
+        to: toOut,
+        isFallback,
       })
     }
 
     // Single location lookup
     const data = await getCostOfLivingFromNumbeo(country, city || undefined)
-    
+
     if (!data) {
-      // Return generic fallback data instead of 404
       const fallbackData = getGenericFallbackData(city || country, country)
       return NextResponse.json({ ...fallbackData, isFallback: true })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, isFallback: !isLive(data) })
   } catch (error) {
     console.error("[GoMate] Cost of living API error:", error)
-    // Return generic fallback on error instead of 500
     const fallbackData = getGenericFallbackData(city || country, country)
     return NextResponse.json({ ...fallbackData, isFallback: true, error: "Using estimated data" })
   }
