@@ -59,7 +59,10 @@ const RATE_LIMITS_PER_MINUTE: Record<UsageEventType, number> = {
   research: 2,
   guide_generation: 2,
   settling_in_generation: 2,
-  chat_message: 15,
+  // Onboarding has ~20 questions and a real user can blow past 15 in a minute
+  // when they're typing fast. 30/min keeps abuse protection while not
+  // breaking real interview pace.
+  chat_message: 30,
 }
 
 /**

@@ -147,8 +147,14 @@ export async function PATCH(req: Request) {
 
       let finalPlan = lockedPlan
 
-      // Auto-generate a guide when plan is locked. onboarding_completed is set
-      // only after a guide already exists or a new guide insert succeeds.
+      // Auto-generate a guide when plan is locked.
+      //
+      // Bound guide generation by 45 seconds. Real users can wait that long
+      // for a "Locking..." spinner; longer than that the request feels stuck
+      // and the lock should still succeed even if the guide isn't ready yet.
+      // If the guide doesn't finish within the budget we still mark
+      // onboarding_completed so the dashboard isn't stuck in a half-locked
+      // state — the next visit to /api/guides will trigger a fresh generation.
       try {
         const profile = currentPlan.profile_data as Profile
         if (profile.destination) {
@@ -170,27 +176,40 @@ export async function PATCH(req: Request) {
           let guideReady = Boolean(existingGuide)
 
           if (!guideReady) {
-            const guide = await generateGuide(profile)
-            const dbData = guideToDbFormat(guide, user.id, currentPlan.id)
             const planVersion = (currentPlan as Record<string, unknown>).plan_version as number || 1
-            const { error: guideInsertError } = await supabase.from("guides").insert({
-              ...dbData,
-              guide_type: "main",
-              guide_version: 1,
-              plan_version_at_generation: planVersion,
-              profile_snapshot: profile,
-              is_stale: false,
-              is_current: true,
-            })
+            try {
+              const guide = await Promise.race([
+                generateGuide(profile),
+                new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error("guide-gen-timeout-45s")), 45_000)
+                ),
+              ])
+              const dbData = guideToDbFormat(guide, user.id, currentPlan.id)
+              const { error: guideInsertError } = await supabase.from("guides").insert({
+                ...dbData,
+                guide_type: "main",
+                guide_version: 1,
+                plan_version_at_generation: planVersion,
+                profile_snapshot: profile,
+                is_stale: false,
+                is_current: true,
+              })
 
-            if (guideInsertError) {
-              console.error("[GoMate] Error inserting auto-generated guide:", guideInsertError)
-            } else {
-              guideReady = true
+              if (guideInsertError) {
+                console.error("[GoMate] Error inserting auto-generated guide:", guideInsertError)
+              } else {
+                guideReady = true
+              }
+            } catch (genErr) {
+              console.error("[GoMate] Guide generation hit timeout/error during lock:", genErr)
+              // Fall through with guideReady = false — mark onboarding done anyway
             }
           }
 
-          if (guideReady && !lockedPlan.onboarding_completed) {
+          // Always mark onboarding_completed so the user can leave the chat
+          // even if the guide didn't generate in time. /api/guides POST will
+          // be the recovery path.
+          if (!lockedPlan.onboarding_completed) {
             const { data: completedPlan, error: onboardingError } = await supabase
               .from("relocation_plans")
               .update({
@@ -212,11 +231,17 @@ export async function PATCH(req: Request) {
 
             finalPlan = completedPlan
           }
+
+          // Surface to the client whether the guide is ready yet
+          return NextResponse.json({
+            plan: attachDerivedPlanState(finalPlan),
+            guideReady,
+          })
         }
       } catch (guideError) {
         console.error("[GoMate] Error auto-generating guide:", guideError)
       }
-      
+
       return NextResponse.json({ plan: attachDerivedPlanState(finalPlan) })
     }
     

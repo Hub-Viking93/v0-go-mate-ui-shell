@@ -544,14 +544,16 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     category: "legal",
   },
 
-  // HEALTHCARE & SPECIAL NEEDS - Only ask if user mentions or context suggests
+  // HEALTHCARE & SPECIAL NEEDS — always asked so important facts aren't lost.
+  // Users can answer "none" to skip; we don't want to silently drop a stated
+  // medical condition or a pet because the chat never surfaced the question.
   healthcare_needs: {
     key: "healthcare_needs",
     label: "Healthcare Needs",
     intent: "Medical requirements and conditions",
     examples: ["Do you have any ongoing healthcare needs?", "Any medical conditions we should consider for your move?"],
     extractionHints: ["medical", "health", "condition", "medication", "doctor", "treatment", "none"],
-    required: false, // Only ask if user mentions health concerns
+    required: true,
     category: "special",
   },
   pets: {
@@ -560,7 +562,7 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Animals relocating with user",
     examples: ["Will you be bringing any pets?", "Do you have animals that need to travel with you?"],
     extractionHints: ["pet", "dog", "cat", "animal", "bird", "none", "no pets"],
-    required: false, // Only ask if user mentions pets
+    required: true,
     category: "special",
   },
   special_requirements: {

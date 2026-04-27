@@ -517,8 +517,10 @@ async function callLLMForSection(
   const systemPrompt = buildSystemPrompt(ctx)
   const sectionPrompt = section.buildPrompt(ctx)
 
+  // 25s per-section cap. Combined with batch parallelism this keeps the
+  // total enrichment time within ~50s even when sections are slow.
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 45_000)
+  const timeout = setTimeout(() => controller.abort(), 25_000)
 
   try {
     const response = await generateText({
@@ -542,25 +544,16 @@ async function enrichSection(
   section: SectionEnrichment,
   ctx: EnrichmentContext
 ): Promise<{ name: string; result: Record<string, unknown> | null }> {
-  // Attempt 1
+  // Single-attempt with the 25s per-call cap. The retry loop here used to add
+  // up to 50s extra per section which compounded across batches; the
+  // skeleton sections are already credible, so a failed enrichment quietly
+  // falls back to the skeleton rather than holding up the user.
   try {
     const result = await callLLMForSection(section, ctx)
     return { name: section.name, result }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.warn(`[GoMate][Enrichment] ✗ ${section.name} attempt 1 failed:`, msg)
-  }
-
-  // Retry after 2s delay (handles transient rate limits / network errors)
-  await new Promise(r => setTimeout(r, 2000))
-
-  try {
-    console.log(`[GoMate][Enrichment] ↻ ${section.name} retrying...`)
-    const result = await callLLMForSection(section, ctx)
-    return { name: section.name, result }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    console.error(`[GoMate][Enrichment] ✗ ${section.name} attempt 2 failed:`, msg)
+    console.warn(`[GoMate][Enrichment] ✗ ${section.name} failed (using skeleton):`, msg)
     return { name: section.name, result: null }
   }
 }
@@ -631,9 +624,20 @@ export async function enrichGuide(profile: Profile, skeleton: Guide): Promise<Gu
   const activeSections = SECTIONS.filter(s => !s.shouldRun || s.shouldRun(ctx))
   console.log(`[GoMate][Enrichment] Starting per-section enrichment for ${destination} — ${activeSections.length} sections`)
 
-  // 4. Run in batches of 3 (balances parallelism vs OpenRouter rate limits)
+  // 4. Run in batches of 5 with an overall 90s budget. The batches mean we
+  // don't hammer OpenRouter, but a stuck batch can't drag the whole guide
+  // generation past a user-acceptable wait.
   const tasks = activeSections.map(section => () => enrichSection(section, ctx))
-  const results = await runInBatches(tasks, 3)
+  const results = await Promise.race([
+    runInBatches(tasks, 5),
+    new Promise<{ name: string; result: Record<string, unknown> | null }[]>((resolve) =>
+      setTimeout(() => {
+        console.warn("[GoMate][Enrichment] Overall 90s budget hit — using skeleton sections for any unfinished enrichments")
+        // Mark every section as failed so we fall back to skeleton for the rest
+        resolve(activeSections.map((s) => ({ name: s.name, result: null })))
+      }, 90_000)
+    ),
+  ])
 
   // 5. Merge successful results into skeleton
   let guide = { ...skeleton }

@@ -261,6 +261,12 @@ if (!data) {
     return <Minus className="w-4 h-4 text-muted-foreground" />
   }
 
+  // Honesty flag: when the API served generic fallback data instead of a
+  // live Numbeo scrape, surface that to the user. Comparisons mixing live +
+  // fallback are misleading; we tell the user what they're looking at.
+  const isFallback = Boolean((data as { isFallback?: boolean }).isFallback) ||
+    Boolean((comparison as { isFallback?: boolean } | null)?.isFallback)
+
   return (
     <Card className="overflow-hidden">
       {/* Header */}
@@ -272,9 +278,14 @@ if (!data) {
               <h2 className="text-xl font-semibold text-foreground">
                 {city || country}
               </h2>
+              {isFallback && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-medium">
+                  Estimated
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Cost of Living · {data.source}
+              Cost of Living · {isFallback ? "estimated from typical 2024 ranges (live scrape unavailable)" : data.source}
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={fetchData}>

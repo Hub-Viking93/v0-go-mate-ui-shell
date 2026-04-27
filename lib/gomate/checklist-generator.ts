@@ -159,12 +159,17 @@ async function scrapeOfficialSources(
 
     for (const url of urlsToScrape.slice(0, 2)) {
       try {
-        const scrapeResult = await firecrawl.scrapeUrl(url, {
-          formats: ["markdown"],
-          onlyMainContent: true,
-        })
+        const scrapeResult = await Promise.race([
+          firecrawl.scrape(url, {
+            formats: ["markdown"],
+            onlyMainContent: true,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("scrape-timeout-15s")), 15_000)
+          ),
+        ])
 
-        if (scrapeResult.success && scrapeResult.markdown) {
+        if (scrapeResult?.markdown) {
           results.push({
             content: scrapeResult.markdown.slice(0, 5000),
             url,

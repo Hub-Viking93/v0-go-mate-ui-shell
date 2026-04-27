@@ -4,6 +4,7 @@ import { getUserTier, hasFeatureAccess } from "@/lib/gomate/tier"
 import { parseTimeRange } from "@/lib/gomate/text-parsers"
 import type { NormalizedVisaOption, VisaResearchResult } from "@/lib/gomate/research-visa"
 import { normalizeDocumentStatus, type DocumentStatusEntry } from "@/lib/gomate/types/document-status"
+import { buildFallbackVisaResearch } from "@/lib/gomate/visa-fallback"
 
 type ApplicationStatus =
   | "not_started"
@@ -134,7 +135,21 @@ export async function GET() {
   }
 
   const visaApplication = normalizeVisaApplication(plan.visa_application)
-  const visaResearch = (plan.visa_research || null) as VisaResearchResult | null
+  let visaResearch = (plan.visa_research || null) as VisaResearchResult | null
+
+  // If live research is missing or returned no usable visa options, serve the
+  // hand-curated fallback so the user-facing page is never blank. The
+  // returned object is flagged `quality: "fallback"` so the UI can render an
+  // "estimated" state if it wants to.
+  if (!visaResearch || !visaResearch.visaOptions || visaResearch.visaOptions.length === 0) {
+    const profile = (plan.profile_data || {}) as { destination?: string; citizenship?: string; purpose?: string }
+    const fb = buildFallbackVisaResearch(
+      profile.destination || "",
+      profile.citizenship || "",
+      profile.purpose || null
+    )
+    if (fb) visaResearch = fb
+  }
 
   // Filter checklist items to visa-specific documents
   const checklist = plan.checklist_items as { items?: Array<{ id: string; document: string; visaSpecific?: boolean; priority: string; required: boolean; category?: string }> } | null

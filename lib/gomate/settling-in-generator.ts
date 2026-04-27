@@ -92,32 +92,60 @@ async function searchSettlingRequirements(
   citizenship: string,
   city?: string
 ): Promise<string[]> {
-  const results: string[] = []
   const cityStr = city ? ` ${city}` : ""
 
   const queries = [
     `${destination}${cityStr} what to do after arriving checklist new residents`,
     `${destination} city registration residence permit after arrival ${citizenship}`,
     `${destination} open bank account foreign resident requirements`,
-    `${destination} healthcare registration expats newcomers`,
   ]
 
-  for (const query of queries.slice(0, 3)) {
+  // Run queries in parallel with a per-query 12s cap and an overall 25s
+  // budget. If a query is slow it does not block the others, and the whole
+  // research phase cannot exceed 25 seconds.
+  async function runOne(query: string): Promise<string[]> {
     try {
-      const searchResult = await firecrawl.search(query, {
-        limit: 2,
-        scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
-      })
-      if (searchResult.success && searchResult.data) {
-        for (const r of searchResult.data) {
-          if (r.markdown) results.push(r.markdown.slice(0, 3000))
-        }
+      const searchResult = await Promise.race([
+        firecrawl.search(query, {
+          limit: 2,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("search-timeout-12s")), 12_000)
+        ),
+      ])
+      const out: string[] = []
+      // Firecrawl SDK v4: results live under `web`/`news`/`images` arrays.
+      const results: Array<{ markdown?: string }> = []
+      const sd = searchResult as {
+        web?: Array<{ markdown?: string }>
+        news?: Array<{ markdown?: string }>
+        // Older SDK shape, fall through if present:
+        data?: Array<{ markdown?: string }>
       }
+      if (Array.isArray(sd?.web)) results.push(...sd.web)
+      if (Array.isArray(sd?.news)) results.push(...sd.news)
+      if (Array.isArray(sd?.data)) results.push(...sd.data)
+      for (const r of results) {
+        if (r?.markdown) out.push(r.markdown.slice(0, 3000))
+      }
+      return out
     } catch (err) {
       console.warn(`[SettlingGenerator] Search failed: ${query}`, err)
+      return []
     }
   }
-  return results
+
+  const allResults = await Promise.race([
+    Promise.all(queries.map(runOne)).then((arr) => arr.flat()),
+    new Promise<string[]>((resolve) =>
+      setTimeout(() => {
+        console.warn("[SettlingGenerator] Research phase 25s budget hit — moving on with whatever returned")
+        resolve([])
+      }, 25_000)
+    ),
+  ])
+  return allResults
 }
 
 async function scrapeSettlingSources(
@@ -133,11 +161,18 @@ async function scrapeSettlingSources(
 
   for (const url of urls.slice(0, 2)) {
     try {
-      const res = await firecrawl.scrapeUrl(url, {
-        formats: ["markdown"],
-        onlyMainContent: true,
-      })
-      if (res.success && res.markdown) {
+      // Hard 15s cap per scrape so a hanging Firecrawl call cannot stall
+      // the whole settling-in generation request.
+      const res = await Promise.race([
+        firecrawl.scrape(url, {
+          formats: ["markdown"],
+          onlyMainContent: true,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("scrape-timeout-15s")), 15_000)
+        ),
+      ])
+      if (res?.markdown) {
         results.push({ content: res.markdown.slice(0, 4000), url })
       }
     } catch (err) {
@@ -211,11 +246,19 @@ Generate a JSON array of settling-in tasks. Each task MUST have:
 Return ONLY a valid JSON array.`
 
   try {
-    const result = await generateText({
-      model: openrouter("anthropic/claude-sonnet-4"),
-      prompt,
-      maxOutputTokens: 6000,
-    })
+    // Hard 60s cap on the AI generation. Without this the request can run
+    // longer than any user-acceptable wait. If it times out we fall back to
+    // hand-curated defaults that are still credible per destination.
+    const result = await Promise.race([
+      generateText({
+        model: openrouter("anthropic/claude-sonnet-4"),
+        prompt,
+        maxOutputTokens: 6000,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("ai-gen-timeout-60s")), 60_000)
+      ),
+    ])
 
     const jsonMatch = result.text.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
@@ -499,30 +542,53 @@ export async function generateSettlingInPlan(
   const researchSources: string[] = []
   let research: string[] = []
   let scraped: { content: string; url: string }[] = []
+  const overallStart = Date.now()
+  const OVERALL_BUDGET_MS = 90_000
 
   if (firecrawl) {
     console.log("[SettlingGenerator] Starting post-arrival research...")
 
-    research = await searchSettlingRequirements(
-      firecrawl,
-      input.destination,
-      input.citizenship,
-      input.destinationCity
-    )
-
-    scraped = await scrapeSettlingSources(firecrawl, input.destination)
+    // Research + scrape happen in parallel so a slow scrape can't push us
+    // past the budget by itself.
+    const [researchOut, scrapedOut] = await Promise.all([
+      searchSettlingRequirements(
+        firecrawl,
+        input.destination,
+        input.citizenship,
+        input.destinationCity
+      ),
+      scrapeSettlingSources(firecrawl, input.destination),
+    ])
+    research = researchOut
+    scraped = scrapedOut
     scraped.forEach((s) => researchSources.push(s.url))
   }
 
   let tasks: SettlingTask[]
+  const elapsed = Date.now() - overallStart
+  const remaining = OVERALL_BUDGET_MS - elapsed
 
   // Always attempt AI generation — Claude has strong knowledge of country-specific
-  // post-arrival requirements even without web research context
-  try {
-    tasks = await generateSettlingTasksWithAI(input, research, scraped)
-  } catch (error) {
-    console.error("[SettlingGenerator] AI generation failed, using defaults:", error instanceof Error ? error.message : error)
+  // post-arrival requirements even without web research context. But cap by
+  // whatever budget is left after research, never less than 30s.
+  if (remaining < 30_000) {
+    console.warn(`[SettlingGenerator] Only ${remaining}ms of budget left after research; skipping AI gen and using defaults`)
     tasks = getDefaultSettlingTasks(input)
+  } else {
+    try {
+      tasks = await Promise.race([
+        generateSettlingTasksWithAI(input, research, scraped),
+        new Promise<SettlingTask[]>((resolve) =>
+          setTimeout(() => {
+            console.warn(`[SettlingGenerator] AI gen overall budget (${remaining}ms) hit — using defaults`)
+            resolve(getDefaultSettlingTasks(input))
+          }, remaining)
+        ),
+      ])
+    } catch (error) {
+      console.error("[SettlingGenerator] AI generation failed, using defaults:", error instanceof Error ? error.message : error)
+      tasks = getDefaultSettlingTasks(input)
+    }
   }
 
   // Sort by sortOrder

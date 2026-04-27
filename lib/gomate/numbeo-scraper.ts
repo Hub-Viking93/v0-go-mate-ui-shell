@@ -8,6 +8,7 @@
  */
 
 import { fetchWithRetry } from "./fetch-with-retry"
+import { getCurrencyFromCountry } from "./currency"
 
 const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1"
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY // Declare the variable here
@@ -145,17 +146,24 @@ function getNumbeoCountryUrl(country: string): string {
  * Parse Numbeo markdown content to extract cost data
  */
 function parseNumbeoContent(content: string, city: string, country: string): Partial<NumbeoData> {
+  // Resolve the source currency from the country first — Numbeo pages display
+  // values in the local currency by default. The page-text regex was too
+  // narrow and silently mis-tagged BRL/INR/EGP/etc. as USD.
+  const countryCurrency = getCurrencyFromCountry(country) || null
+
   const data: Partial<NumbeoData> = {
     city,
     country,
-    currency: "USD", // Default, will try to extract
+    currency: countryCurrency || "USD",
     source: "Numbeo.com (via Firecrawl)",
     lastUpdated: new Date().toISOString().split("T")[0],
   }
 
-  // Extract currency
-  const currencyMatch = content.match(/(?:EUR|USD|GBP|JPY|SEK|NOK|DKK|CHF|CAD|AUD)/)
-  if (currencyMatch) {
+  // Only override the country-derived currency if the page text contains
+  // a clear ISO code that contradicts it (rare — usually means Numbeo
+  // forced a USD view).
+  const currencyMatch = content.match(/\b(?:EUR|USD|GBP|JPY|CNY|BRL|INR|CAD|AUD|MXN|SEK|NOK|DKK|CHF|PHP|KRW|THB|VND|IDR|MYR|SGD|PLN|CZK|HUF|RON|BGN|TRY|AED|SAR|ILS|ZAR|NGN|EGP|ARS|COP|CLP|NZD|PKR)\b/)
+  if (currencyMatch && !countryCurrency) {
     data.currency = currencyMatch[0]
   }
 
@@ -806,12 +814,14 @@ export function getGenericFallbackData(city?: string, country?: string): NumbeoD
   // Try to get from our fallback database first
   const fallback = getFallbackData(city, country)
   if (fallback) return fallback
-  
-  // Return completely generic data
+
+  // Return completely generic data — but use the country's actual currency
+  // when we can resolve one; default to USD only as a last resort.
+  const resolvedCurrency = (country && getCurrencyFromCountry(country)) || "USD"
   return {
     city: city || "Unknown City",
     country: country || "Unknown Country",
-    currency: "USD",
+    currency: resolvedCurrency,
     rent: { apartment1BedCity: 1200, apartment1BedOutside: 900, apartment3BedCity: 2200, apartment3BedOutside: 1600 },
     utilities: { basic: 150, internet: 50, mobile: 30 },
     food: { mealInexpensive: 15, mealMidRange: 40, mcMeal: 9, domesticBeer: 5, importedBeer: 6, cappuccino: 4, water1_5L: 1.5, milk1L: 1.5, bread: 2, eggs12: 3.5, chicken1kg: 10, rice1kg: 2, apples1kg: 3 },

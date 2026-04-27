@@ -34,6 +34,7 @@ import {
 } from "@/lib/gomate/web-research"
 import { fetchWithRetry } from "@/lib/gomate/fetch-with-retry"
 import { checkUsageLimit, recordUsage } from "@/lib/gomate/usage-guard"
+import { normalizeCountryName, normalizeCityName } from "@/lib/gomate/country-name-normalizer"
 
 export const maxDuration = 30
 
@@ -276,7 +277,33 @@ export async function POST(req: Request) {
           fieldAttempts[pendingFieldKey_preExtraction] = (fieldAttempts[pendingFieldKey_preExtraction] || 0) + 1
           const attempts = fieldAttempts[pendingFieldKey_preExtraction]
 
-          if (attempts >= 5) {
+          // Plain free-text fields (no enum, no yes/no) — accept the user's
+          // raw answer earlier so the chat doesn't loop. Names, ages,
+          // children's ages, language skill, special requirements, etc.
+          // belong here.
+          const FREETEXT_EARLY_ACCEPT: Set<string> = new Set([
+            "children_ages",
+            "language_skill",
+            "special_requirements",
+            "healthcare_needs",
+            "pets",
+            "prior_visa",
+            "education_level",
+            "study_funding",
+            "settlement_reason",
+            "monthly_income",
+            "monthly_budget",
+            "savings_available",
+            "income_history_months",
+          ])
+
+          const isFreeText =
+            !YES_NO_FIELDS.has(pendingFieldKey_preExtraction) &&
+            FREETEXT_EARLY_ACCEPT.has(pendingFieldKey_preExtraction)
+          const forceAcceptThreshold = isFreeText ? 2 : 5
+          const focusedThreshold = isFreeText ? 1 : 3
+
+          if (attempts >= forceAcceptThreshold) {
             // Force-accept: use the raw user message as the field value
             let forcedValue = lastUserText.trim()
             if (YES_NO_FIELDS.has(pendingFieldKey_preExtraction)) {
@@ -284,11 +311,11 @@ export async function POST(req: Request) {
               if (normalized) forcedValue = normalized
             }
             if (forcedValue) {
-              console.warn(`[GoMate] Force-accepting "${forcedValue}" for stuck field "${pendingFieldKey_preExtraction}" after ${attempts} attempts`)
+              console.warn(`[GoMate] Force-accepting "${forcedValue}" for stuck field "${pendingFieldKey_preExtraction}" after ${attempts} attempts (free-text=${isFreeText})`)
               profile = updateProfile(profile, { [pendingFieldKey_preExtraction]: forcedValue } as Partial<Profile>)
               delete fieldAttempts[pendingFieldKey_preExtraction]
             }
-          } else if (attempts >= 3) {
+          } else if (attempts >= focusedThreshold) {
             // Focused extraction: simpler, more direct prompt targeting just this field
             console.warn(`[GoMate] Attempting focused extraction for "${pendingFieldKey_preExtraction}" (attempt ${attempts})`)
             const focusedResult = await extractProfileDataFocused(lastUserText, pendingFieldKey_preExtraction)
@@ -572,6 +599,11 @@ export async function POST(req: Request) {
         "Connection": "keep-alive",
         "X-GoMate-Profile": encodeURIComponent(JSON.stringify(profile)),
         "X-GoMate-State": interviewState,
+        // Without these the client's filled/pending state goes stale and the
+        // progress bar gets stuck at 94 % even after the backend reaches 100 %
+        // — leaving the user with no review/confirm card.
+        "X-GoMate-Pending-Field": pendingFieldKey || "",
+        "X-GoMate-Filled-Fields": JSON.stringify(getFilledFields(profile)),
       },
     })
   } catch (error) {
@@ -706,7 +738,19 @@ EXTRACTION RULES:
 
 9. YES/NO fields: Extract "yes" or "no"
 10. Numbers: Extract as string ("2" not 2)
-11. Countries/cities: Normalize to proper names ("USA" or "United States", not "the states")
+11. Countries/cities — MUST be canonical English form regardless of how the user phrased them. The downstream country-flag, currency, cost-of-living, and guide systems are keyed on canonical English names; storing foreign-language forms breaks those lookups.
+    - "Japão" / "Japon" → "Japan"
+    - "Tóquio" / "Tokio" → "Tokyo"
+    - "Italia" / "Italie" → "Italy"
+    - "Roma" / "Rom" → "Rome"
+    - "Deutschland" / "Allemagne" → "Germany"
+    - "España" / "Espagne" → "Spain"
+    - "France" / "Francia" → "France"
+    - "México DF" / "Ciudad de México" → "Mexico City"
+    - "Estados Unidos" / "USA" → "United States"
+    - "Reino Unido" / "United Kingdom" → "United Kingdom"
+    - Always remove the home-country suffix from current_location: "São Paulo, Brasil" → keep "São Paulo, Brazil" (translate Brasil → Brazil).
+12. Citizenship — extract the user's PRIMARY nationality from explicit phrasing ("I am Argentinian", "Pakistani", "British"). Ancestry-based citizenship (e.g. "Italian ancestry", "Italian descent", "citizenship by descent") is NOT the user's current citizenship — keep the explicit nationality and use settlement_reason="ancestry" instead.
 
 IMPORTANT: Extract ALL fields mentioned in one message. Don't leave fields empty if the user provided the information.
 Common multi-field messages — extract ALL applicable fields:
@@ -847,6 +891,12 @@ Return {"fields": {}, "confidence": {}} if nothing extractable.`
         if (validConsistency.includes(lowerValue)) {
           result.income_consistency = lowerValue as Profile["income_consistency"]
         }
+      } else if (key === "destination") {
+        const normalized = normalizeCountryName(value)
+        if (normalized) result.destination = normalized as Profile["destination"]
+      } else if (key === "target_city") {
+        const normalized = normalizeCityName(value)
+        if (normalized) result.target_city = normalized as Profile["target_city"]
       } else {
         result[key as keyof Profile] = value as Profile[keyof Profile]
       }
@@ -880,6 +930,22 @@ async function extractProfileDataFocused(
   if (!config) return null
 
   const isYesNo = YES_NO_FIELDS.has(targetField)
+
+  // Field-specific extraction guidance for fields that are otherwise easy
+  // to mis-handle (extractor was looping on these in the previous batch).
+  const fieldGuidance: Partial<Record<AllFieldKey, string>> = {
+    children_ages:
+      'This is a free-text list of ages. ANY mention of numbers, words for numbers ("eight", "five", "three", "ten"), age phrases ("3 years old"), or comma/“and”-separated lists should be extracted verbatim. "Eight and five years old" → "8 and 5 years old". "3" → "3". Do NOT return empty if the user gave any number-like answer.',
+    children_count: 'Extract the integer count as a string. "Two children" → "2". "Just one" → "1". "None" → "0".',
+    years_experience: 'Extract the number of years as a string. "Twelve years" → "12". "Five and a half" → "5.5". "Almost 10" → "10".',
+    income_history_months:
+      'Convert to months. "3 years" → "36 months". "Six months" → "6 months". "Since 2022" → compute and return as months.',
+    monthly_income: 'Extract the number with currency. "About 5000 dollars" → "5000 USD". "6000 EUR" → "6000 EUR".',
+    monthly_budget: 'Extract the number with currency. "1500 GBP a month" → "1500 GBP". "2000 euros" → "2000 EUR".',
+    savings_available: 'Extract the number with currency. "Around 25000 dollars" → "25000 USD".',
+  }
+
+  const guidance = fieldGuidance[targetField]
   const prompt = `You are extracting a SINGLE field from a user's message in a relocation interview.
 
 The user was asked about: "${config.label}" — ${config.intent}
@@ -890,7 +956,9 @@ ${isYesNo ? `This is a yes/no field:
 - Any affirmative response (yes, yeah, sure, definitely, of course, I do, I am, I have): extract "yes"
 - Any negative response (no, nah, not really, I don't, I'm not, never, none): extract "no"
 - "Not really" or "not exactly" = "no"
-- "I'd say so" or "I think so" = "yes"` : `Extract the value as a concise string. For amounts, include the number and currency (e.g. "3000 EUR"). For locations, use "City, Country" format.`}
+- "I'd say so" or "I think so" = "yes"` : guidance ? `Field-specific guidance: ${guidance}` : `Extract the value as a concise string. For amounts, include the number and currency (e.g. "3000 EUR"). For locations, use "City, Country" format.`}
+
+Be permissive: if the user gave you anything that could plausibly be the answer, extract it. Only return empty if the response is completely unrelated.
 
 Respond with JSON: {"fields": {"${targetField}": "extracted value"}, "confidence": {"${targetField}": "explicit"}}
 If you truly cannot extract anything: {"fields": {}, "confidence": {}}`
