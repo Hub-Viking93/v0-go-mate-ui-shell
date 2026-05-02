@@ -263,7 +263,8 @@ The post-arrival chat emits `[TASK_DONE:exact task title]` (title, not UUID). Th
 | `scripts/023` | Phase 4 (master-audit): guide artifact integrity — profile_snapshot, is_current, unique index |
 | `supabase/migrations/024` | Destination images table + hero image columns on guides + storage bucket |
 | `supabase/migrations/025` | Update v1: visa_application + wellbeing_checkins columns on relocation_plans; chat_messages table with RLS |
-| Next: **`026`** | Next migration to write |
+| `supabase/migrations/20260427230000_add_cost_of_living_estimates.sql` | Cost-of-living LLM estimate cache (city, country) → 90-day TTL. **Must be applied via Supabase Studio or `supabase db push`** before the cost-of-living LLM estimator (`lib/gomate/cost-of-living-estimator.ts`) can cache its results — without it the estimator still works but every request hits the LLM. |
+| Next: **`026`** | Next migration to write (use the timestamp form for new ones, e.g. `supabase/migrations/YYYYMMDDHHMMSS_*.sql`) |
 
 ### Migration 004 Gap
 

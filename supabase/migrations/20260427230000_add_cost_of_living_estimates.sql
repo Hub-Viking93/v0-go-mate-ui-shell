@@ -12,9 +12,10 @@ create table if not exists cost_of_living_estimates (
   currency text not null,
   data jsonb not null,
   source text not null default 'llm-estimate',
-  generated_at timestamptz not null default now(),
-  -- Stale after 90 days; the estimator refreshes on demand.
-  stale_at timestamptz generated always as (generated_at + interval '90 days') stored
+  generated_at timestamptz not null default now()
+  -- Staleness (>= 90 days) is computed application-side in
+  -- lib/gomate/cost-of-living-estimator.ts. We avoid a GENERATED column
+  -- here because timestamptz arithmetic isn't immutable in Postgres.
 );
 
 create unique index if not exists cost_of_living_estimates_city_country_idx

@@ -26,3 +26,22 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Test outputs (not committed)
+/test-results
+/playwright-report
+/artifacts
+
+# Local dev scripts (not committed)
+/scripts/check-*.mjs
+/scripts/probe-*.mjs
+/scripts/consolidate-*.mjs
+/scripts/reset-test-usage.mjs
+
+# Local task notes (not committed)
+/task.md
+/task-full-surface.md
