@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js'
+const a = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+const { data: p } = await a.from('relocation_plans')
+  .select('id,stage,research_status,research_completed_at,user_triggered_research_at,visa_research,local_requirements_research')
+  .order('updated_at',{ascending:false}).limit(1).single()
+console.log('plan:', p.id)
+console.log('stage:', p.stage, '| research_status:', p.research_status)
+console.log('user_triggered_research_at:', p.user_triggered_research_at)
+console.log('research_completed_at:', p.research_completed_at)
+console.log('visa_research:', p.visa_research ? 'YES (visaOptions=' + (p.visa_research.visaOptions?.length || 0) + ')' : 'null')
+console.log('local_requirements_research:', p.local_requirements_research ? 'YES' : 'null')

@@ -1,0 +1,134 @@
+Anonymous sign-ins enabled in Supabase. Implement Path C now.                                                         
+                                                                                                                        
+  Build artifacts/gomate/src/pages/landing.tsx (or update wherever /                                                    
+  currently routes — add new file if needed). Wire as default                                                           
+  unauthenticated route in App.tsx.                                                                                     
+                                                                  
+  LANDING PAGE STRUCTURE (single screen, no scroll required):                                                           
+                                                                  
+  1. Top-left: GoMate logo (use existing gomate-avatar at lg size +                                                     
+     "GoMate" wordmark in Instrument Serif).                      
+                                                                                                                        
+  2. Hero (centered, max-width 720px):                                                                                  
+     - Display headline (Instrument Serif, text-5xl on desktop,                                                         
+       text-3xl mobile): "Your AI relocation consultant team"                                                           
+     - Subheadline (Geist Sans, text-lg, muted): "Multi-agent                                                           
+       intelligence grounded in official sources. Built for anyone                                                      
+       moving across borders."                                                                                          
+     - Primary CTA button (deep emerald, large, font-semibold):                                                         
+       "Start your relocation plan"                                                                                     
+     - Subtle secondary link below CTA: "Already have an account? 
+       Sign in" → /auth/login                                                                                           
+                                                                  
+  3. Below hero (subtle row): 3 specialist avatar previews                                                              
+     (Visa Specialist, Tax Strategist, Documents Specialist) with 
+     tiny labels — gives glimpse of multi-agent value prop.                                                             
+                                                                                                                        
+  4. Background: warm cream gradient (cream top → slightly warmer                                                       
+     cream bottom). Reuse design tokens from Phase 1.                                                                   
+                                                                                                                        
+  5. Mobile responsive — hero stacks, CTA full-width on mobile.                                                         
+                                                                                                                        
+  PRIMARY CTA HANDLER:                                                                                                  
+                                                                  
+  ```ts                                                                                                                 
+  async function handleStartCTA() {                               
+    const { data, error } = await supabase.auth.signInAnonymously()
+    if (error) {                                                                                                        
+      toast.error("Couldn't start session — please try again")
+      return                                                                                                            
+    }                                                             
+    navigate('/onboarding')                                                                                             
+  }                                                               
+
+  Anonymous users get full session — onboarding/research/dashboard                                                      
+  work normally because RLS scopes by user_id regardless of
+  is_anonymous flag.                                                                                                    
+                                                                                                                        
+  ANONYMOUS-USER INDICATOR (subtle, in app shell top-right):                                                            
+                                                                                                                        
+  When the current session is anonymous (check                                                                          
+  session.user.is_anonymous in auth context), show:               
+     👤 Guest mode · [Save your progress] (subtle button)                                                               
+  Click → opens save-progress modal (next item).                                                                        
+                                                                                                                        
+  SAVE-PROGRESS MODAL (triggered from anonymous indicator OR after                                                      
+  5 fields populated):                                                                                                  
+                                                                                                                        
+  Trigger logic — fire ONCE per session when:                                                                           
+  - session.user.is_anonymous === true AND
+  - count of populated profile fields >= 5 AND                                                                          
+  - modal hasn't been shown OR dismissed yet (track in localStorage
+  key 'save-progress-shown')                                                                                            
+                                                                                                                        
+  Modal content:                                                                                                        
+  - Title: "Save your progress?"                                                                                        
+  - Body: "Add your email to keep your relocation plan across devices                                                   
+  and sessions. We'll send a magic link — no password needed."       
+  - Email input                                               
+  - Primary button: "Save progress"                                                                                     
+  - Secondary subtle link: "Continue without saving" (closes modal,
+  sets localStorage flag)                                                                                               
+                                                                                                                        
+  On "Save progress" submit:
+                                                                                                                        
+  async function linkEmailToAnonymous(email: string) {            
+    const { error } = await supabase.auth.linkIdentity({                                                                
+      type: 'email',                                                                                                    
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }                                           
+    })                                                            
+    if (error) {
+      toast.error(`Couldn't send magic link: ${error.message}`)                                                         
+      return
+    }                                                                                                                   
+    toast.success("Magic link sent — check your email to confirm")
+  }                                                                                                                     
+  
+  When user clicks magic link, they land on /auth/callback which                                                        
+  upgrades the anonymous user to permanent. All existing data     
+  (relocation_plans, chat_messages, agent_audit, etc.) is preserved                                                     
+  because user_id never changes — only the is_anonymous flag flips                                                      
+  to false.                                                                                                             
+                                                                                                                        
+  ROUTING:                                                                                                              
+                                                                  
+  - / (root, unauthenticated): show landing page                                                                        
+  - / (root, authenticated regardless of anonymous status): redirect
+  to /dashboard or /onboarding based on stage:                                                                          
+    - stage='collecting' AND profile_data is empty → /onboarding                                                        
+    - stage='collecting' AND has fields → /onboarding (continue)                                                        
+    - stage='generating' → /dashboard (with research-in-progress UI)                                                    
+    - stage>='ready_for_pre_departure' → /dashboard                                                                     
+                                                                                                                        
+  EXISTING AUTH ROUTES STAY:                                                                                            
+                                                                                                                        
+  - /auth/sign-up (full email/password signup) — unchanged                                                              
+  - /auth/login (email/password OR magic link) — unchanged        
+  - Anonymous flow is ADDITIVE, not a replacement                                                                       
+                                                                                                                        
+  DO NOT:                                                                                                               
+  - Change any RLS policies                                                                                             
+  - Change any api-server route auth check                                                                              
+  - Migrate any existing user data                                
+  - Touch /api/chat or any other endpoint logic — anonymous auth
+  works through the existing JWT path                                                                                   
+                                                                                                                        
+  Time-box: 90 minutes. After landing renders correctly + anonymous                                                     
+  sign-in works + onboarding starts cleanly for an anonymous user +                                                     
+  save-progress modal appears at 5 fields, you're done.                                                                 
+                                                                                                                        
+  Verify in browser:                                                                                                    
+  1. Open / in incognito → see landing page                                                                             
+  2. Click "Start your relocation plan" → land in /onboarding                                                           
+  3. Inspect Network tab: signInAnonymously call returns 200, JWT in
+  response                                                                                                              
+  4. Inspect Supabase auth.users table: new row with is_anonymous=true                                                  
+  5. Type a bundled message in onboarding → extraction works,         
+  relocation_plans row created tied to anonymous user_id                                                                
+  6. After 5 fields → save-progress modal appears                                                                       
+  7. Submit email in modal → magic link sent (check Inbucket in dev                                                     
+  or your email in production)                                                                                          
+  8. Click magic link → land on /auth/callback → redirected to                                                          
+  /dashboard → check auth.users: is_anonymous flipped to false,                                                         
+  email populated, all relocation_plans data preserved 

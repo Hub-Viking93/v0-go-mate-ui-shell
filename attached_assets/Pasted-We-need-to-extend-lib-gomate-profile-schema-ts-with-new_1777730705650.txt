@@ -1,0 +1,135 @@
+We need to extend lib/gomate/profile-schema.ts with new fields that real relocation agencies ask about. The current 65 fields cover the basics. Add the following.
+
+Posted-worker / corporate-posting fields (required when purpose=work AND duration < 24 months):
+- posting_or_secondment (yes/no): "Is this a corporate posting from your current employer?"
+- home_country_employer (string): employer name in origin country
+- posting_employer_address (string): for posted worker declarations
+- posting_duration_months (number): for A1 certificate (max 24 months in EU)
+- a1_certificate_status: "not_started" | "in_progress" | "obtained" | "not_applicable" - A1 proves social security continuity in EU postings
+- coc_status: "not_started" | "in_progress" | "obtained" | "not_applicable" - Certificate of Coverage for non-EU bilateral treaties (US-Sweden, India-Sweden, etc.)
+- pwd_filed: yes/no - Posted Worker Declaration filed with destination labor authority before work starts (Arbetsmiljöverket in Sweden, ZOLL in Germany)
+
+Prior immigration history (always asked when prior_visa=yes):
+- prior_visa_country (string)
+- prior_visa_type (string)
+- prior_residence_outside_origin (string): countries lived in for 6+ months ever
+
+Document logistics (always asked):
+- birth_certificate_apostille_status: "not_needed" | "in_progress" | "obtained"
+- marriage_certificate_apostille_status: same (only if married)
+- diploma_apostille_status: same (for skilled visa categories)
+- police_clearance_status: "not_needed" | "applied" | "obtained"
+- medical_exam_required: derived from destination + visa type
+
+Trailing spouse / dependent info (when spouse_joining=yes):
+- spouse_career_field (string)
+- spouse_seeking_work (yes/no)
+- spouse_language_skills (low/medium/high)
+- spouse_visa_dependency (string): how their visa derives from primary's
+
+Children specifics (when children_count > 0):
+- children_school_type_preference: "public" | "private" | "international" | "no_preference"
+- children_language_skills_destination: low/medium/high
+- children_special_needs (free text or none)
+- children_birth_certificate_apostille_status: same as parent's
+
+Healthcare specifics (when healthcare_needs ≠ none):
+- chronic_condition_description (free text)
+- prescription_medications (yes/no, with note that some are restricted in destination countries)
+- english_speaking_doctor_required (yes/no)
+
+Pet specifics (when pets ≠ none):
+- pet_microchip_status (yes/no)
+- pet_vaccination_status: "current" | "outdated" | "starting"
+- pet_size_weight (string)
+- pet_breed (string) - some destinations restrict breeds
+- pet_age (string)
+
+Vehicle import:
+- bringing_vehicle (yes/no) - core field
+- vehicle_make_model_year (string, only if bringing_vehicle=yes)
+- vehicle_origin_country (string)
+- vehicle_emission_standard (string) - for EU import compliance
+
+Property / housing intent:
+- home_purchase_intent (yes/no): vs renting
+- rental_budget_max (string): separate from monthly_budget
+- furnished_preference: "furnished" | "unfurnished" | "either"
+- commute_tolerance_minutes (number)
+- accessibility_needs (free text)
+
+Departure-side (when origin has exit tax — Sweden, US, Norway, Eritrea, etc.):
+- departure_tax_filing_required (yes/no, derived from origin)
+- exit_tax_obligations (free text, populated by Tax Strategist agent)
+- pension_continuity_required (yes/no)
+
+Goods shipping (always asked, conditional on bringing things):
+- bringing_personal_effects (yes/no)
+- estimated_goods_volume_cubic_meters (number, only if bringing_personal_effects=yes)
+- goods_shipping_method ("air_freight" | "sea_freight" | "land" | "self_carry")
+- need_storage (yes/no — short-term storage during transition)
+
+Origin departure logistics (always asked):
+- origin_lease_status ("owning" | "renting" | "neither")
+- origin_lease_termination_notice_days (number, typically 30-90 — agency needs this for Departure Origin Services timeline)
+
+Driver's license / mobility (always asked):
+- driver_license_origin (yes/no)
+- driver_license_destination_intent ("use_existing" | "exchange" | "convert" | "not_driving") — EU mutual recognition vs non-EU conversion paths
+
+Working remote during transition (always asked):
+- working_remote_during_transition (yes/no — affects tax residency rules during the move period)
+
+Healthcare continuity specifics (always asked):
+- prescription_medications_list (free text — for restriction checking; Adderall is illegal in Japan, certain CBD products in UAE, codeine restricted in many countries)
+- pre_existing_condition_disclosure_concern (yes/no)
+
+Religious / lifestyle continuity (always asked):
+- religious_practice_required (free text or "none" — affects community matching, dietary needs, schooling considerations)
+
+Embassy registration (always asked):
+- register_with_origin_embassy_intent ("yes" | "no" | "already_registered")
+
+Emergency contacts (always asked):
+- emergency_contact_origin_name (string)
+- emergency_contact_origin_phone (string)
+
+Financial planning beyond core budget (conditional):
+- pre_existing_investments_to_migrate (yes/no)
+- existing_offshore_accounts (yes/no)
+
+Insurance needs beyond healthcare (always asked):
+- insurance_needs_household (yes/no)
+- insurance_needs_vehicle (yes/no/n_a — n_a if not bringing vehicle)
+- insurance_needs_life (yes/no)
+- gap_insurance_needed (yes/no — for transition period between origin coverage end and destination coverage start)
+
+Family visa awareness (when family_count > 0 + visa_role=primary):
+- family_visa_cascade_aware (yes/no — does user understand that primary's visa must be approved first before dependent applications get easier processing)
+
+For each field above, add a FieldConfig entry with: key, label, intent (one-line purpose), examples (2-3 example questions or values), extractionHints (terms the extractor should look for), required (boolean or predicate function checking when this field is required), category, dependsOn (which other field's value triggers this — e.g., posting_or_secondment depends on purpose=work AND duration_months < 24).
+
+CRITICAL — soft enforcement rule for required predicates:
+
+Enforce `required: true` ONLY for the consultant-baseline fields that gate profile completion (origin, destination, intent_type, target_arrival_window, household composition basics, partner/children counts, purpose, visa_role). All the new agency-grade fields above must be added to the schema, but they are CONDITIONAL — they only become required when explicit upstream triggers fire:
+
+- posting_or_secondment, home_country_employer, posting_duration_months, a1_certificate_status, pwd_filed: required only if purpose=work AND posting_or_secondment=yes
+- children_school_type_preference, children_language_skills_destination, children_birth_certificate_apostille_status: required only if children_count > 0
+- pet_microchip_status, pet_vaccination_status, pet_breed, pet_size_weight, pet_age: required only if pets ≠ none
+- chronic_condition_description, prescription_medications, english_speaking_doctor_required: required only if healthcare_needs ≠ none
+- vehicle_make_model_year, vehicle_origin_country, vehicle_emission_standard: required only if bringing_vehicle=yes
+- spouse_career_field, spouse_seeking_work, spouse_language_skills, spouse_visa_dependency: required only if spouse_joining=yes
+- religious_practice_required, register_with_origin_embassy_intent, pre_existing_investments_to_migrate, existing_offshore_accounts: NEVER required — always optional, surfaced only if the user volunteers them
+
+The Question Director must NEVER ask about religion, offshore accounts, pets, schools, apostille, or A1 certificates unless an upstream trigger has fired. If a field's required predicate evaluates to false, it must NOT appear in the result of getRequiredFields(). Otherwise the Question Director will ask judges about religious practice before visa type, which is catastrophic.
+
+Add all keys to ALL_FIELDS array. Make sure FIELD_CONFIG has entries for every new field. Update getRequiredFields() in state-machine.ts so the new conditional fields trigger correctly per the rules above. Update isProfileComplete() so completion requires only the conditionally-relevant new fields (i.e. completion is reachable for a simple profile without ever filling in pet/posting/vehicle/chronic-condition fields). Update FIELD_CONFIG conditional logic accordingly.
+
+Don't touch app/api/chat/route.ts yet. We're just extending the schema. The new fields aren't extracted yet because v2 onboarding doesn't exist yet.
+
+Run `pnpm tsc --noEmit` after to verify no type errors.
+
+When you're done, list every new field you added with its required predicate. Confirm the schema's conditional logic works for these scenarios:
+- Solo moving for work, 14-month posting: should require posting_or_secondment, home_country_employer, posting_duration_months, a1_certificate_status, pwd_filed
+- Family with kids moving permanently: should require children_school_type_preference, children_language_skills_destination, children_birth_certificate_apostille_status (per kid)
+- Person with chronic condition moving with pet: should require chronic_condition_description, prescription_medications, english_speaking_doctor_required, pet_microchip_status, pet_vaccination_status, pet_breed

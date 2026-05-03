@@ -1,0 +1,74 @@
+Manual testing only — no new code unless bugs found.
+
+Run the full research orchestration for these three profiles in your local Replit dev environment:
+
+Profile A — Filipino fiancée moving to Sweden:
+- citizenship=Filipino
+- current_location=Philippines
+- destination=Sweden
+- target_city=Stockholm
+- purpose=settle
+- visa_role=dependent
+- partner_citizenship=Swedish
+- partner_visa_status=citizen
+- relationship_type=fiancé
+- moving_alone=yes (Roselle moves first, Axel is already in Sweden)
+- pets=none
+- children_count=0
+- healthcare_needs=none
+
+Expected specialists dispatched: visa, tax, cost, housing, cultural, documents, healthcare, banking, family_reunion. NOT dispatched: schools, pet, posted_worker, digital_nomad_compliance, job_compliance, departure_tax (Philippines has no exit tax for emigrants, depending on definition), vehicle_import, property_purchase, trailing_spouse_career, pension_continuity.
+
+Profile B — German engineer posted to Stockholm for 18 months:
+- citizenship=German
+- current_location=Germany
+- destination=Sweden
+- target_city=Stockholm
+- purpose=work
+- visa_role=primary
+- moving_alone=no
+- spouse_joining=yes
+- spouse_career_field=marketing
+- spouse_seeking_work=yes
+- spouse_language_skills=medium
+- children_count=2
+- children_ages="8 and 5"
+- children_school_type_preference=international
+- pets=none
+- job_offer=yes
+- posting_or_secondment=yes
+- posting_duration_months=18
+- home_country_employer="Berlin GmbH"
+
+Expected specialists dispatched: visa, tax, cost, housing, cultural, documents, healthcare, banking, schools, posted_worker, family/trailing_spouse, departure_tax (Germany has exit tax under some conditions). NOT dispatched: pet, digital_nomad, vehicle_import (assume not bringing).
+
+Profile C — American digital nomad to Spain solo with chronic condition and dog:
+- citizenship=American
+- current_location=USA
+- destination=Spain
+- target_city=Barcelona
+- purpose=digital_nomad
+- moving_alone=yes
+- monthly_income="6000 USD"
+- income_consistency=stable
+- income_history_months=24
+- remote_income=yes
+- pets=dog
+- pet_breed=Golden Retriever
+- pet_age="5 years"
+- pet_microchip_status=yes
+- pet_vaccination_status=current
+- healthcare_needs=chronic_condition
+- chronic_condition_description="Type 1 diabetes, daily insulin"
+- prescription_medications=yes
+- english_speaking_doctor_required=yes
+
+Expected specialists: visa, tax, cost, housing, cultural, documents, healthcare (deep), banking, pet, digital_nomad_compliance, departure_tax (USA has citizenship-based taxation — extensive exit considerations).
+
+For each profile:
+1. Trigger research via /api/plans/trigger-research (set user_triggered_research_at).
+2. Watch the visible agent panels.
+3. After completion, verify the unified guide has sections from all dispatched specialists.
+4. Verify Critic's output flagged anything specific (e.g., for Profile C: insulin import rules, EU regulations on medical supplies).
+
+Show me the panels for each profile. Show me the Critic's output for each. Fix any specialist that didn't fire when it should have, or vice versa.

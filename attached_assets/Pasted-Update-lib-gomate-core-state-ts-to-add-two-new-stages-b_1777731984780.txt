@@ -1,0 +1,27 @@
+Update lib/gomate/core-state.ts to add two new stages between complete and arrived.
+
+Currently CanonicalPlanStage is "collecting" | "complete" | "arrived" (with archived as a status, not a stage).
+
+Add these new stages:
+- "ready_for_pre_departure" — research is done, guide is rendered. User has not yet clicked "Generate pre-departure checklist".
+- "pre_departure" — user has clicked "Generate pre-departure checklist". Pre-departure timeline is generated and visible. User is doing pre-departure work over weeks.
+
+The full lifecycle becomes: collecting → generating (existing transition state) → complete (existing, kept for backward compatibility, becomes alias for ready_for_pre_departure) → ready_for_pre_departure → pre_departure → arrived.
+
+Update deriveCanonicalStage() to handle the new stages. The transition rules:
+- collecting → generating: when isProfileComplete returns true AND user has clicked "Generate my plan" button (a new column on relocation_plans called user_triggered_research_at)
+- generating → ready_for_pre_departure: when research_status = "completed" or "partial"
+- ready_for_pre_departure → pre_departure: when user has clicked "Generate pre-departure checklist" button (a new column called user_triggered_pre_departure_at)
+- pre_departure → arrived: when user clicks "I have arrived" (existing column arrival_date and onboarding_completed)
+
+Update DerivedPlanAuthority interface to surface canLockPredeparture and canLockArrival booleans.
+
+Update existing logic across the codebase that gates on stage="complete" to also accept stage="ready_for_pre_departure" or stage="pre_departure" where appropriate. Specifically check: app/api/research/trigger (researchEligible should accept ready_for_pre_departure but the user can re-run research even there), app/api/settling-in/* (should require arrived), app/api/guides/[id] (any of complete/ready_for_pre_departure/pre_departure/arrived is fine).
+
+Add migration for the two new columns:
+- relocation_plans.user_triggered_research_at (timestamp, nullable) — tracks when user clicked "Generate my plan"
+- relocation_plans.user_triggered_pre_departure_at (timestamp, nullable) — tracks when user clicked "Generate my pre-departure checklist"
+
+Don't add automatic transitions. Profile complete does NOT auto-trigger research. Research complete does NOT auto-trigger pre-departure. Each transition requires explicit user action via a button click that hits a new POST endpoint.
+
+When you're done, walk me through the stage transitions for a typical user. I want to see the timestamps of each manual trigger.

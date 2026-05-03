@@ -1,0 +1,52 @@
+ We need a landing page at / for the Replit-deployed app. Currently                                                    
+  unauthenticated users hit /auth/login first — bad first impression                                                    
+  for buildathon judges.                                                                                                
+                                                                                                                        
+  Build artifacts/gomate/src/pages/landing.tsx (or update wherever /                                                    
+  currently routes). Wire as the default unauthenticated route in 
+  App.tsx. Authenticated users continue to redirect to /dashboard.                                                      
+                                                                                                                        
+  REQUIREMENTS:                                                                                                         
+                                                                                                                        
+  1. Single screen, no scroll required (judges decide in 5 seconds)                                                     
+  2. Reuses the design system from Phase 1 (warm cream bg, deep emerald
+     primary, Instrument Serif display, Geist Sans body)                                                                
+  3. Hero structure:                                                                                                    
+     - Logo/wordmark top-left                                                                                           
+     - Big serif headline: "Your AI relocation consultant team"                                                         
+     - Subheadline: "Multi-agent intelligence grounded in official                                                      
+       sources. Built for Filipinos moving to Sweden, Germans posted                                                    
+       to Stockholm, Americans relocating to Spain — anyone moving                                                      
+       across borders."                                                                                                 
+     - Primary CTA button (deep emerald, large): "Start your relocation                                                 
+       plan" → routes to /onboarding (NO auth required to start)                                                        
+     - Secondary subtle link: "Already have an account? Sign in" →                                                      
+       /auth/login                                                                                                      
+  4. Below hero: 3 small "your team" agent avatars (Visa, Tax,    
+     Documents specialists) with tiny labels — gives a glimpse of                                                       
+     the multi-agent value prop without needing to scroll                                                               
+  5. Subtle warm gradient bg (cream to slightly warmer cream)                                                           
+  6. Mobile responsive                                                                                                  
+                                                                                                                        
+  CRITICAL — no-auth onboarding bypass:                                                                                 
+  The user must be able to click "Start your relocation plan" and                                                       
+  experience the mascot + first 3-5 questions WITHOUT signing up.                                                       
+  After 5 fields are filled, show a soft modal: "Save your progress                                                     
+  to continue across sessions" with email-only signup (no password —                                                    
+  use Supabase magic link). Skip option exists ("Continue without                                                       
+  saving") for judges who just want to test.                                                                            
+                                                                                                                        
+  The first 5 fields are stored in browser localStorage temporarily.                                                    
+  When user signs up (or skips), localStorage is migrated to                                                            
+  relocation_plans.profile_data tied to the new auth.users.id.                                                          
+                                                                                                                        
+  This bypass is critical for buildathon: judges will NOT sign up to                                                    
+  test. They WILL click the CTA and want to see the product                                                             
+  immediately.                                                                                                          
+                                                                  
+  CTA copy variants to test (pick the one that feels most confident):                                                   
+    - "Start your relocation plan"                                
+    - "Meet your relocation team"                                                                                       
+    - "Plan your move in 30 minutes"                                                                                    
+  
+  Ship the first version, we can iterate copy in 9.4 polish. 

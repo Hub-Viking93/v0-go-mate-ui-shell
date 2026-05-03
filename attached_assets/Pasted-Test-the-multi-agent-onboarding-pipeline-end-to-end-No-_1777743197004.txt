@@ -1,0 +1,33 @@
+Test the multi-agent onboarding pipeline end-to-end. No new code unless tests reveal bugs.
+
+Write a test scenario file at scripts/test-onboarding.mjs (or similar) that runs a sequence of mock onboarding turns and verifies behavior. Don't use a heavy test framework — just a direct script.
+
+Scenario 1 — bundled answer:
+Input message 1: "I'm Axel, 30 years old, moving to Sweden for work next year"
+Expected: Extractor for pending=name returns "Axel" (explicit), additionalFieldsDetected=[birth_year, destination, purpose, target_date]. Validator passes. Profile Writer writes name=Axel. Question Director sees additionals → prioritizes confirming birth_year next ("Just to confirm — you're 30 years old, so born around 1995?").
+
+Scenario 2 — yes/no normalization:
+After above, input message 2: "Yeah that's right"
+Expected: Extractor for pending=birth_year returns "yes" (because pending is yes-or-no in confirmation context — actually wait, birth_year is a number field). Let me reconsider.
+
+Actually scenario 2 should be: Question Director phrased it as "you're 30, born in 1995, correct?" — so the pending field is indirectly a confirmation. Handle this by having Question Director return the next field as birth_year with a confirmation question. Extractor sees "Yeah that's right" against pending=birth_year — and infers from prior context that user is confirming 1995. Returns 1995 with confidence "inferred".
+
+Scenario 3 — invalid answer:
+Input message 3 (after asking destination): "I want to live somewhere warm"
+Expected: Extractor returns "I couldn't tell" (no specific country). Question Director picks up the additionalFieldsDetected, asks clarification: "Got it, somewhere warm — any specific country in mind?"
+
+Scenario 4 — posting detected:
+Continue scenario 1. After establishing destination=Sweden and purpose=work, ask about job_offer. User: "Yes, my company is sending me — it's a 14-month posting." Expected: Extractor extracts job_offer=yes, posting_or_secondment=yes (additional), posting_duration_months=14 (additional). Question Director asks about home_country_employer next.
+
+Scenario 5 — schema bounding:
+Force Question Director to attempt asking about a non-schema field by manually setting profile to nearly-complete with all required filled but one. Check Question Director correctly picks the one remaining required field, never invents a non-schema topic.
+
+Scenario 6 — completion:
+Fill in all required fields. Profile is now complete per isProfileComplete. Send another user message ("Anything else?"). Question Director should return isOnboardingComplete=true with celebrating animation cue. Plan stage should transition to "complete".
+
+Scenario 7 — heavy bundled extraction (the Spine-defining test):
+Input message (single turn): "My name is Axel, I'm 30, moving from Germany to Sweden for a 14-month work posting with my wife and two kids."
+Expected: Extractor (or chained Extractor calls if needed) populates: name=Axel, birth_year≈1995 (from age 30), origin=Germany, destination=Sweden, intent_type=work, posting_or_secondment=yes (from "work posting"), posting_duration_months=14, has_spouse=yes, spouse_joining=yes, has_children=yes, children_count=2. Validator passes all. Profile Writer writes all with audit trail showing the source phrase per field. Question Director then prioritizes the highest-leverage next missing required field (likely target_arrival_window or home_country_employer because posting was triggered).
+This is the test that mirrors the Spine input. If this scenario fails, do NOT move on. The whole user journey collapses without bundled extraction.
+
+Run all scenarios. Show me the output. Fix any failing scenario before moving to Phase 3.

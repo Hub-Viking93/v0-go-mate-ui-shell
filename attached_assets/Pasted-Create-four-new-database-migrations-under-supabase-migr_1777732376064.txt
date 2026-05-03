@@ -1,0 +1,81 @@
+Create four new database migrations under supabase/migrations/. Use the timestamp format: YYYYMMDDHHMMSS_name.sql.
+
+Migration 1: agent_audit table
+- id (uuid, primary key)
+- profile_id (uuid, foreign key to relocation_plans, indexed)
+- agent_name (text, indexed) - e.g., "extractor", "validator", "visa-specialist"
+- model_used (text) - e.g., "claude-haiku-4-5", "claude-sonnet-4-6"
+- phase (text) - "extraction" | "validation" | "research" | "enrichment" | "settling-in" | "chat"
+- field_or_output_key (text) - field key for extraction, section key for research, task ID for settling-in
+- value (jsonb) - the value or output the agent produced
+- confidence (text) - "explicit" | "inferred" | "assumed" | "full" | "partial" | "fallback"
+- source_user_message (text, nullable) - for extraction agents
+- source_url (text, nullable) - for research agents
+- prompt_hash (text) - SHA hash of the prompt sent (for audit, not full prompt to save space)
+- response_hash (text) - SHA hash of the response received
+- validation_rules_applied (jsonb, nullable) - for validator outputs
+- retrieved_at (timestamp)
+- wall_clock_ms (integer) - how long the agent call took
+- tokens_used (integer, nullable)
+- retry_count (integer, default 0)
+
+Add RLS policy: users can only see audit rows for their own profile (joined via relocation_plans.user_id).
+Index: (profile_id, agent_name, retrieved_at DESC).
+
+Migration 2: pre_departure_actions table
+- id (uuid, primary key)
+- profile_id (uuid, foreign key to relocation_plans, indexed)
+- title (text) - e.g., "Apply for A1 certificate"
+- description (text) - the why, in plain language
+- weeks_before_move_start (integer) - when to start
+- weeks_before_move_deadline (integer) - latest acceptable start
+- estimated_duration_days (integer)
+- depends_on (uuid array, nullable) - other action IDs that must complete first
+- documents_needed (text array)
+- official_source_url (text, nullable)
+- pre_filled_form_url (text, nullable) - for actions with structured forms
+- agent_who_added_it (text) - which specialist contributed this action
+- legal_consequence_if_missed (text)
+- status (text, default 'not_started') - "not_started" | "in_progress" | "complete" | "blocked" | "skipped"
+- completed_at (timestamp, nullable)
+- created_at (timestamp, default now())
+- sort_order (integer)
+
+Add RLS policy. Index: (profile_id, weeks_before_move_start).
+
+Migration 3: guide_section_citations table
+- id (uuid, primary key)
+- guide_id (uuid, foreign key to existing guides table, indexed)
+- section_key (text) - e.g., "visa", "budget", "housing", "documents", "posted_worker"
+- paragraph_idx (integer) - position within the section
+- citation_number (integer) - 1, 2, 3 etc., for [1] [2] [3] markers in the prose
+- source_url (text)
+- source_name (text) - human-readable e.g., "Migrationsverket - Residence permit"
+- retrieved_at (timestamp)
+- last_verified_at (timestamp, default = retrieved_at)
+- agent_who_added_it (text) - which section writer or specialist
+- created_at (timestamp, default now())
+
+Add RLS policy (joined via guides → relocation_plans → user_id). Index: (guide_id, section_key, paragraph_idx).
+
+Migration 4: agent_run_log table
+- id (uuid, primary key)
+- profile_id (uuid, foreign key to relocation_plans, indexed)
+- agent_name (text)
+- phase (text)
+- status (text) - "started" | "completed" | "failed" | "retry"
+- prompt_summary (text) - first 200 chars
+- response_summary (text, nullable) - first 200 chars
+- tools_called (text array)
+- validation_passed (boolean, nullable)
+- retry_count (integer, default 0)
+- tokens_used (integer, nullable)
+- wall_clock_ms (integer, nullable)
+- error_message (text, nullable)
+- timestamp (timestamp, default now())
+
+Index: (profile_id, timestamp DESC). RLS policy.
+
+Run the migrations against the local dev Supabase. Verify they apply cleanly. Then run pnpm tsc --noEmit to ensure no type errors anywhere downstream.
+
+When you're done, show me the schema dumps for all four new tables.

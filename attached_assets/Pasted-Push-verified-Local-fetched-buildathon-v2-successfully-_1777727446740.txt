@@ -1,0 +1,210 @@
+Push verified. Local fetched buildathon-v2 successfully and HEAD
+  matches. Aligned views confirmed. Proceeding.                                                                         
+                                                                                                                        
+  Confirmations:                                                                                                        
+                                                                                                                        
+  Option A approved — lib/agents/ as new pnpm workspace package at                                                      
+  repo root, exposed as @workspace/agents, consumed by api-server.
+  Same internal split (_kernel/, coordinators/, specialists/, tools/,                                                   
+  prompts/) as you proposed.                                                                                            
+                                                                                                                        
+  Translation map approved with three notes:                                                                            
+                                               
+  1. Rule 13 (lib/gomate split): the rule "if Express needs it, copy                                                    
+     server-side; do not import across artifact boundaries" is correct,
+     BUT for v2-NEW pure logic that genuinely lives in the agent layer                                                  
+     (not v1 ported code), put it in @workspace/agents from day one                                                     
+     instead of duplicating to artifacts/api-server/src/lib/gomate/. The                                                
+     only things that should live in api-server/src/lib/gomate/ are                                                     
+     v1-ported files the agents call. New logic = @workspace/agents.                                                    
+                                                                                                                        
+  2. Rule 19 (Replit AI integrations): use Replit's Anthropic and                                                       
+     OpenRouter integrations as you described. But specifically for the                                                 
+     Coordinator and Synthesizer roles (which want Opus 4.7), if Replit                                                 
+     doesn't expose Opus 4.7 directly via its Anthropic skill, route                                                    
+     through OpenRouter to anthropic/claude-opus-4-7. Don't downgrade                                                   
+     to Sonnet for orchestration just because Opus access is friction.                                                  
+                                                                                                                        
+  3. Rule 20 (DB migrations): your "save SQL to lib/db/migrations/ +                                                    
+     Drizzle schema mirror + user applies via Supabase dashboard" is                                                    
+     correct. Add: every migration file should have a corresponding                                                     
+     rollback SQL file in the same dir (named <timestamp>_<name>.down.sql).                                             
+     We're moving fast in 24h; rollback safety matters.                                                                 
+                                                                                                                        
+  §3 (prompts likely needing substantive rewrites): your seven flagged                                                  
+  patterns are accurate. I confirm:                                                                                     
+  - DB migration delivery mechanism: substantive rewrite (per rule 20)                                                  
+  - Server Actions: not used in playbook, skip                                                                          
+  - shadcn CLI: trivial path adaptation                                                                                 
+  - SSE in agent panels: substantive rewrite per rule 11                                                                
+  - next/image, next/font, next/dynamic: modest rewrite per rule 16                                                     
+  - Compare page: substantive rewrite per rule 7 (two useQuery calls,                                                   
+    client-side parallel fetch, side-by-side render)                                                                    
+  - lib/gomate split per file: handle case-by-case via rule 13                                                          
+                                                                                                                        
+  Hand-off rule (your §4) approved. For every subsequent prompt I paste:                                                
+  you produce a path-mapped file list + substantive-rewrite callout                                                     
+  BEFORE writing code. I green-light, then you write.                                                                   
+                                                                                                                        
+  Push cadence: continue committing on buildathon-v2. Push to GitHub                                                    
+  at every Wave's stabilize checkpoint (after Wave 1 completes, after                                                   
+  Wave 2 completes, etc.). I'll fetch at those gates to verify.                                                         
+                                                                                                                        
+  Here is the actual text of Prompt 1.1 from the playbook:                                                              
+                                                                                                                        
+  ---PROMPT 1.1 BEGINS---                                                                                               
+                                               
+  This is GoMate. It's a relocation intelligence platform I've been                                                     
+  building for months. Read CLAUDE.md, then docs/audits/backend-audit.md,
+  then lib/gomate/profile-schema.ts, then app/api/chat/route.ts, then                                                   
+  app/(app)/dashboard/page.tsx, then lib/gomate/official-sources.ts,                                                    
+  then lib/gomate/system-prompt.ts. Get a full mental model.                                                            
+                                                                                                                        
+  We are transforming v1 into v2 over the next 24 hours. v2 is not a                                                    
+  guide platform. v2 is a Relocation Agency OS. The user has an agent                                                   
+  team working their entire move lifecycle — pre-departure preparation,                                                 
+  arrival week priorities, post-arrival settlement. Every step has a                                                    
+  clear next action, a deadline, an official-source citation, and                                                       
+  tracking.                                                                                                             
+                                                                                                                        
+  We do not file applications on the user's behalf. We do not sign                                                      
+  leases. But we prepare every piece of paperwork so thoroughly that
+  submission is a 5-minute task. We tell users the exact form, where to                                                 
+  download, what to attach, where to submit, when to submit, processing                                                 
+  time. We pre-fill drafts based on profile data. We track deadlines.                                                   
+  This is what real Swedish relocation agencies do (Prime Relocation,                                                   
+  Sweden Relocators, Nimmersion, Key Relocation, NRG, Hej Relocation,                                                   
+  Alfa Mobility) — minus the parts only humans can do.                                                                  
+                                                                                                                        
+  Architecture principle: kitchen with one head chef and line cooks.                                                    
+  One AI doing four jobs at once is the source of v1's hallucination                                                    
+  bug. We split into focused agents with strict workspaces. Coordinator                                                 
+  head chef per workflow. Specialists each have one tiny job.                                                           
+                                                                                                                        
+  The complete v1 audit:                                                                                                
+                                                                                                                        
+  API routes (30 existing in app/api/):                                                                                 
+  KEEP untouched: account/delete, account/export, banking-wizard,
+  chat/history, checklist-progress, cost-of-living, documents, guides,                                                  
+  guides/[id], images/destination, plan-checks, plans, profile (will                                                    
+  get audit data added), progress (will get Question-Director-driven                                                    
+  status), research/checklist, research/local-requirements,                                                             
+  research/tax, research/visa, settling-in/[id],                                                                        
+  settling-in/[id]/why-it-matters, settling-in/arrive,                                                                  
+  settling-in/export-ical, settling-in (list), tax-guide, visa-tracker,                                                 
+  wellbeing.                                                                                                            
+  TRANSFORM: chat (move existing logic to chat-v1; new multi-agent                                                      
+  orchestration when collecting; polished post-arrival when arrived),                                                   
+  research/trigger (replace hardcoded 3-research with adaptive                                                          
+  Coordinator), settling-in/generate (multi-agent specialists),                                                         
+  subscription (set all features free for buildathon, don't remove tier                                                 
+  system), guides/[id] (add citation rendering).                                                                        
+  ADD new: pre-departure (timeline data), agent-audit (audit trail                                                      
+  data), comparison (v1 vs v2 extraction), agents/[name]/status                                                         
+  (server-sent events for visible agent panels).                                                                        
+                                                                                                                        
+  Pages (10 existing in app/(app)/):                                                                                    
+  KEEP: banking, settings, settling-in, tax-registration, visa-tracker,                                                 
+  guides, documents.                                                                                                    
+  TRANSFORM: chat (mascot UI when collecting; polished traditional chat
+  when arrived), dashboard (profile-aware dynamic rendering with                                                        
+  shouldShow predicates and audit icons), guides/[id] (inline citations                                                 
+  and per-section sources panel).                                                                                       
+  ADD new: chat-v1 (moved old onboarding chat), onboarding (mascot-based,                                               
+  replaces /chat for collecting), compare (side-by-side v1 vs v2),                                                      
+  research (live agent panels during research), pre-departure (timeline                                                 
+  view).                                                                                                                
+                                                                                                                        
+  Components (39 existing in components/):                                                                              
+  KEEP without changes: most of them. The full list is: affordability-
+  card, arrival-banner, budget-card, budget-plan-card, commonly-                                                        
+  forgotten-section, compliance-alerts, compliance-calendar, compliance-                                                
+  timeline, confetti, cost-of-living-card, countdown-timer, country-                                                    
+  card, country-flag, empty-state, info-card, local-requirements-card,                                                  
+  page-header, plan-change-summary, plan-consistency-alerts, plan-                                                      
+  switcher, profile-summary-card, settling-in-task-card, skeletons,                                                     
+  stat-card, theme-provider, visa-deadline-card, visa-document-checklist,                                               
+  visa-research-card, visa-routes-card, visa-status-badge, visa-status-                                                 
+  stepper, wellbeing-checkin.                                                                                           
+  TRANSFORM: gomate-avatar (becomes mascot with 7 animation states),                                                    
+  guide-section (add inline citation rendering), document-progress-card                                                 
+  (wire in Documents Specialist apostille/translation/pre-fill data),                                                   
+  interactive-document-checklist (same), legal-disclaimer (update copy),                                                
+  pre-move-timeline (extend significantly for full pre-departure phase),                                                
+  profile-details-card (add audit icons), source-card (becomes per-                                                     
+  section sources panel), tax-overview-card (wire in Tax Strategist                                                     
+  output), tier-gate (all tiers free), upgrade-modal (repurpose).                                                       
+  ADD new: mascot, speech-bubble, agent-panel, agent-panel-grid, audit-                                                 
+  trail-popover, audit-icon, citation-marker, sources-panel, pre-                                                       
+  departure-timeline, smart-suggestion-chips, comparison-view, agent-                                                   
+  debug-drawer, profile-aware-dashboard layout, schools-card, pet-                                                      
+  relocation-card, income-compliance-card, family-reunion-card,                                                         
+  departure-tax-card, vehicle-import-card, property-purchase-card,                                                      
+  posted-worker-card, trailing-spouse-card, chronic-health-card, prior-                                                 
+  visa-history-card, agent-status-indicator.                                                                            
+                                                                                                                        
+  Lib modules (40+ existing in lib/gomate/):                                                                            
+  KEEP without changes: affordability, checklist-generator, cost-of-                                                    
+  living-estimator, country-flags, country-name-normalizer, currency,                                                   
+  dag-validator, exchange-rate, fetch-with-retry, image-service, index,                                                 
+  numbeo-scraper, official-sources (THE MOAT - 195+ countries × 6                                                       
+  official source URL categories - never touch), pdf-generator, plan-                                                   
+  consistency, plan-diff, plan-factory, post-arrival, profile-summary,                                                  
+  source-linker, state-machine, supabase-utils, text-parsers,                                                           
+  types/document-status, visa-advisor, visa-checker, visa-fallback,                                                     
+  visa-recommendations.                                                                                                 
+  TRANSFORM: profile-schema (add 30+ agency-grade fields - covered in                                                   
+  Prompt 1.2), core-state (add pre_departure and ready_for_pre_departure                                                
+  stages), dashboard-state (compute card visibility from profile),                                                      
+  guide-enrichment (replace single-LLM with Composer + section writers),                                                
+  guide-generator (skeleton stays, enrichment hook calls multi-agent                                                    
+  Composer), settling-in-generator (replace single-LLM DAG with multi-                                                  
+  agent specialists), system-prompt (keep buildPostArrivalSystemPrompt,                                                 
+  replace giant onboarding prompt with focused per-agent prompts),                                                      
+  progress (Question-Director-driven), tier (all features free), usage-                                                 
+  guard (loosen limits since unlimited credits), web-research and                                                       
+  research-* (refactor as agent tools).                                                                                 
+  ADD new: lib/agents/ directory (entire agent system),                                                                 
+  lib/gomate/pre-departure.ts (timeline computation).                                                                   
+                                                                                                                        
+  Database tables (existing): all migrations stay.                                                                      
+  ADD migrations: agent_audit, pre_departure_actions,                                                                   
+  guide_section_citations, agent_run_log.                                                                               
+                                                                                                                        
+  Stages we're adding to core-state.ts: pre_departure (between complete                                                 
+  and arrived), ready_for_pre_departure (transitional state after                                                       
+  research finishes, before user clicks "Generate my pre-departure                                                      
+  checklist").                                                                                                          
+                                                                                                                        
+  We have unlimited Replit credits, all of Replit's models (Claude                                                      
+  Sonnet 4.5/4.6/Opus 4.7, Haiku 4.5, GPT-5, Gemini 2.5/3), and Power                                                   
+  Agents with massive context windows. Different agents get routed to                                                   
+  different models based on what they're good at.                                                                       
+                                                                                                                        
+  Before you write any code, do this:                                                                                   
+  1. Read the files I listed. Confirm what you understand about the
+     current architecture.                                                                                              
+  2. Tell me how you intend to organize the lib/agents/ directory.
+  3. Confirm you understand we transform v1 in place — we do not start                                                  
+     from scratch. v1 modules either stay, transform, or coexist with                                                   
+     new ones.                                                                                                          
+  4. Confirm you understand the lifecycle: collecting → generating                                                      
+     (manual trigger) → ready_for_pre_departure → pre_departure
+     (manual trigger) → arrived (manual trigger after move).                                                            
+  5. Confirm you will not delete v1 chat/research/enrichment/settling-in                                                
+     code — we move existing logic to v1 paths (chat-v1, etc.) and                                                      
+     build new paths alongside.                                                                                         
+                                                                                                                        
+  Don't write any code yet. Read, plan, propose. I'll respond.                                                          
+                                                                                                                        
+  ---PROMPT 1.1 ENDS---                                                                                                 
+                                               
+  Note: file paths in this prompt reference the v1 Next.js layout (app/,                                                
+  lib/gomate/). Apply your translation map to map these to the live
+  monorepo paths (artifacts/gomate/src/lib/gomate/ for ported v1                                                        
+  modules, artifacts/api-server/src/routes/ for server-side, etc.).                                                     
+                                                                                                                        
+  Now produce the file-by-file breakdown for Prompt 1.1's                                                               
+  deliverables — every new file, every transformed file, every route,                                                   
+  in implementation order, grouped into commits. Apply the translation                                                  
+  map as you go. Still no code until I green-light the breakdown.    

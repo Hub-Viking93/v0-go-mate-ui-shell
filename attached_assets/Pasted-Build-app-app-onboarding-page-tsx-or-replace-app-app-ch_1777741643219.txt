@@ -1,0 +1,32 @@
+Build app/(app)/onboarding/page.tsx (or replace app/(app)/chat/page.tsx for collecting stage).
+
+This page is the new mascot-based onboarding flow.
+
+Layout:
+- Center stage: the mascot
+- Below mascot: speech bubble with current question
+- Below bubble: onboarding input field
+- Right side panel (collapsible on mobile): live profile preview that updates as fields fill in. Each field has audit icon — click opens audit-trail-popover (built later in Phase 4 — for now just placeholder).
+- Top status: a soft phrase like "Building your profile" → "Almost ready" → "Profile complete" — controlled by Question Director's response. NO percentage counter. NO field count counter.
+
+Behavior:
+1. On mount, fetch user's profile via /api/profile.
+2. If profile is empty: send a request to /api/chat with role=user, content="" (initial). Backend Question Director returns first question and animation cue (likely waving + name question). Render mascot wave, show question.
+3. User types answer in input, hits submit.
+4. Send POST to /api/chat with the new message. Show mascot in "thinking" state during the processing.
+5. Receive response: { questionText, animationCue, isOnboardingComplete, updatedProfile }.
+6. Update right-side panel with new profile state.
+7. Update mascot animation per cue.
+8. Show new question in speech bubble.
+9. If isOnboardingComplete: mascot does celebrating animation. Show "Profile complete!" status. Show prominent button "Generate my plan" that calls POST /api/plans/trigger-research and transitions to research page.
+
+Edge cases:
+- User refreshes during onboarding: load existing partial profile, show mascot waving with "Welcome back, let's continue" or similar context-aware greeting.
+- User types nonsense: Validator catches it, Question Director re-asks with retryHint.
+- Slow agent processing (>3 seconds): keep mascot in "thinking" state, optionally show subtle progress indicators ("Analyzing your answer", "Preparing the next question").
+
+Use existing Confetti component on celebration.
+
+Use the existing useTier hook and existing layout.tsx wrapping. Don't break the existing app structure.
+
+When you're done, walk me through the full onboarding flow end-to-end. Use the test input "I'm Axel, 30, moving to Sweden for work — my company is sending me on a 14-month posting with my wife and two kids." Show me how Question Director handles the bundled answer.

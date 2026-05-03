@@ -1,0 +1,20 @@
+{
+  "name": "@workspace/agents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@workspace/integrations-anthropic-ai": "workspace:*"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@types/node": "catalog:",
+    "typescript": "^5.9.3"
+  }
+}

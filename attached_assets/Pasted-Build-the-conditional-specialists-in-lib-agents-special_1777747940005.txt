@@ -1,0 +1,101 @@
+Build the conditional specialists in lib/agents/specialists/.
+
+specialists/schools.ts:
+- Reads destination, target_city, children_count, children_ages, children_school_type_preference, children_language_skills_destination, children_special_needs.
+- Scrapes destination-specific school directories if URLs are in official-sources. For Sweden, scrape Skolverket. For Germany, scrape KMK or specific Bundesland. For Spain, scrape Ministerio de Educación.
+- For each child by age, recommends 3-5 schools matching age, language ability, and preference type. Lists application timelines (international schools have very long lead times — many require applications 6-12 months in advance), application fees, language of instruction, and waitlist info.
+- Returns domainSpecificData with childRecommendations (one per child) array.
+- Uses Gemini 2.5 for breadth.
+
+specialists/healthcare.ts:
+- Always runs. Goes deeper if healthcare_needs ≠ "none" or chronic_condition_description exists.
+- Reads destination, target_city, healthcare_needs, chronic_condition_description, prescription_medications, english_speaking_doctor_required, children_count.
+- Scrapes destination's healthcare authority URL.
+- Always includes: registration steps for primary care, insurance options, finding family doctor.
+- For chronic conditions: includes specialist availability, prescription medication availability (some are restricted), insurance coverage for ongoing treatment.
+- For users wanting English-speaking doctors: lists known English-friendly medical centers.
+- Returns domainSpecificData with registrationSteps, insuranceOptions, recommendedProviders, prescriptionContinuity.
+
+specialists/banking.ts:
+- Always runs. Goes deeper if need_budget_help=yes.
+- Reads destination, target_city, citizenship, purpose, posting_or_secondment, monthly_income, savings_available.
+- Scrapes destination's central bank or banking authority URL.
+- Lists 3-5 banks foreigners can open accounts at, with required documents per bank, typical processing time, English service availability, fee structure.
+- Always includes Wise/Revolut/N26 as bridge accounts before local account opens.
+- Returns domainSpecificData with recommendedBanks, requiredDocs, digitalBridges, accountOpeningSteps.
+
+specialists/pet.ts:
+- Conditional on pets ≠ "none".
+- Reads destination, pet_microchip_status, pet_vaccination_status, pet_size_weight, pet_breed, pet_age.
+- Scrapes destination's veterinary import authority URL (e.g., Sweden's Jordbruksverket).
+- Returns: import requirements, microchip and vaccination timeline (rabies has 21-day post-vaccination wait for EU travel), banned breed list (some destinations restrict bull terriers, certain mastiff breeds), import permit application process, quarantine rules if applicable.
+- Returns domainSpecificData with importRequirements, vaccinationTimeline, breedRestrictions, importPermit, quarantineRules.
+
+specialists/posted_worker.ts:
+- Conditional on posting_or_secondment === "yes".
+- Reads citizenship, destination, current_location, posting_duration_months, home_country_employer, posting_employer_address.
+- Scrapes:
+  - For EU-to-EU: destination's labor authority for Posted Worker Declaration rules (e.g., Sweden's Arbetsmiljöverket Posting of Workers register, Germany's ZOLL).
+  - Origin country's social security agency for A1 certificate process.
+  - For non-EU bilateral treaties (US-Sweden, India-Sweden, etc.): the relevant treaty's CoC application process.
+- Returns: A1 certificate application steps (or CoC for non-EU), Posted Worker Declaration filing steps with destination's labor authority, employer registration requirement (must designate contact person in destination), social security continuity rules (max 24 months for EU postings).
+- Returns domainSpecificData with a1OrCocPath, pwdFilingProcess, employerRegistration, contactPersonRequirement, socialSecurityRules.
+
+specialists/digital_nomad_compliance.ts:
+- Conditional on purpose === "digital_nomad".
+- Reads citizenship, destination, monthly_income, income_consistency, income_history_months, remote_income.
+- Scrapes destination's digital nomad visa requirements URL.
+- Returns: income threshold for the visa (compared to user's actual), tax residency implications, registration requirements, validity period.
+- Returns domainSpecificData with incomeThreshold, incomeQualifies (boolean), taxResidencyImplications, visaValidity.
+
+specialists/job_compliance.ts:
+- Conditional on purpose === "work" AND job_offer === "yes" AND posting_or_secondment !== "yes".
+- Reads citizenship, destination, employer_sponsorship, highly_skilled, education_level, years_experience.
+- Scrapes destination's work permit authority URL.
+- Returns: work permit requirements specific to user's situation, employer sponsorship process, salary thresholds for EU Blue Card or similar, processing timelines.
+- Returns domainSpecificData with permitRequirements, sponsorshipProcess, salaryThreshold.
+
+specialists/family_reunion.ts:
+- Conditional on visa_role === "dependent" OR settlement_reason === "family_reunion".
+- Reads citizenship, destination, partner_citizenship, partner_visa_status, relationship_type, partner_residency_duration, relationship_duration.
+- Scrapes destination's family reunion visa requirements URL.
+- Returns: family reunion visa requirements (income thresholds for sponsor, accommodation requirements, integration test if applicable), processing time, how dependent's residency derives from primary's status.
+- Returns domainSpecificData with familyReunionRequirements, sponsorIncomeThreshold, derivedResidencyRules.
+
+specialists/departure_tax.ts:
+- Conditional on origin in EXIT_TAX_COUNTRIES.
+- Reads citizenship, current_location, destination, savings_available, monthly_income, pension_continuity_required.
+- Scrapes origin country's tax authority for exit tax / departure declaration rules.
+- Returns: exit tax obligations specific to user's situation, capital gains implications, pension and retirement account treatment, when to file departure declaration, treaties that may reduce double-taxation.
+- Uses Opus 4.7.
+
+specialists/vehicle_import.ts:
+- Conditional on bringing_vehicle === "yes".
+- Reads destination, vehicle_make_model_year, vehicle_origin_country, vehicle_emission_standard.
+- Scrapes destination's customs and vehicle registration authority URLs.
+- Returns: import duty calculation, emissions compliance check (EU import rules: must meet Euro 6 for many countries), customs declaration process, registration steps after import, license plate process, technical inspection requirements.
+- Returns domainSpecificData with importDuty, emissionsCompliance, customsProcess, registrationSteps.
+
+specialists/property_purchase.ts:
+- Conditional on home_purchase_intent === "yes".
+- Reads destination, target_city, monthly_budget, savings_available, citizenship.
+- Scrapes destination's real estate authority and tax info.
+- Returns: foreign buyer restrictions (some countries restrict foreign property purchase), mortgage availability for non-residents, transaction taxes (stamp duty, transfer tax), recommended real estate agents, typical purchase process timeline.
+
+specialists/trailing_spouse_career.ts:
+- Conditional on spouse_joining === "yes" AND spouse_seeking_work === "yes".
+- Reads destination, spouse_career_field, spouse_language_skills.
+- Scrapes general labor market info for destination + specific industry resources.
+- Returns: labor market overview for spouse's field, networking platforms, professional associations, language requirements per industry, work permit considerations for spouse (does dependent visa allow employment).
+- Uses Sonnet 4.6 for warmer tone (this is emotionally significant — career disruption).
+
+specialists/pension_continuity.ts:
+- Conditional on pension_continuity_required === "yes".
+- Reads citizenship, current_location, destination, employer details if posting.
+- Scrapes pension authorities in both countries.
+- Returns: pension fund continuity rules, treaty implications, when contributions transfer vs. accumulate separately, retirement age implications, withdrawal rules from origin pension upon emigration.
+- Uses Opus 4.7.
+
+Run pnpm tsc --noEmit.
+
+When you're done, run the relevant conditional specialists for the three profiles from Prompt 3.1. Show me the outputs and confirm the right specialists fired.

@@ -1,0 +1,62 @@
+Slice 3 with these simplifications:                                                                                   
+                                                                  
+  OPTION (a) for landing page conflict — confirmed. Anonymous mode                                                      
+  entry point = "Continue as guest" link on /auth/login. No landing
+  page restoration. Use the AnonymousSessionProvider that's already                                                     
+  wired.                                                                                                                
+  
+  SCOPE SIMPLIFICATIONS (apply to the prompt.md spec):                                                                  
+                                                                  
+  1. Skip permanent signup mode entirely. Run ALL 4 personas under                                                      
+     anonymous mode ONLY. The dual-auth-mode requirement (3b in the
+     prompt) is dropped.                                                                                                
+  
+  2. Skip criterion (o) — anon→permanent upgrade test. Magic link                                                       
+     infrastructure adds dependencies + time we don't have. Document
+     this as "out of scope for buildathon, will be tested post-launch".                                                 
+                                                                                                                        
+  3. Skip criterion (n) sub-step about save-progress modal interaction.                                                 
+     Just verify modal APPEARS at 5 fields, take screenshot, then                                                       
+     immediately click "Continue without saving" and proceed. Don't                                                     
+     exercise the email-link upgrade flow.                                                                              
+                                                                                                                        
+  4. Reduce screenshot count from 12 to 8 per persona. Cut:                                                             
+     - 02-signup-form (no signup flow tested)                                                                           
+     - 12-citation-click (covered by audit popover screenshot)                                                          
+     Keep: landing-equivalent (= /auth/login), onboarding-start,                                                        
+     after-bundled-input, side-panel-populated, qd-followup,                                                            
+     research-mid-flight, dashboard-loaded, audit-popover-open.                                                         
+                                                                                                                        
+  5. Test flow becomes:                                                                                                 
+     Per persona:                                                                                                       
+     a. Visit / → redirects to /auth/login                                                                              
+     b. Click "Continue as guest" → signInAnonymously() → /onboarding                                                   
+     c. Type bundled message → assert extraction (criterion c)                                                          
+     d. Verify side panel sync (criterion b)                                                                            
+     e. Continue follow-up questions → assert no repeats (criterion a)
+     f. Click "Generate my plan" → research kicks off                                                                   
+     g. Watch agent panels → assert specialist correctness (criterion e)                                                
+     h. Wait for completion → navigate to /dashboard                                                                    
+     i. Assert profile-aware cards (criterion h)                                                                        
+     j. Click an audit icon → assert popover (criterion i)                                                              
+     k. Read guide content → assert citations + coherence (j, k)                                                        
+     l. Verify state transitions (criterion l)                                                                          
+     m. Cleanup in afterEach                                                                                            
+                                                                                                                        
+  6. Re-run research (criterion m) — keep, just for Axel persona, no                                                    
+     regression risk to defer to post-buildathon.                                                                       
+                                                                                                                        
+  REVISED TIMING:                                                 
+  - 4 personas × 1 mode (anonymous only) = 4 full sessions                                                              
+  - ~5-7 min each = 25-30 min back-to-back                                                                              
+  - Plus bug-fix iterations: 30-60 min                                                                                  
+  - Plus report generation: 10-15 min                                                                                   
+  - Total: 1.5-2 hours instead of 3-4                                                                                   
+                                                                                                                        
+  BUG-HANDLING PROTOCOL (per prompt.md) STAYS BINDING:                                                                  
+  - Root-cause not workaround                                                                                           
+  - 3 consecutive runs to verify fix                                                                                    
+  - Document each bug + fix in phase-4-bugs-fixed.md                                                                    
+  - 30-min escalation rule                                                                                              
+                                                                                                                        
+  Apply these simplifications, then proceed with Slice 3 as scoped.

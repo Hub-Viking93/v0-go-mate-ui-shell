@@ -1,0 +1,326 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap");
+
+@custom-variant dark (&:is(.dark *));
+
+/* GoMate Theme: Editorial-warm premium with sharp precision.
+   Warm off-white canvas + serif headings + tabular numerals.
+   Single source of truth lives here; lib/design-tokens.ts mirrors. */
+:root {
+  --background: #FAFAF6;
+  --foreground: #1A1614;
+  --card: rgba(255, 255, 255, 0.65);
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #22C55E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #334155;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(120, 90, 60, 0.15);
+  --input: #E2E8F0;
+  --ring: #22C55E;
+  --chart-1: #22C55E;
+  --chart-2: #16A34A;
+  --chart-3: #4ADE80;
+  --chart-4: #86EFAC;
+  --chart-5: #BBF7D0;
+  --radius: 1rem;
+  --sidebar: #1B3A2D;
+  --sidebar-foreground: #E8F0EC;
+  --sidebar-primary: #5EE89C;
+  --sidebar-primary-foreground: #0D2818;
+  --sidebar-accent: rgba(94, 232, 156, 0.08);
+  --sidebar-accent-foreground: #E8F0EC;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #5EE89C;
+
+  --gm-card-bg: rgba(255, 255, 255, 0.7);
+  --gm-card-border: rgba(15, 23, 42, 0.06);
+  --gm-card-shadow: 0px 2px 8px rgba(15, 23, 42, 0.03), 0px 4px 16px rgba(15, 23, 42, 0.04);
+  --gm-card-shadow-hover: 0px 8px 24px rgba(15, 23, 42, 0.07), 0px 16px 32px rgba(15, 23, 42, 0.05);
+  --gm-success-glow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+
+  --gm-forest: #1B3A2D;
+  --gm-forest-mid: #234D3A;
+  --gm-forest-light: #2D6A4F;
+  --gm-mint: #5EE89C;
+  --gm-sage: #A7D7C5;
+  --gm-body: #475569;
+}
+
+.dark {
+  --background: #131315;
+  --foreground: #EDEDF0;
+  --card: rgba(28, 28, 32, 0.65);
+  --card-foreground: #EDEDF0;
+  --popover: #1C1C20;
+  --popover-foreground: #EDEDF0;
+  --primary: #22C55E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1C1C20;
+  --secondary-foreground: #C8C8D0;
+  --muted: #1C1C20;
+  --muted-foreground: #8B8B96;
+  --accent: #1C1C20;
+  --accent-foreground: #EDEDF0;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #2A2A2F;
+  --ring: #22C55E;
+  --chart-1: #22C55E;
+  --chart-2: #16A34A;
+  --chart-3: #4ADE80;
+  --chart-4: #86EFAC;
+  --chart-5: #BBF7D0;
+  --sidebar: #111113;
+  --sidebar-foreground: #D4D4DA;
+  --sidebar-primary: #5EE89C;
+  --sidebar-primary-foreground: #0D2818;
+  --sidebar-accent: rgba(94, 232, 156, 0.08);
+  --sidebar-accent-foreground: #D4D4DA;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #5EE89C;
+
+  --gm-card-bg: rgba(28, 28, 32, 0.7);
+  --gm-card-border: rgba(255, 255, 255, 0.07);
+  --gm-card-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2), 0px 4px 16px rgba(0, 0, 0, 0.25);
+  --gm-card-shadow-hover: 0px 8px 24px rgba(0, 0, 0, 0.3), 0px 16px 32px rgba(0, 0, 0, 0.25);
+  --gm-success-glow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+
+  --gm-forest: #1A1C1B;
+  --gm-forest-mid: #242725;
+  --gm-forest-light: #2E3230;
+  --gm-mint: #5EE89C;
+  --gm-sage: #7FBFA5;
+  --gm-body: #8B8B96;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Geist', system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-gm-forest: var(--gm-forest);
+  --color-gm-forest-mid: var(--gm-forest-mid);
+  --color-gm-forest-light: var(--gm-forest-light);
+  --color-gm-mint: var(--gm-mint);
+  --color-gm-sage: var(--gm-sage);
+  --color-gm-body: var(--gm-body);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Subtle warm grain — SVG noise at ~2% opacity, fixed so it doesn't
+       scroll. Generated inline as a data-uri to avoid an extra request. */
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.32 0 0 0 0 0.20 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+    background-attachment: fixed;
+    background-size: 240px 240px;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.012em;
+    color: var(--foreground);
+  }
+  h1 { font-weight: 600; line-height: 1.05; }
+  h2 { font-weight: 600; line-height: 1.15; }
+  h3 { font-weight: 600; line-height: 1.25; font-family: var(--font-sans); letter-spacing: -0.005em; }
+
+  /* Tabular numerals everywhere — costs, deadlines, tables align. */
+  body, button, input, table, td, th {
+    font-feature-settings: "tnum" 1, "ss01" 1;
+  }
+  /* All-caps small labels: pair with .gm-label class. */
+  .gm-label {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  button, a[role="button"], [role="button"] {
+    transition: all 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  button:active:not(:disabled), a[role="button"]:active {
+    transform: scale(0.97);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--gm-mint);
+    outline-offset: 2px;
+  }
+}
+
+.gm-card {
+  background: var(--gm-card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--gm-card-border);
+  border-radius: 16px;
+  box-shadow: var(--gm-card-shadow);
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 200ms ease;
+}
+.gm-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--gm-card-shadow-hover);
+  border-color: rgba(34, 197, 94, 0.12);
+}
+.gm-card:active {
+  transform: translateY(-1px);
+  transition-duration: 100ms;
+}
+.gm-card-static {
+  background: var(--gm-card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--gm-card-border);
+  border-radius: 16px;
+  box-shadow: var(--gm-card-shadow);
+  transition: border-color 200ms ease;
+}
+.gm-card-static:hover {
+  border-color: rgba(34, 197, 94, 0.08);
+}
+
+@keyframes success-glow {
+  0% { box-shadow: var(--gm-success-glow); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.gm-success-glow {
+  animation: success-glow 800ms ease-out forwards;
+}
+
+@keyframes gm-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.gm-animate-in {
+  animation: gm-fade-up 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gm-delay-1 { animation-delay: 50ms; }
+.gm-delay-2 { animation-delay: 100ms; }
+.gm-delay-3 { animation-delay: 150ms; }
+.gm-delay-4 { animation-delay: 200ms; }
+.gm-delay-5 { animation-delay: 250ms; }
+.gm-delay-6 { animation-delay: 300ms; }
+.gm-delay-7 { animation-delay: 350ms; }
+.gm-delay-8 { animation-delay: 400ms; }
+
+/* Hide scrollbar but keep scroll functionality (used in tab strips). */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Editorial card — warm hairline, soft shadow, hover lift. Used by
+   most dashboard panels for a unified feel. */
+.gm-editorial-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,253,248,0.92) 0%, rgba(255,252,246,0.78) 100%);
+  border: 1px solid rgba(120, 90, 60, 0.16);
+  border-radius: 20px;
+  box-shadow:
+    0 1px 2px rgba(120, 90, 60, 0.04),
+    0 6px 24px rgba(120, 90, 60, 0.05);
+  transition: box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 200ms ease,
+              transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gm-editorial-card:hover {
+  border-color: rgba(120, 90, 60, 0.24);
+  box-shadow:
+    0 4px 8px rgba(120, 90, 60, 0.06),
+    0 18px 36px rgba(120, 90, 60, 0.10);
+}
+
+/* Section eyebrow — small caps + hairline rule. */
+.gm-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--gm-forest-mid);
+}
+.gm-eyebrow::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: rgba(120, 90, 60, 0.35);
+}
+
+.gm-checklist-line {
+  position: absolute;
+  left: 19px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.gm-checklist-line-active {
+  background: #22C55E;
+  transition: height 300ms ease;
+}

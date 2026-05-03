@@ -1,0 +1,54 @@
+Three of them I can answer directly from the playbook intent. Two require you to verify against the actual code first.
+                                                                  
+  Thanks for the breakdown. My answers:                                                                                 
+                                                                                                                        
+  1. Mental model of v1 (core-state.ts + dashboard-state.ts as source of
+  truth, UI renders): VERIFY FIRST. Before I confirm, walk me through                                                   
+  exactly which files you read and quote the specific functions you're                                                  
+  basing this claim on. I want to see core-state.ts and                                                                 
+  dashboard-state.ts contents quoted back so I know your mental model                                                   
+  matches reality, not a plausible-sounding fabrication.                                                                
+                                                                                                                        
+  2. lib/agents/ layout at artifacts/api-server/src/agents/: WRONG PATH —                                               
+  push back. GoMate is a standard Next.js 16 App Router app, NOT a
+  monorepo. There is no artifacts/api-server/. The existing convention                                                  
+  is lib/gomate/ for all domain logic. Use lib/agents/ with the same                                                    
+  kernel/coordinators/specialists/tools/prompts split you proposed. This                                                
+  matches Prompt 1.5 in the playbook verbatim. Verify by running `ls                                                    
+  lib/` and `ls artifacts/ 2>/dev/null` — the second will fail.                                                         
+                                                                                                                        
+  3. Transform-in-place with chat-v1 fallback: APPROVED. This is                                                        
+  critical. Prompt 9.1 later builds a /compare page that runs BOTH v1                                                   
+  and v2 pipelines in parallel and shows the diff. Without v1 routes                                                    
+  preserved as /api/chat-v1 (or similar), there is no comparison page.                                                  
+  Move v1 aside, do not delete.                                                                                         
+                                                                                                                        
+  4. Lifecycle insertion: ADD two new stages, RENAME one. The final                                                     
+  stage enum should be:                                                                                                 
+     collecting → generating → ready_for_pre_departure → pre_departure                                                  
+     → arrived                                                    
+                                                                                                                        
+     - "generating" is new (research is running)                                                                        
+     - "ready_for_pre_departure" replaces the semantic of "locked" at the                                               
+       STAGE level (research complete, user can manually trigger                                                        
+       pre-departure phase)                                       
+     - "pre_departure" is new (timeline of actions weeks-before-move)                                                   
+     - "collecting" and "arrived" are existing                    
+                                                                                                                        
+     The boolean `locked` field on relocation_plans table can stay if                                                   
+     it's used elsewhere for "is this plan editable?" — that's a
+     different concept from stage. Don't keep both stage names — pick                                                   
+     ready_for_pre_departure and migrate any existing rows on the next                                                  
+     migration.                                                                                                         
+                                                                                                                        
+  5. No-deletion guarantee with -v1 route suffixes and per-user                                                         
+  GOMATE_VERSION flag: APPROVED. -v1 suffixes match the playbook's
+  "move v1 aside" pattern. GOMATE_VERSION feature flag was your                                                         
+  addition, not in the playbook — approved as long as it's strictly a                                                   
+  buildathon-window safety net. Post-buildathon (after the /compare page                                                
+  ships and is no longer needed), v1 routes get deleted entirely. Don't                                                 
+  build long-term multi-version maintenance into this.                                                                  
+                                                                                                                        
+  Once you've quoted the v1 source files for question 1, AND you've                                                     
+  verified the path issue in question 2 by running ls, produce the
+  detailed task breakdown. 

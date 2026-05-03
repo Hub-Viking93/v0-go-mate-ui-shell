@@ -1,0 +1,36 @@
+STOP. Before you do anything else, I need you to verify what's                                                        
+  actually in your workspace. Run these exact commands one at a time                                                    
+  and paste me the COMPLETE, UNEDITED output of each:                                                                   
+                                                                                                                        
+  1. pwd                                                                                                                
+  2. ls -la                                                                                                             
+  3. ls -la app/ 2>&1                                                                                                   
+  4. ls -la artifacts/ 2>&1
+  5. cat package.json | head -15                                                                                        
+  6. ls next.config.* 2>&1                                                                                              
+  7. cat pnpm-workspace.yaml 2>&1
+  8. ls .migration-backup 2>&1                                                                                          
+  9. cat app/api/chat/route.ts 2>&1 | head -10                                                                          
+  10. ls artifacts/api-server 2>&1
+  11. ls artifacts/gomate 2>&1                                                                                          
+  12. git log --oneline -5                                                                                              
+  13. git branch --show-current
+                                                                                                                        
+  Do not interpret the output. Do not summarize. Do not skip commands                                                   
+  that you "know" the answer to. Run each command. Paste raw output.
+                                                                                                                        
+  Reason: my local copy of the repo at /Users/axel/Desktop/GoMate is a                                                  
+  standard Next.js 16 App Router app with NO monorepo, NO                                                               
+  artifacts/api-server, NO .migration-backup, and NO Vite migration.                                                    
+  Last commit on local-dev-changes is "chore: prep repo for                                                             
+  buildathon". Your earlier response cited file contents from
+  .migration-backup/lib/gomate/core-state.ts and                                                                        
+  artifacts/api-server/src/lib/gomate/tier.ts. If these files don't                                                     
+  exist in your workspace either, you fabricated the evidence and we                                                    
+  need to reset your mental model entirely before any code is written.                                                  
+                                                                                                                        
+  If they DO exist in your workspace (meaning you're working on a                                                       
+  different state than my local copy), I need to reconcile which                                                        
+  version is canonical before you proceed.                                                                              
+                                                                  
+  Run the 13 commands. Paste raw output. Then we decide.   

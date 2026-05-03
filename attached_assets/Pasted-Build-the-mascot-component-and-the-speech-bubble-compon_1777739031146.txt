@@ -1,0 +1,50 @@
+Build the mascot component and the speech bubble.
+
+components/mascot.tsx:
+Friendly cartoon robot character. Use SVG-based animations or Lottie. Seven distinct animation states triggered by props:
+- idle: gentle breathing animation, eyes occasionally blink
+- waving: hand raises and waves (used on greeting)
+- nodding: head nods up and down (used when receiving a confirmed answer)
+- smiling: subtle smile expression (used when answer is good and we're moving forward)
+- tilting_curious: head tilts to one side (used for clarification follow-ups)
+- thinking: hand to chin or rotating gear above head (used during agent processing — should be visible for at least 1.5 seconds even if processing finishes faster)
+- celebrating: confetti or arms up (used on isOnboardingComplete=true)
+
+Component props:
+Copy
+type MascotProps = { state: AnimationState; size?: "sm" | "md" | "lg"; className?: string; }
+
+
+Use Framer Motion for state transitions. Each state should have a smooth entry/exit so transitioning from "thinking" to "smiling" feels natural.
+
+components/speech-bubble.tsx:
+The speech bubble that appears next to/above the mascot.
+- Renders the question text from Question Director with a typewriter or fade-in animation.
+- Has a tail pointing toward the mascot.
+- Style is friendly, not corporate. Soft rounded corners, gentle shadow.
+- Should be readable at all sizes.
+- Auto-resizes for long questions.
+
+Component props:
+Copy
+type SpeechBubbleProps = { text: string; align?: "left" | "right" | "top"; className?: string; }
+
+
+components/onboarding-input.tsx:
+The input field below the mascot for the user's answer.
+- Single textarea (not chat textarea — this is for THIS specific question's answer).
+- Placeholder reflects the expected answer type ("Type your name", "Type 'yes' or 'no' or expand on it").
+- Submit on Enter. Click submit button also works.
+- Disabled with loading state while agents process.
+- Has a small character count indicator (subtle).
+
+Component props:
+Copy
+type OnboardingInputProps = { expectedAnswerType: "text" | "yes_no" | "number" | "currency" | "country" | "free"; pendingFieldLabel: string; onSubmit: (text: string) => void; disabled?: boolean; }
+
+
+The mascot existing in components/gomate-avatar.tsx is your starting point — extend it. Don't delete or break the existing avatar usage in the rest of the app.
+
+Run pnpm tsc --noEmit. Render each component in isolation and verify it works.
+
+When you're done, show me each component rendered with placeholder content. I want to see all 7 animation states.

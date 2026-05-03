@@ -1,0 +1,61 @@
+Build the six always-run specialist agents in lib/agents/specialists/.
+
+Each specialist follows the same pattern:
+1. Read profile slice (just the fields needed).
+2. Look up relevant URL from lib/gomate/official-sources.ts for destination country.
+3. Scrape that URL via Firecrawl (use existing scrape pattern from lib/gomate/research-visa.ts).
+4. Synthesize content for THIS user's specific situation using the model from router.ts.
+5. Return structured output with citations.
+
+Each specialist file: lib/agents/specialists/{name}.ts. Each exports a function:
+COPY
+async function run(profile: Profile, signal?: AbortSignal): Promise
+type SpecialistOutput = { contentParagraphs: string[]; // each paragraph in our brand voice with [1] [2] inline citation markers citations: { number: number, sourceUrl: string, sourceName: string, retrievedAt: string }[]; sourceUrlsUsed: string[]; retrievedAt: string; quality: "full" | "partial" | "fallback"; confidence: number; // 0-1 domainSpecificData: any; // structured data per specialist (visa options, cost breakdown, etc.) }
+specialists/visa.ts:
+- Reads citizenship, destination, purpose, visa_role, partner fields, prior_visa, prior_visa_country, prior_visa_type from profile.
+- Scrapes official_sources[destination].immigration and official_sources[destination].visa.
+- Produces visa pathway analysis with 3-8 visa options, each with eligibility/requirements/cost/processing time/benefits/limitations.
+- Returns domainSpecificData with visaOptions array (compatible with existing VisaOption type).
+- Use existing research-visa.ts logic as the implementation core; wrap it in the new specialist interface.
+
+specialists/tax.ts:
+- Reads citizenship, destination, current_location, purpose, posting_or_secondment, posting_duration_months, monthly_income, savings_available.
+- Scrapes official_sources[destination].tax and official_sources[origin].tax (if origin has exit tax).
+- Produces tax pathway analysis: residency rules, treaty references (for the specific origin-destination pair), exit tax obligations, entry tax structure, double-taxation treaty highlights.
+- Returns domainSpecificData with taxResidencyRules, treatyReferences, exitTaxObligations, entryTaxStructure.
+- Uses Sonnet 4.6 for treaty interpretation.
+
+specialists/cost.ts:
+- Reads destination, target_city, monthly_income, monthly_budget, savings_available, children_count, healthcare_needs.
+- Uses existing cost-of-living-estimator.ts for cached or fresh data.
+- Calls calculateMonthlyBudget() and calculateSavingsTarget() from existing web-research.ts.
+- Returns domainSpecificData with monthlyBudget, savingsTarget, currencyConversion.
+
+specialists/housing.ts:
+- Reads destination, target_city, monthly_budget, rental_budget_max, furnished_preference, commute_tolerance_minutes, accessibility_needs, children_count.
+- Scrapes official_sources[destination].housing.
+- Produces neighborhood recommendations matched to commute tolerance and budget. Lists rental platforms. Notes deposit norms and contract red flags.
+- Returns domainSpecificData with recommendedAreas, averageRents, rentalPlatforms, depositNorms.
+
+specialists/cultural.ts:
+- Reads citizenship, destination, target_city, purpose, family composition.
+- No URL scraping — uses existing COUNTRY_DATA seed from lib/gomate/guide-generator.ts. Optionally scrapes a cultural-info URL if one exists.
+- Produces country-pair-specific cultural notes — etiquette differences, working culture norms, dining norms, common gotchas a Filipino moving to Sweden would experience differently than a Brazilian.
+- Use Sonnet 4.6 for warm tone.
+- Returns domainSpecificData with etiquetteNotes, workingCulture, diningCulture, commonGotchas, languageTips.
+
+specialists/documents.ts:
+- Reads citizenship, destination, purpose, visa_role, marital_status implications, children_count, prior visa fields, posting fields.
+- For each document required by the user's visa pathway (intersect with Visa Specialist's output), produces: document name, where to obtain in origin country with link, apostille requirement (yes/no, where to get apostille), translation requirement (yes/no, certified translator requirement), submission destination, processing time.
+- For posting users, includes A1 certificate process (if EU) or CoC process (if non-EU treaty).
+- Pre-fills draft URLs where the form is structured (Migrationsverket has online portal — link to it).
+- Returns domainSpecificData with requiredDocuments array, apostilleChain, translationChain.
+
+Each specialist also writes audit rows via writeAuditRow() at start (status="started"), at completion (status="completed" or "failed"), and for the synthesized output.
+
+Use parallel execution with Promise.allSettled (existing pattern from research/trigger). Each specialist has its own AbortSignal for timeout (60 seconds default).
+
+Run pnpm tsc --noEmit.
+
+When you're done, run all six specialists for the German posting profile (citizenship=German, destination=Sweden, purpose=work, posting_or_secondment=yes, posting_duration_months=18, children_count=2). Show me the structured outputs and audit rows.
+COPY

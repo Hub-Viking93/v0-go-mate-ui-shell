@@ -1,0 +1,13 @@
+import { chromium } from '@playwright/test'
+const b = await chromium.launch({ headless: true })
+const c = await b.newContext({ viewport: { width: 1600, height: 1400 }, deviceScaleFactor: 2 })
+const p = await c.newPage()
+await p.goto('http://localhost:5175/auth/login', { waitUntil: 'networkidle' })
+await p.locator('input[type="email"]').first().fill(process.env.TEST_EMAIL)
+await p.locator('input[type="password"]').first().fill(process.env.TEST_PASSWORD)
+await p.locator('button[type="submit"]').first().click()
+await p.waitForURL(/\/(dashboard|onboarding)/, { timeout: 25000 })
+await p.goto('http://localhost:5175/visa', { waitUntil: 'networkidle' })
+await p.waitForTimeout(3000)
+await p.screenshot({ path: '/Users/axel/Downloads/v0-go-mate-ui-shell-main/screenshots/visa-current.png', fullPage: true })
+await b.close()

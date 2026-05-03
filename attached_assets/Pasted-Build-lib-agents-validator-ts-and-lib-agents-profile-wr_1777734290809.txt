@@ -1,0 +1,46 @@
+Build lib/agents/validator.ts and lib/agents/profile-writer.ts.
+
+Validator (lib/agents/validator.ts):
+Pure code, no LLM. Takes the raw value from Extractor and the field key. Runs through schema validation.
+Copy
+validate( rawValue: string | number | "yes" | "no" | null, fieldKey: AllFieldKey ): ValidationResult
+
+type ValidationResult = | { valid: true, normalizedValue: any } | { valid: false, errorCode: string, retryHint: string }
+
+
+Validation rules per field type, deterministic:
+- yes/no fields: normalize "yeah"/"yep"/"sure"/"definitely"/"of course"/"absolutely" → "yes"; "nah"/"nope"/"no way"/"not really" → "no". If unclear → invalid.
+- birth_year: accept 4-digit year between 1900 and current year minus 16.
+- date fields (target_date, etc.): parse common date formats.
+- currency fields (savings_available, monthly_budget, monthly_income, rental_budget_max): accept patterns like "5000 USD", "5000 SEK", "$5000", "€5000". Normalize to "5000 USD" format.
+- country fields (citizenship, destination, current_location, prior_visa_country, vehicle_origin_country): use existing country-name-normalizer.ts to validate against country list. Accept synonyms ("USA"→"United States").
+- city fields (target_city): leave as-is, just trim.
+- numeric fields (children_count, posting_duration_months, commute_tolerance_minutes): parse as integer.
+- percentage / months fields (income_history_months, posting_duration_months): parse with units, convert to base unit (months).
+- enum fields (visa_role, purpose, settlement_reason, study_type, etc.): match against allowed values.
+- string fields with no constraints: accept as-is, trim.
+
+For "I'm 30 years old" given fieldKey="birth_year": this would already have been processed by the Extractor (which returns "1995" or similar). If somehow the Extractor returned the literal string, the Validator catches it because it's not a 4-digit year.
+
+For "I am 30" given fieldKey="name": the Validator rejects this with errorCode="not_a_name", retryHint="That sounds like an age. What's your name?"
+
+Profile Writer (lib/agents/profile-writer.ts):
+Pure code, no LLM. Takes the validated value and writes to Postgres.
+Copy
+writeProfileField( profile_id: string, fieldKey: AllFieldKey, validatedValue: any, confidence: ConfidenceLevel, sourceUserMessage: string, validationRulesApplied: Record<string, any> ): Promise
+
+
+Implementation:
+1. Fetch current profile_data from relocation_plans.
+2. Set profile_data[fieldKey] = validatedValue.
+3. Update relocation_plans.profile_data.
+4. Call writeAuditRow() with agent_name="profile_writer", phase="extraction", field_or_output_key=fieldKey, value=validatedValue, confidence, source_user_message, validation_rules_applied=validationRulesApplied.
+5. Profile Writer NEVER accepts writes to fieldKeys not in the schema. If somehow called with an invalid key, throw an error before writing.
+
+Add unit tests (or quick manual test cases) for both. Validate that:
+- Extractor + Validator + Profile Writer chain handles "I'm 30 years old, moving to Sweden" correctly when the pending field is birth_year (Extractor returns "1995" inferred, Validator passes, Profile Writer writes 1995 with audit trail).
+- Same chain handles the same input when the pending field is name (Extractor returns null, additionalFieldsDetected=[birth_year, destination], Validator never runs, Profile Writer never runs, Question Director gets "value couldn't be determined, additional fields mentioned").
+
+Run pnpm tsc --noEmit.
+
+When you're done, show me the validation logic for the currency field type and walk me through the audit rows produced for a successful extraction chain.

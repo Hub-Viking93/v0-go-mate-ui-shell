@@ -1,0 +1,50 @@
+Build the new conditional cards as components.
+
+components/schools-card.tsx:
+Renders Schools Specialist's domainSpecificData.childRecommendations. For each child, shows: 3-5 recommended schools, application timeline urgency, application fees, language of instruction, waitlist status. Inline citation markers linking to source URLs.
+
+components/pet-relocation-card.tsx:
+Renders Pet Specialist output. Shows: import requirements, vaccination timeline (with countdown to EU travel readiness if applicable), breed restrictions if breed is on a restricted list, import permit application steps, quarantine rules.
+
+components/income-compliance-card.tsx:
+Renders Digital Nomad Compliance Specialist output. Shows: required income threshold for the destination's nomad visa, comparison to user's actual income (qualifies / doesn't), tax residency implications, registration requirements, validity period.
+
+components/family-reunion-card.tsx:
+Renders Family Reunion Specialist output. Shows: family reunion visa requirements, sponsor income threshold, accommodation requirements, integration test if applicable, processing time, derived residency rules (how user's permission depends on sponsor's status).
+
+components/departure-tax-card.tsx:
+Renders Departure Tax Specialist output. Shows: exit tax obligations, capital gains implications, pension treatment, departure declaration deadline, treaty references for double-taxation relief.
+
+components/vehicle-import-card.tsx:
+Renders Vehicle Import Specialist output. Shows: import duty, emissions compliance check, customs declaration steps, registration steps, license plate process, technical inspection schedule.
+
+components/property-purchase-card.tsx:
+Renders Property Purchase Specialist output. Shows: foreign buyer restrictions, mortgage availability, transaction taxes, agent recommendations, purchase timeline.
+
+components/posted-worker-card.tsx:
+Renders Posted Worker Specialist output. Shows:
+- A1 certificate status (or CoC status for non-EU): checklist of steps, where to apply (origin's social security agency), expected timeline.
+- Posted Worker Declaration status: filed yes/no, filing deadline (must be before work starts), filing portal URL.
+- Employer contact person registration status.
+- Social security continuity rules.
+This card shows the most prominent status indicators because posting users have legally critical compliance.
+
+components/trailing-spouse-card.tsx:
+Renders Trailing Spouse Career Specialist output. Shows: labor market overview for spouse's field, networking platforms, professional associations, language requirements per industry, work permit considerations for spouse.
+
+components/chronic-health-card.tsx:
+Renders deep-dive Healthcare output specific to chronic condition. Shows: specialist availability in destination, prescription medication availability (some are restricted), insurance coverage for ongoing treatment, English-speaking doctor recommendations.
+
+components/prior-visa-history-card.tsx:
+Renders prior immigration history context. Shows: warning if visa_rejections=yes (need to address in new application), list of prior visa countries and types. This is preparatory — the user doesn't take action here, but it's surfaced for transparency.
+
+All cards follow the same pattern:
+- Use shadcn Card component.
+- Title + status badge.
+- Content with inline citation markers (see Phase 6 for citation rendering).
+- Audit icons next to every value (see next prompt for audit-trail-popover).
+- "View source" links to expand and see scraped content excerpt.
+
+Run pnpm tsc --noEmit.
+
+When you're done, render each new card with sample data and screenshot.

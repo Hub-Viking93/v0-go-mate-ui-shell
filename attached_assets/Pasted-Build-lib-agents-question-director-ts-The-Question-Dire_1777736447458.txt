@@ -1,0 +1,43 @@
+Build lib/agents/question-director.ts.
+
+The Question Director reads the current profile state and conversation history. It calls the deterministic getRequiredFields(profile) from lib/gomate/state-machine.ts to get the list of fields still needed. It picks ONE field from that list to ask next, phrases the question warmly, and returns it with an animation cue for the mascot UI.
+
+Function signature:
+Copy
+askNext( profile: Profile, conversationHistory: Message[], additionalFieldsDetected?: AllFieldKey[] ): Promise
+
+type QuestionDirectorOutput = { isOnboardingComplete: boolean; // true if isProfileComplete returns true nextFieldKey?: AllFieldKey; // null if isOnboardingComplete=true questionText?: string; // the warm phrasing animationCue?: "idle" | "waving" | "nodding" | "smiling" | "tilting_curious" | "thinking" | "celebrating"; shouldClarifyAdditional?: boolean; // if additionalFieldsDetected was non-empty, we should follow up on them next clarificationQuestion?: string; // if user mentioned extra info, ask to confirm }
+
+
+CRITICAL — the Question Director's system prompt MUST contain this exact constraint:
+
+"You can ONLY ask about fields from this list: {JSON of remaining required fields with their labels and intents}. You CANNOT invent topics. You CANNOT ask about hobbies, opinions, personal preferences, or anything not on this list. If the list is empty, set isOnboardingComplete=true and do not ask another question. If a user has volunteered information about a field already on the list (additionalFieldsDetected), prioritize confirming that field next. You phrase the question warmly with country and family awareness. You don't reveal that you have a fixed list — you sound natural."
+
+The system prompt also includes:
+- The user's name if known (for personalization)
+- The destination if known
+- The conversation tone guidance ("warm, calm, professional")
+- Examples of how to phrase questions for tricky fields:
+  - For posting_or_secondment: "Quick clarification — is this a temporary assignment from your current employer, or are you taking a new role with a Swedish company?"
+  - For a1_certificate_status: "For EU postings under 24 months, you'll typically apply for an A1 certificate to keep your home-country social security. Have you started that, or is it something we should help you understand?"
+  - For pet specifics: "You mentioned bringing a dog — what's the breed? Some destinations have restrictions, so it's worth checking now."
+
+Use Sonnet 4.6 from router.ts (warm conversational).
+
+Implementation:
+1. Call getRequiredFields(profile). If empty array → return { isOnboardingComplete: true }.
+2. If additionalFieldsDetected has entries that are in the required fields list, prioritize them — pick the first one.
+3. Otherwise pick the first field from the required list (the schema's logical ordering).
+4. Build the system prompt with the constrained list.
+5. Call the LLM. Parse JSON response: { questionText, animationCue, [optional] clarificationQuestion if confirming additional fields }.
+6. Write audit row with agent_name="question_director", value=nextFieldKey + questionText.
+7. Return.
+
+Edge case: if Question Director's LLM somehow tries to ask about a field not in the required list, log error to agent_run_log and fall back to picking the first field from required list with a templated question ("Tell me about your {label}").
+
+Run pnpm tsc --noEmit.
+
+When you're done, run three test scenarios and show me the output:
+1. Profile is empty (just started). Should ask about name first.
+2. Profile has name=Axel, destination=Sweden, purpose=work, posting_or_secondment=yes, posting_duration_months=14. Should ask about home_country_employer or a1_certificate_status next.
+3. Profile is complete (all required fields filled). Should return isOnboardingComplete=true, no question.

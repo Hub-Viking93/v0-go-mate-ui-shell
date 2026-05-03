@@ -1,0 +1,36 @@
+Set up the lib/agents/ directory and the infrastructure layer. We're not building the actual agents yet — just the foundation they'll all use.
+
+Create lib/agents/orchestrator.ts:
+- Exports a class or function called runAgentPipeline that takes a list of agent invocations and runs them with proper error handling, retries, and audit logging.
+- Each agent invocation is { name, phase, run: (context) => Promise<output>, fallback?: () => output, retries?: number }.
+- The orchestrator runs each agent, captures timing, writes to agent_run_log table, handles retries with exponential backoff, returns aggregated results.
+- Supports both sequential and parallel agent groups (some pipelines need order, some are parallel).
+
+Create lib/agents/audit.ts:
+- Exports writeAuditRow(profile_id, agent_name, model_used, phase, field_or_output_key, value, confidence, source_user_message?, source_url?, prompt, response, validation_rules?, wall_clock_ms, tokens_used?).
+- Writes to agent_audit table.
+- Hashes prompt and response to save storage.
+- Wraps the database insert with retry logic.
+
+Create lib/agents/router.ts:
+- Defines a model routing config:
+Copy
+const AGENT_MODEL_ROUTING = { extractor: "claude-haiku-4-5", validator: null, // no LLM profile_writer: null, // no LLM question_director: "claude-sonnet-4-6", coordinator: "claude-opus-4-7", visa_specialist: "claude-sonnet-4-5", tax_strategist: "claude-opus-4-7", cost_specialist: "claude-sonnet-4-5", housing_specialist: "claude-sonnet-4-5", schools_specialist: "google/gemini-2.5-pro", healthcare_navigator: "claude-sonnet-4-5", banking_helper: "claude-sonnet-4-5", documents_specialist: "claude-sonnet-4-5", cultural_adapter: "claude-sonnet-4-6", pet_specialist: "claude-sonnet-4-5", posted_worker_specialist: "claude-sonnet-4-5", digital_nomad_compliance: "claude-sonnet-4-5", job_compliance_specialist: "claude-sonnet-4-5", family_reunion_specialist: "claude-sonnet-4-5", departure_tax_specialist: "claude-opus-4-7", vehicle_import_specialist: "claude-sonnet-4-5", property_purchase_specialist: "claude-sonnet-4-5", trailing_spouse_career_specialist: "claude-sonnet-4-6", pension_continuity_specialist: "claude-opus-4-7", synthesizer: "claude-opus-4-7", critic: "claude-sonnet-4-5", guide_composer: "claude-opus-4-7", section_writer_visa: "claude-sonnet-4-6", section_writer_budget: "claude-sonnet-4-6", section_writer_housing: "claude-sonnet-4-6", section_writer_banking: "claude-sonnet-4-6", section_writer_healthcare: "claude-sonnet-4-6", section_writer_culture: "claude-sonnet-4-6", section_writer_jobs: "claude-sonnet-4-6", section_writer_education: "claude-sonnet-4-6", section_writer_documents: "claude-sonnet-4-6", section_writer_posted_worker: "claude-sonnet-4-6", settling_in_registration: "claude-sonnet-4-5", settling_in_banking: "claude-sonnet-4-5", settling_in_housing: "claude-sonnet-4-5", settling_in_healthcare: "claude-sonnet-4-5", settling_in_employment: "claude-sonnet-4-5", settling_in_transport: "claude-sonnet-4-5", settling_in_family: "claude-sonnet-4-5", settling_in_tax: "claude-sonnet-4-5", settling_in_coordinator: "claude-opus-4-7", pre_departure_coordinator: "claude-opus-4-7", free_chat: "claude-sonnet-4-6", };
+
+- Exports callLLM(agentName, prompt, options) that looks up the model and routes to OpenRouter (existing setup).
+- Each call returns { content, tokens_used, wall_clock_ms }.
+- Wraps existing fetch-with-retry logic.
+
+Create lib/agents/types.ts with shared TypeScript types:
+- AgentName (string union of all agent names)
+- AgentInvocation { name, phase, run, fallback?, retries? }
+- AgentOutput { content, confidence, source?, retrieved_at, wall_clock_ms, tokens_used? }
+- ConfidenceLevel = "explicit" | "inferred" | "assumed" | "full" | "partial" | "fallback"
+- AgentPhase = "extraction" | "validation" | "research" | "enrichment" | "settling-in" | "chat" | "pre-departure"
+
+Don't build any agents yet. This is just the infrastructure they'll plug into.
+
+Run pnpm tsc --noEmit. Confirm no type errors.
+
+When you're done, show me the directory structure of lib/agents/ and the contents of types.ts and router.ts.
+Copy

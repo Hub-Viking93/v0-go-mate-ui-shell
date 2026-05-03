@@ -1,0 +1,48 @@
+Build the audit trail popover system that overlays all dashboard cards.
+
+components/audit-icon.tsx:
+A small information icon (info-circle from lucide-react). Placed next to any displayed value on the dashboard. Click triggers the popover.
+
+Props:
+Copy
+type AuditIconProps = { fieldKey?: AllFieldKey; // for profile fields outputKey?: string; // for research outputs (sectionKey.paragraphIdx or similar) size?: "xs" | "sm" | "md"; }
+
+
+components/audit-trail-popover.tsx:
+The popover that opens when audit icon is clicked. Use shadcn Popover.
+
+For profile fields:
+- Title: "How we got this"
+- "Extracted by [agent name]" with model used
+- Confidence: explicit (high) | inferred (medium) | assumed (low) — displayed with color-coded badge
+- "From your message: [excerpt]" — show 200 chars of the relevant user message
+- "Validated: [rules applied]"
+- Timestamp
+- Edit button: lets user correct the value if wrong
+
+For research outputs:
+- Title: "Source for this claim"
+- "[Specialist name] researched this"
+- Source URL with "Open" button (opens in new tab)
+- "Retrieved: [timestamp] ([N] days ago)" — colored if older than 7 days
+- "Quality: [full | partial | fallback]" — colored badge
+- Specialist's confidence
+- "Verify on official site" button
+
+For derived values (computed budgets, etc.):
+- Title: "How this was calculated"
+- Inputs used with their audit links
+- Formula applied
+- Last computed at
+
+Add app/api/agent-audit/route.ts that returns the audit data:
+- GET ?profile_id=X&field_key=Y → returns latest audit row for that field
+- GET ?guide_id=X&section_key=Y&paragraph_idx=Z → returns citation row
+
+The endpoint queries agent_audit and guide_section_citations tables.
+
+Migrate existing dashboard cards (visa-routes-card, cost-of-living-card, affordability-card, profile-details-card, etc.) to add audit-icon next to each displayed value. Don't rewrite the cards — just inject the audit-icon component next to values.
+
+Run pnpm tsc --noEmit.
+
+When you're done, walk me through clicking audit icons on three different dashboard fields and three different research outputs. Show me each popover.

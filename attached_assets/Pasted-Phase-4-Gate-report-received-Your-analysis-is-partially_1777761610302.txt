@@ -1,0 +1,99 @@
+Phase 4 Gate report received. Your analysis is partially correct but                                                  
+  incomplete. Two real issues to fix, not one:                                                                          
+                                                                                                                        
+  ROOT CAUSE 1 (test script — your diagnosis): persona follow-ups are                                                   
+  deflective. Fix by rewriting follow-ups with SUBSTANTIVE answers.                                                     
+                                                                                                                        
+  ROOT CAUSE 2 (application edge case — additional, also fix): Question                                                 
+  Director + Coordinator have NO completion shortcut for users who                                                      
+  won't answer all required fields. 30+ required fields × 5-8s each =                                                   
+  real users who DON'T type bundled answers will never complete                                                         
+  onboarding within reasonable time. This is a real product risk that                                                   
+  the test surfaced.                                                                                                    
+                                                                                                                        
+  FIXES (apply both):                                                                                                   
+                                                                  
+  FIX 1 — Rewrite e2e/personas.ts follow-ups (1 hour):                                                                  
+                                                                  
+  Each persona needs 5-8 substantive follow-up answers that fill the                                                    
+  required-fields the bot will ask about. Map persona's profile to
+  likely questions and pre-script real answers.                                                                         
+                                                                                                                        
+  Example for Roselle (Filipino → Sweden sambo):                                                                        
+  followUps: [                                                                                                          
+    { match: /target.*city|where.*sweden|stockholm|gothenburg/i,                                                        
+      answer: "Stockholm" },                                                                                            
+    { match: /monthly.*income|earn|salary/i,
+      answer: "I make about $3500/month as a freelance designer" },                                                     
+    { match: /savings|saved/i,                                                                                          
+      answer: "around $15,000 in savings" },                                                                            
+    { match: /target.*date|when.*move|arrival/i,                                                                        
+      answer: "We're planning for next month, around 30 days" },                                                        
+    { match: /language|swedish/i,                                                                                       
+      answer: "I know basic Swedish, taking lessons" },                                                                 
+    { match: /relationship.*duration|how long/i,                                                                        
+      answer: "We've been together 4 years" },                                                                          
+    { match: /budget|monthly.*budget/i,                                                                                 
+      answer: "Around $2000/month for living expenses" },         
+    { match: /partner.*work|anders.*job/i,                                                                              
+      answer: "Anders is a software engineer at Spotify" },                                                             
+  ]                                                                                                                     
+                                                                                                                        
+  Default fallback (if no match): "Yes" or "let me think... actually                                                    
+  yes" instead of "let's skip".                                                                                         
+                                                                                                                        
+  Apply same substantive-answer pattern for Axel, Priya, Stevenson —                                                    
+  use their persona profile to anticipate questions.
+                                                                                                                        
+  FIX 2 — Application: Question Director completion shortcut (30 min):                                                  
+   
+  In artifacts/api-server/src/lib/agents/question-director.ts, add                                                      
+  two completion-acceleration mechanisms:                         
+                                                                                                                        
+  A. Hard ceiling on questions: after 15 turns OR 8 distinct fields                                                     
+     asked, mark profile as "minimum-viable" and offer completion:                                                      
+     - If user has ≥6 required fields filled: trigger                                                                   
+       isOnboardingComplete=true automatically and let user proceed                                                     
+       to "Generate my plan" with a soft warning ("Your profile is                                                      
+       mostly complete. You can refine it later from the dashboard.")                                                   
+     - This prevents infinite-question hell for real users                                                              
+                                                                                                                        
+  B. Detect deflection patterns:                                                                                        
+     - If user response is short (<10 chars) AND matches deflection                                                     
+       patterns (/skip|not sure|later|don.t know|pass|no idea/i)                                                        
+     - Mark current field as "user_skipped" with confidence='partial'                                                   
+     - Move on to next field                                                                                            
+     - Don't keep re-asking deflected fields                                                                            
+                                                                                                                        
+  Both fixes preserve user agency (they CAN deflect, they CAN take                                                      
+  forever) but prevent the system from being stuck.                                                                     
+                                                                                                                        
+  VERIFICATION (apply bug-handling protocol from prompt.md):                                                            
+   
+  After both fixes:                                                                                                     
+  1. Re-run all 4 personas — expect ALL to reach onboarding-complete
+     AND research → dashboard → cards → audit popover → guide criteria                                                  
+     to flip green                                                
+  2. Re-run 3 TIMES IN A ROW for each persona — all 3 must pass for                                                     
+     each persona                                                                                                       
+  3. Document each fix in artifacts/test-reports/phase-4-bugs-fixed.md                                                  
+  4. Generate fresh phase-4-gate-report.md showing 4/4 PASS                                                             
+                                                                                                                        
+  ADDITIONAL ADJUSTMENTS:                                                                                               
+                                                                                                                        
+  - Raise first-turn extraction budget from 8s to 12s (real LLM round-                                                  
+    trip latency, not a bug, just a budget recalibration)         
+  - Keep onboarding total budget at 60s for substantive flow (with                                                      
+    fixes above, real persona completion should be 30-50s)                                                              
+  - Save-progress modal at 5 fields will trigger naturally once                                                         
+    onboarding completes — no separate fix needed                                                                       
+                                                                                                                        
+  CRITICAL — DO NOT:                                                                                                    
+  - Skip the application fix (FIX 2). The test surfaced a real edge                                                     
+    case that affects real users, not just test scripts. Workarounding                                                  
+    it as "test issue only" leaves a bug shipped to production.                                                         
+  - Add try/catch or .skip to bypass failing assertions                                                                 
+  - Pad budgets so loose that real performance regressions go                                                           
+    unnoticed                                                                                                           
+  - Generate the new gate report from a single run — minimum 3                                                          
+    consecutive runs per persona before marking PASS 

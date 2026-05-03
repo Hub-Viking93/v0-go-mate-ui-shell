@@ -1,0 +1,45 @@
+You're right — I had not pulled origin/main. But your migration commits                                               
+  (b4059ae → a54f106 → d0d60a9) don't exist on the GitHub remote at                                                     
+  Hub-Viking93/v0-go-mate-ui-shell either. I just verified:                                                             
+                                                                                                                        
+  - My local origin/main is at 66a82d4 (the buildathon prep commit)                                                     
+  - git log --all on my local shows NO commits matching "migration",                                                    
+    "Vite", "wouter", or "api-server"                                                                                   
+  - The migration lives only in your local Replit workspace right now                                                  
+                                                                                                                        
+  So the divergence isn't local-vs-pushed — it's Replit-local vs                                                        
+  GitHub. Both are out of sync with where the buildathon needs to                                                 
+  operate.                                                                                                              
+                                                                                                                        
+  Choosing Option 1 (Replit workspace canonical). The migration is                                                      
+  real, the architecture is right (Express + Vite for clean SSE +                                                       
+  no edge-runtime constraints on long agents), and throwing away 13                                                     
+  commits to redo it on Next.js would burn 4-6 hours of buildathon                                                      
+  time for zero benefit.                                                                                                
+                                                                                                                        
+  But before I can have aligned views and verify your translation map                                                   
+  applies correctly, I need you to push the migration to a branch I                                                     
+  can fetch. Two-step request:                                                                                          
+                                                                                                                        
+  Step 1 (do this now, before anything else): push your current                                                         
+  workspace state to a branch named buildathon-v2 on the existing                                                       
+  remote. Command:                                                                                                      
+                                                                                                                        
+    git push origin HEAD:buildathon-v2                                                                                  
+                                                                                                                        
+  Reply with the commit SHA at HEAD after the push completes. I'll                                                      
+  fetch locally and verify I see the same state you see.                                                                
+                                                                                                                        
+  Step 2 (after I confirm I can see your state): proceed with the                                                       
+  file-by-file breakdown for Prompt 1.1 using the translation map you                                             
+  already produced. Apply the v1-Next.js paths in the prompt to the                                                     
+  monorepo paths via your translation map.                                                                              
+                                                                                                                  
+  For ongoing buildathon work after this point: you keep committing                                                     
+  locally on buildathon-v2 in your Replit workspace. Push to GitHub                                                     
+  at natural breakpoints (after each Wave's stabilize checkpoint                                                        
+  passes). I won't ask you to push after every commit — just at the                                                     
+  gates so I have something to fetch when I need to verify.                                                             
+                                                                                                                        
+  Confirm Option 1 + push migration to buildathon-v2 branch + return                                                    
+  the HEAD SHA. Then we proceed.

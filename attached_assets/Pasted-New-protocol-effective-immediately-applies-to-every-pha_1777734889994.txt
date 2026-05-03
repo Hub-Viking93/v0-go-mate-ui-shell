@@ -1,0 +1,96 @@
+New protocol effective immediately, applies to every phase from this                                                  
+  point forward (Phase 1 final completion through Phase 9):                                                             
+  
+  PHASE GATE TESTING — at the end of every phase, before moving to                                                      
+  the next phase, you MUST write and run automated tests that prove
+  the phase's deliverables work end-to-end. NOT manual walk-throughs.                                                   
+  NOT typecheck-only verification. Real automated tests.                                                                
+                                                                                                                        
+  For each phase, produce two test artifacts:                                                                           
+                                                                                                                        
+  1. FRONTEND E2E (Playwright) — at artifacts/gomate/e2e/phase-N.spec.ts                                                
+     - Boot the dev server fresh                                  
+     - Sign in (or create test account via test fixture)                                                                
+     - Walk through the user-visible flows the phase added or changed                                                   
+     - Assert UI states (text content, element visibility, classnames)                                                  
+     - Take screenshots at key moments (saved to /artifacts/screenshots/phase-N/)                                       
+     - Click real buttons. Type real input. Wait for real network requests.                                             
+     - At least 3 distinct test scenarios per phase (happy path + 2 edge cases)                                         
+                                                                                                                        
+  2. BACKEND INTEGRATION (vitest or node:test) — at                                                                     
+     artifacts/api-server/test/phase-N.integration.test.ts                                                              
+     - Hit real API routes with authenticated fetch                                                                     
+     - Assert response shape, status codes, and timing                                                                  
+     - Verify DB state changes (new rows, updated fields, RLS scoping)                                                  
+     - Test failure paths (auth missing, validation fails, downstream                                                   
+       dependency unavailable)                                                                                          
+     - At least 2 distinct scenarios per significant API endpoint                                                       
+                                                                                                                        
+  Acceptance criteria for "phase complete":                                                                             
+  - All Playwright tests pass (no flakes — re-run twice; both must pass)
+  - All backend integration tests pass                                                                                  
+  - pnpm tsc --noEmit passes                                                                                            
+  - Screenshots saved are visually correct (you describe them; user                                                     
+    spot-checks on request)                                                                                             
+  - A PHASE-N-TESTS.md report is written summarizing: tests written,                                                    
+    what each verifies, pass/fail status, any flake rates                                                               
+                                                                                                                        
+  Hard rules:                                                                                                           
+  - Tests must use REAL data flows. No mocking the agent calls. If you                                                  
+    need to keep test latency reasonable, use the cheapest real model                                                   
+    (Haiku 4.5) and a small profile fixture — but the LLM round-trip is                                                 
+    real.                                                                                                               
+  - Tests must use REAL Supabase. Per-test cleanup in afterEach to                                                      
+    remove fixtures.                                                                                                    
+  - If a test fails, do NOT skip with .skip. Fix the bug. Tests are                                                     
+    the truth, not a target to game.                                                                                    
+  - If a test reveals a design flaw (not a bug — an actual "this can't                                                  
+    be tested cleanly because the design is wrong"), pause and report                                                   
+    back to user before proceeding.                                                                                     
+                                                                                                                        
+  Phase-by-phase test focus areas:                                                                                      
+                                                                                                                        
+  Phase 1 (Foundation, current): smoke tests — workspace builds, all                                                    
+  DB migrations applied, /api/agents/health round-trips Anthropic, all
+  existing v1 routes still work (regression check), chat-v1 alias                                                       
+  returns identical output to chat (pre-Wave-1 behavior preserved).                                                     
+                                                                                                                        
+  Phase 2 (Onboarding): mascot UI renders 7 animation states, multi-                                                    
+  agent extraction handles "I'm Axel, 30, moving from Germany to Sweden                                                 
+  for 14-month posting with wife and 2 kids" correctly (8+ fields                                                       
+  extracted), Question Director never asks about religion/offshore/pets                                                 
+  unless triggered, profile completion correctly transitions to                                                         
+  ready_for_pre_departure.                                                                                              
+                                                                                                                        
+  Phase 3 (Multi-agent research): all 6 always-run specialists fire,                                                    
+  agent_audit rows persisted with citations, Roselle and Axel profiles
+  produce different specialist dispatches (Posted Worker fires for                                                      
+  Axel, doesn't for Roselle).                                                                                           
+                                                                                                                        
+  Phase 4 (Dashboard): profile-aware cards show/hide per profile, audit                                                 
+  popover opens with chain-of-evidence, no broken cards on either test                                                  
+  profile.                                                                                                              
+                                                                  
+  Phase 5 (Pre-departure): timeline computes weeks-before-move correctly,                                               
+  manual "Generate my pre-departure checklist" button advances stage to
+  pre_departure (uses user_triggered_pre_departure_at column).                                                          
+                                                                                                                        
+  Phase 6 (Guide composition): citations link to real Migrationsverket/                                                 
+  Skatteverket URLs (resolve as 200), section writers produce coherent                                                  
+  markdown, footnote markers render correctly in microsite-style page.                                                  
+                                                                                                                        
+  Phase 7 (Settling-in multi-agent): DAG validates without cycles,                                                      
+  specialists produce dependency graph that matches expected Sweden-                                                    
+  post-arrival-7-day pattern.                                                                                           
+                                                                                                                        
+  Phase 8 (Post-arrival chat): smart suggestions render, chat does not                                                  
+  re-trigger profile extraction (locked stage), wellbeing checkin saves.                                                
+                                                                                                                        
+  Phase 9 (Polish): /compare page renders v1 vs v2 side-by-side with
+  real call to both, design overhaul applied (verify color tokens                                                       
+  present in computed styles), all features free (verify                                                                
+  GOMATE_BUILDATHON_FREE flag short-circuits hasFeatureAccess).                                                         
+                                                                                                                        
+  Apply this protocol starting at the end of Phase 1 (which we're                                                       
+  finishing now). Phase 1 tests due before any Phase 2 prompt is                                                        
+  processed. Confirm the protocol then proceed.   

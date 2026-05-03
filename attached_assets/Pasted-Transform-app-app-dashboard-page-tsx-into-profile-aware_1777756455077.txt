@@ -1,0 +1,54 @@
+Transform app/(app)/dashboard/page.tsx into profile-aware dynamic rendering.
+
+Currently it renders a hardcoded set of cards. Replace with a layout that reads profile and dispatches cards per shouldShow predicates.
+
+Step 1: Update lib/gomate/dashboard-state.ts. Add a new function:
+Copy
+computeVisibleCards(profile: Profile, plan: PlanStateInput): VisibleCardSet
+
+type VisibleCardSet = { cards: { id: string, priority: number }[]; alwaysShow: string[]; conditionallyShown: { id: string, reason: string }[]; }
+
+
+Mapping (already-exist or new card IDs):
+- visa-routes-card: always
+- cost-of-living-card: always
+- affordability-card: always
+- profile-details-card: always
+- visa-research-card: always after research complete
+- visa-status-stepper: after visa pathway selected (visa_application.selectedVisaType set)
+- visa-deadline-card: after research complete and pathway selected
+- document-progress-card: after research complete
+- interactive-document-checklist: after research complete
+- banking-wizard-card: after research complete
+- tax-overview-card: always (deeper if departure_tax_filing_required=yes)
+- cultural-card: always
+- pre-departure-timeline: when stage is pre_departure
+- compliance-alerts: only when arrived
+- compliance-calendar: only when arrived
+- compliance-timeline: only when arrived
+- settling-in-task-card: only when arrived
+- wellbeing-checkin: only when arrived
+- arrival-banner: when stage transitions to arrived (first 30 days)
+- plan-consistency-alerts: always
+- commonly-forgotten-section: always
+- schools-card: when children_count > 0
+- pet-relocation-card: when pets ≠ "none"
+- income-compliance-card: when purpose === "digital_nomad"
+- family-reunion-card: when visa_role === "dependent" OR settlement_reason === "family_reunion"
+- departure-tax-card: when current_location is in EXIT_TAX_COUNTRIES
+- vehicle-import-card: when bringing_vehicle === "yes"
+- property-purchase-card: when home_purchase_intent === "yes"
+- posted-worker-card: when posting_or_secondment === "yes"
+- trailing-spouse-card: when spouse_joining === "yes" AND spouse_seeking_work === "yes"
+- chronic-health-card: when healthcare_needs ≠ "none" OR chronic_condition_description exists
+- prior-visa-history-card: when prior_visa === "yes" OR visa_rejections === "yes"
+
+Step 2: Refactor app/(app)/dashboard/page.tsx to call computeVisibleCards and render only the returned cards. Layout: responsive grid, cards reflow based on count. Card priority order: visa first (most critical), then deadline-sensitive (departure_tax, schools application timing, posted_worker registration), then financial, then advisory.
+
+Step 3: Build the new conditional card components in the next prompt. For now, use placeholder components that render "[Card name] — coming next prompt".
+
+Existing dashboard cards keep working. Don't touch their internal logic.
+
+Run pnpm tsc --noEmit.
+
+When you're done, walk me through the dashboard for three profiles: solo Filipino dependent (should hide schools, pet, posted-worker, vehicle, property), German posting family (should show schools, posted-worker, departure-tax), American DN with dog (should show pet, income-compliance, chronic-health, departure-tax).

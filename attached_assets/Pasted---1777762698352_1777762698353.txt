@@ -1,0 +1,124 @@
+═══════════════════════════════════════════════════════════════                                                       
+  AUTONOMOUS BUG-FIX PROTOCOL — binding for the next 3 hours                                                            
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                                                                        
+  You run this test loop autonomously. Don't ask permission between                                                     
+  iterations. Don't pause for confirmation. Loop until 4/4 personas
+  pass cleanly OR you hit the 3-hour timebox.                                                                           
+                                                                                                                        
+  LOOP:                                                                                                                 
+    1. Pick next persona from [Roselle, Axel, Priya, Stevenson]                                                         
+    2. Run end-to-end role-play test (signup → onboarding → research                                                    
+       → dashboard → audit popover verification)
+    3. Take screenshots at each major step (save to                                                                     
+       artifacts/screenshots/phase-4/[persona]/)                                                                        
+    4. If any verification check fails:                                                                                 
+       a. STOP this persona                                                                                             
+       b. Investigate ROOT CAUSE (read actual code, SSE events, DB
+          state — not assumptions)                                                                                      
+       c. Fix at the source                                       
+       d. Re-run THIS persona from start                                                                                
+       e. Verify fix holds                                                                                              
+       f. Re-run ALL personas already passed (regression check) —
+          previously-passed personas must still pass after fix                                                          
+    5. After persona passes: continue to next persona                                                                   
+    6. After all 4 pass: re-run all 4 back-to-back as final verification                                                
+    7. Generate fresh phase-4-gate-report.md                                                                            
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  DURABILITY OF FIXES — non-negotiable                                                                                  
+  ═══════════════════════════════════════════════════════════════                                                       
+  
+  Every fix MUST be:                                                                                                    
+                                                                  
+  1. ROOT-CAUSED. Find the actual reason, not the surface symptom.                                                      
+     - Symptom: "Roselle's visa research card is empty"           
+     - Wrong fix: "Hardcode Filipino-Sweden visa text in card"                                                          
+     - Right fix: "Visa Specialist's prompt didn't include                                                              
+       citizenship+destination context — fix the prompt template so                                                     
+       ALL persona pairs work"                                                                                          
+                                                                                                                        
+  2. GENERAL, not persona-tailored. Fixes must benefit ALL future                                                       
+     users, not just the personas in this test.                   
+     - Wrong: "If profile.citizenship === 'Philippines' use Filipino                                                    
+       apostille text"                                                                                                  
+     - Right: "Documents Specialist queries official-sources by                                                         
+       citizenship + destination dynamically; works for any country pair"                                               
+                                                                                                                        
+  3. BACKEND + FRONTEND verified. Every fix that touches data flow                                                      
+     must be verified at BOTH layers:                                                                                   
+     - Backend: agent_audit table has correct rows, API returns                                                         
+       correct shape                                                                                                    
+     - Frontend: DOM shows correct content, side panel updates,
+       dashboard cards render                                                                                           
+     - If you fix a backend bug but frontend still shows wrong data,                                                    
+       find the frontend wiring issue too                                                                               
+                                                                                                                        
+  4. RE-RUNNABLE. Fix must hold across 3 consecutive runs of the                                                        
+     same persona, AND across the back-to-back run of all 4 personas.
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  NEVER ACCEPTABLE
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                  
+  - Workarounds in test code that mask the real issue                                                                   
+  - Persona-specific switch statements ("if persona === 'roselle' do X")
+  - Hardcoded data to make a specific assertion pass                                                                    
+  - .skip / .fixme on failing checks                                                                                    
+  - try/catch to silence errors                                                                                         
+  - Lowering quality thresholds to make wrong output "pass"                                                             
+  - Padding timeouts to hide real performance issues                                                                    
+  - Comment out failing assertions                                
+  - "Will fix this in v2.1" — fix now or report back to user                                                            
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  WHAT MATTERS MOST FOR THE USER                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                  
+  The user-visible truth:                                                                                               
+  1. Onboarding: AI extracts correctly, asks relevant questions, side
+     panel updates in real-time, completion state reached                                                               
+  2. Dashboard: profile-aware cards render with REAL research data,                                                     
+     audit icons reveal chain-of-evidence, citations link to real                                                       
+     sources                                                                                                            
+                                                                                                                        
+  If onboarding works but dashboard is empty/broken: NOT DONE.                                                          
+  If dashboard renders but research data is fake/generic: NOT DONE.
+  If audit popovers show "TBD" or empty content: NOT DONE.                                                              
+                                                                                                                        
+  The submission demo lives or dies on the user-visible flow being                                                      
+  correct end-to-end. Every persona must demonstrably work — not                                                        
+  just compile, not just respond, but produce CORRECT and                                                               
+  PERSONA-RELEVANT output across both onboarding AND dashboard.                                                         
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  WHEN TO STOP AND ESCALATE                                                                                             
+  ═══════════════════════════════════════════════════════════════ 
+                                                                                                                        
+  Stop and report back to user (don't keep grinding in silence) ONLY if:                                                
+  - 3 hours elapsed without 4/4 PASS                                                                                    
+  - Same bug appears 3+ times across different personas (suggests                                                       
+    architectural issue beyond surface fix)                                                                             
+  - A fix breaks previously-passing personas (regression cascade)                                                       
+  - You're confident a fix would work but it requires a major                                                           
+    architectural change (>1 hour of refactor)                                                                          
+                                                                                                                        
+  Otherwise: keep iterating autonomously. Don't wait for                                                                
+  confirmation. Don't pause for green-light. Run the loop.                                                              
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════
+  DELIVERABLE                                                                                                           
+  ═══════════════════════════════════════════════════════════════ 
+                                                                                                                        
+  After loop completes (success OR timebox hit):                                                                        
+  1. Updated artifacts/test-reports/phase-4-gate-report.md with                                                         
+     per-persona pass/fail                                                                                              
+  2. artifacts/test-reports/phase-4-bugs-fixed.md documenting EVERY                                                     
+     bug found + root cause + fix + verification                                                                        
+  3. Final screenshot bundle in artifacts/screenshots/phase-4/                                                          
+  4. Summary message to user: "X/4 personas passing, Y bugs fixed,                                                      
+     here are the screenshots, here's what's blocked if anything"                                                       
+                                                                                                                        
+  Run the loop now. Report after each completed persona OR after                                                        
+  each major bug fix (so user can monitor progress while sleeping).                                                     
+  Otherwise: head down, fix, test, fix, test, fix.   

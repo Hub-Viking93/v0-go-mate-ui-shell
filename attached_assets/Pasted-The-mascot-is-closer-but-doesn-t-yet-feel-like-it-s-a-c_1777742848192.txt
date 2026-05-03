@@ -1,0 +1,64 @@
+The mascot is closer but doesn't yet feel like it's a character                                                       
+  version of the GoMate brand mark. Match the logo's DNA more                                                           
+  explicitly.                                                                                                           
+                                                                                                                        
+  ACTION: Read components/gomate-avatar.tsx (or                                                                         
+  artifacts/gomate/src/components/gomate-avatar.tsx if there's a  
+  copy server-side). The logo has THREE distinctive visual elements:                                                    
+                                                                                                                        
+  1. Mint-green globe with longitude/latitude lines (3 horizontal                                                       
+     stripes + 1 ellipse for vertical meridian)                                                                         
+  2. Mint-green airplane swooping around the globe in an arc path                                                       
+  3. Dark green background container (#1B3A2D → #2D6A4F gradient)                                                       
+                                                                                                                        
+  The mascot must use the SAME visual language, just personified.                                                       
+  Treat the mascot as "if the logo had a friendly soul".                                                                
+                                                                                                                        
+  UPDATED MASCOT SPEC:                                                                                                  
+                                                                                                                        
+  Character composition:                                                                                                
+  - Globe body (already there) — KEEP                             
+  - Add longitude/latitude LINES on the globe surface (subtle, white                                                    
+    with opacity 0.18) — 3 horizontal curves wrapping around + 1                                                        
+    central vertical ellipse, matching the logo's grid pattern                                                          
+  - Friendly face (already there) — KEEP, slightly wider smile                                                          
+  - ADD: small mint-green airplane (#5EE89C with darker outline)                                                        
+    positioned just above-right of the head in idle, doing a slow                                                       
+    gentle orbit around the character (idle animation includes the                                                      
+    airplane gently arcing 180° over 4 seconds)                                                                         
+  - The airplane should be small (about 1/8 the size of the globe),                                                     
+    with simple SVG path: triangular body + tail fin                                                                    
+  - Continents: keep but make them look slightly more like the logo's                                                   
+    abstract shapes — irregular blob + small island patterns                                                            
+                                                                                                                        
+  State-specific airplane behaviors:                                                                                    
+  - idle: airplane slowly orbits around character, full 360° loop                                                       
+    every 6 seconds                                                                                                     
+  - waving: airplane pauses on the right side, "waves" with tiny tilt                                                   
+  - nodding: airplane bobs up and down with the head                                                                    
+  - smiling: airplane does a happy little loop-de-loop above                                                            
+  - tilting_curious: airplane mirrors the tilt direction                                                                
+  - thinking: airplane parked, replaced by 3 thinking dots (fade out                                                    
+    airplane, fade in dots)                                                                                             
+  - celebrating: airplane does a victory loop, confetti bursts as                                                       
+    before                                                                                                              
+                                                                                                                        
+  Color discipline:                                                                                                     
+  - Globe primary: #5EE89C / #2D6A4F gradient (matches logo)                                                            
+  - Longitude lines: white with opacity 0.18 (matches logo's mint-on-dark                                               
+    pattern reversed)                                                                                                   
+  - Airplane: #5EE89C with a darker #2D6A4F outline (matches logo)                                                      
+  - Background: TRANSPARENT (the page handles its own background)                                                       
+  - NO dark green disc behind character — the logo's dark disc is                                                       
+    for tiny brand-mark contexts only; the mascot floats free on the                                                    
+    page background                                                                                                     
+                                                                                                                        
+  The whole feel: "I am the GoMate logo, but I have a face and I                                                        
+  travel with you". Brand DNA preserved, personality added.       
+                                                                                                                        
+  Iterate until the side-by-side of the brand logo (gomate-avatar)                                                      
+  and the mascot makes a viewer say "those are clearly the same
+  character family". If they look unrelated, iterate again.                                                             
+                                                                                                                        
+  After updating: cycle through all 7 states in /dev/mascot,                                                            
+  screenshot each, send me the screenshots in one composite image.

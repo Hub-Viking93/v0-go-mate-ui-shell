@@ -1,0 +1,13 @@
+import { chromium } from '@playwright/test'
+const browser = await chromium.launch({ headless: true })
+const ctx = await browser.newContext({ viewport: { width: 1600, height: 1100 }, deviceScaleFactor: 2 })
+const page = await ctx.newPage()
+await page.goto('http://localhost:5175/auth/login', { waitUntil: 'networkidle' })
+await page.locator('input[type="email"]').first().fill(process.env.TEST_EMAIL)
+await page.locator('input[type="password"]').first().fill(process.env.TEST_PASSWORD)
+await page.locator('button[type="submit"]').first().click()
+await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 25000 })
+await page.goto('http://localhost:5175/chat', { waitUntil: 'networkidle' })
+await page.waitForTimeout(3000)
+await page.screenshot({ path: '/Users/axel/Downloads/v0-go-mate-ui-shell-main/screenshots/chat-current.png', fullPage: true })
+await browser.close()

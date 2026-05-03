@@ -1,0 +1,45 @@
+Build lib/agents/synthesizer.ts and lib/agents/critic.ts.
+
+Synthesizer (uses Opus 4.7):
+After all specialists finish, the Synthesizer reads all their outputs and ensures consistency across them.
+
+Function:
+Copy
+synthesize(specialistOutputs: { name: string, output: SpecialistOutput }[]): Promise
+
+type UnifiedGuide = { sections: { key: string, title: string, paragraphs: string[], citations: Citation[] }[]; consistencyIssues: string[]; // anything the Synthesizer noticed and resolved unresolvedIssues: string[]; // anything that needs human review }
+
+
+The Synthesizer's checks:
+- Deadlines align: Visa Specialist says processing takes 8 weeks, Pre-departure timeline (built later) should reflect that.
+- Costs add up: Cost Specialist's monthly budget should align with Tax Strategist's net income calculations.
+- Document requirements don't contradict between specialists: Visa Specialist might list "police clearance from origin"; Documents Specialist must produce the apostille chain for that exact document.
+- Vocabulary consistency: always "personnummer" not sometimes "Swedish ID number".
+- No duplicated content across sections.
+- All claims have citations attached.
+
+If the Synthesizer detects unresolvable conflicts, it surfaces them in unresolvedIssues — the Critic and ultimately the user need to know.
+
+Critic (uses Sonnet 4.5 with adversarial prompt):
+The Critic reads the unified guide and the user's profile. Its system prompt is adversarial: "You are looking for what's missing or weak. Your job is not to validate. Your job is to find the gap. Be ruthless."
+
+Function:
+Copy
+critique(profile: Profile, guide: UnifiedGuide): Promise
+
+type CriticOutput = { gaps: { area: string, description: string, suggestedSpecialist?: string }[]; weakClaims: { claim: string, location: string, reason: string }[]; missingForUserSituation: string[]; // things specific to this profile that should be addressed but aren't }
+
+
+Examples of what Critic should catch:
+- User has chronic_condition_description="Type 1 diabetes" but Healthcare Navigator output didn't address insulin availability or prescription continuity in destination.
+- User has posting_duration_months=24 (right at the EU A1 limit) but Posted Worker Specialist didn't address what happens at month 24 (extension procedure, social security transition).
+- Visa Specialist recommended a pathway that requires a clean criminal record but Documents Specialist didn't include police clearance in the document chain.
+- User mentioned bringing a Staffordshire Bull Terrier but Pet Specialist didn't note that some Swedish municipalities have breed restrictions on bull terrier types.
+
+If gaps are found, the Coordinator (next prompt) decides whether to dispatch additional specialist runs or surface to the user.
+
+Both agents write audit rows on completion.
+
+Run pnpm tsc --noEmit.
+
+When you're done, run Synthesizer + Critic on the German posting profile's specialist outputs. Show me what the Critic finds.

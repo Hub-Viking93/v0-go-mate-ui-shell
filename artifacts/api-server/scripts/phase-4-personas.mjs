@@ -1,0 +1,113 @@
+// Shared persona definitions used by phase-4 (anon-user driver) and
+// phase-5 (real-account multi-plan driver). Personas answer ONE FIELD AT
+// A TIME like a real user — no field-bundling.
+
+export const PERSONAS = {
+  roselle: {
+    label: "Roselle (Filipino → Sweden sambo)",
+    opener: "Hi, I want help planning a relocation.",
+    nameAnswer: "Roselle",
+    followUps: [
+      [/name/i, "Roselle"],
+      [/passport|citizen|nationality|where.*you.*from|country.*origin|country.*birth|home country|original.*country|find.*right.*visa|determine.*visa/i, "Filipino"],
+      [/destination|moving to|where.*moving|relocating to|target country|new country|which country|where.*planning.*move/i, "Sweden"],
+      [/which city|target city|what city|specific city|city.*moving|city.*plan|where in sweden|where in.*sweden/i, "Stockholm"],
+      [/current.*location|currently.*living|currently.*based|where.*living now|right now|where.*reside|where.*based/i, "Manila, Philippines"],
+      [/purpose|reason.*move|why.*moving|why.*relocat|main.*reason/i, "To live with my Swedish partner Anders"],
+      [/visa.*type|which visa|sambo/i, "Sambo (cohabitation) visa"],
+      [/income|salary|earn|make.*money|monthly.*pay/i, "3500 USD per month freelance"],
+      [/savings|saved|bank/i, "15000 USD"],
+      [/arrive|when.*move|when.*plan|move.*date|arrival/i, "About 30 days"],
+      [/language|swedish|speak/i, "Beginner Swedish, fluent English"],
+      [/job|work|employment|profession|field|industry/i, "Freelance designer"],
+      [/pet|dog|cat/i, "No pets"],
+      [/family|spouse|partner|kid|children|alone|relocating with/i, "Solo, my partner Anders is already in Sweden"],
+      [/housing|where.*live|accommodation/i, "Will live with Anders in Stockholm"],
+    ],
+    defaultAnswer: "Could you rephrase that? I'm not sure what you're asking.",
+  },
+  axel: {
+    label: "Axel (German posting → Sweden, family)",
+    opener: "Hi, I need help relocating.",
+    nameAnswer: "Axel",
+    followUps: [
+      [/name/i, "Axel"],
+      [/passport|citizen|nationality|where.*you.*from|country.*origin|country.*birth|home country|original.*country|find.*right.*visa|determine.*visa/i, "German"],
+      [/destination|moving to|where.*moving|relocating to|target country|new country|which country|where.*planning.*move/i, "Sweden"],
+      [/which city|target city|what city|specific city|city.*moving|city.*plan|where in sweden|where in.*sweden/i, "Stockholm"],
+      [/current.*location|currently.*living|currently.*based|where.*living now|right now|where.*reside|where.*based/i, "Munich, Germany"],
+      [/purpose|reason.*move|why.*moving|why.*relocat|main.*reason/i, "Work — 14-month posting with my employer Siemens"],
+      [/visa.*type|which visa|posting|work permit/i, "Intra-company work posting permit"],
+      [/employer|company|who.*sponsor|who.*sending/i, "Siemens"],
+      [/job.*field|industry|profession|sector|line.*work/i, "Engineering"],
+      [/income|salary|earn|make/i, "8500 EUR per month"],
+      [/duration|how long|stay/i, "14 months"],
+      [/arrive|when.*move|when.*plan|arrival/i, "About 60 days"],
+      [/family|spouse|partner|kid|children|alone|relocating with/i, "Wife Emma and two kids (ages 5 and 8)"],
+      [/pet|dog|cat/i, "No pets"],
+      [/language|swedish|speak/i, "Fluent English, basic Swedish"],
+      [/housing|where.*live|accommodation/i, "Company-arranged furnished apartment"],
+    ],
+    defaultAnswer: "Could you rephrase that? I'm not sure what you're asking.",
+  },
+  priya: {
+    label: "Priya (US → Spain, digital nomad, solo)",
+    opener: "Hi, I'd like help with a relocation.",
+    nameAnswer: "Priya",
+    followUps: [
+      [/name/i, "Priya"],
+      [/passport|citizen|nationality|where.*you.*from|country.*origin|country.*birth|home country|original.*country|find.*right.*visa|determine.*visa/i, "American"],
+      [/destination|moving to|where.*moving|relocating to|target country|new country|which country|where.*planning.*move/i, "Spain"],
+      [/which city|target city|what city|specific city|city.*moving|city.*plan|where in spain|where in.*spain/i, "Barcelona"],
+      [/current.*location|currently.*living|currently.*based|where.*living now|right now|where.*reside|where.*based/i, "San Francisco, USA"],
+      [/purpose|reason.*move|why.*moving|why.*relocat|main.*reason/i, "Lifestyle — working remotely from Spain"],
+      [/visa.*type|which visa|nomad/i, "Spanish digital nomad visa"],
+      [/employer|company|who.*work/i, "Stripe (US, fully remote)"],
+      [/job.*field|industry|profession|sector|line.*work/i, "Software engineering"],
+      [/income.*consist|steady|stable.*income|long.*employ/i, "Steady — same employer for 4 years"],
+      [/income|salary|earn|make/i, "14000 USD per month"],
+      [/savings|saved|bank/i, "80000 USD"],
+      [/arrive|when.*move|when.*plan|arrival/i, "About 90 days"],
+      [/language|spanish|speak/i, "Beginner Spanish, native English"],
+      [/family|spouse|partner|kid|children|alone|relocating with/i, "Solo, no family"],
+      [/pet|dog|cat/i, "No pets"],
+      [/housing|where.*live|accommodation/i, "Will rent in the Eixample district"],
+    ],
+    defaultAnswer: "Could you rephrase that? I'm not sure what you're asking.",
+  },
+  stevenson: {
+    label: "Stevenson family (UK → Australia + dog)",
+    opener: "Hello, our family needs help with a relocation.",
+    nameAnswer: "James Stevenson",
+    followUps: [
+      [/name/i, "James Stevenson"],
+      [/passport|citizen|nationality|where.*you.*from|country.*origin|country.*birth|home country|original.*country|find.*right.*visa|determine.*visa/i, "British"],
+      [/destination|moving to|where.*moving|relocating to|target country|new country|which country|where.*planning.*move/i, "Australia"],
+      [/which city|target city|what city|specific city|city.*moving|city.*plan|where in australia|where in.*australia/i, "Melbourne"],
+      [/current.*location|currently.*living|currently.*based|where.*living now|right now|where.*reside|where.*based/i, "Manchester, UK"],
+      [/purpose|reason.*move|why.*moving|why.*relocat|main.*reason/i, "Work — new job at Atlassian"],
+      [/visa.*type|which visa|482/i, "Subclass 482 employer-sponsored work visa"],
+      [/employer|company|who.*sponsor|atlassian/i, "Atlassian"],
+      [/job.*field|industry|profession|sector|line.*work/i, "Software"],
+      [/income|salary|earn|make/i, "180000 AUD per year"],
+      [/savings|saved|bank/i, "120000 GBP"],
+      [/arrive|when.*move|when.*plan|arrival/i, "About 90 days"],
+      [/spouse|wife|partner.*work|emma.*work|emma.*career/i, "Emma is a registered nurse"],
+      [/family|partner|kid|children|alone|relocating with/i, "Wife Emma, two kids (ages 7 and 10), and our Border Collie"],
+      [/pet.*type|what.*pet|breed|dog.*type/i, "5-year-old Border Collie"],
+      [/pet.*vacc|vaccination|dog.*health|rabies/i, "All current including rabies"],
+      [/pet|dog|cat/i, "Yes — one Border Collie"],
+      [/school.*type|public.*school|private.*school|kids.*school/i, "Public school"],
+      [/language|english|speak/i, "Native English"],
+      [/housing|where.*live|accommodation/i, "Will rent a family home in a Melbourne suburb"],
+    ],
+    defaultAnswer: "Could you rephrase that? I'm not sure what you're asking.",
+  },
+};
+
+export function answerFor(persona, question) {
+  for (const [re, ans] of persona.followUps) {
+    if (re.test(question)) return ans;
+  }
+  return persona.defaultAnswer;
+}

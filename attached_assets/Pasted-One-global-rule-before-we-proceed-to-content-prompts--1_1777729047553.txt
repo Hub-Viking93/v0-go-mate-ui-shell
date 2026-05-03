@@ -1,0 +1,29 @@
+One global rule before we proceed to content prompts:                                                                 
+                                                                                                                        
+  This is a real product, not a demo. Three hard rules apply to every                                                   
+  prompt from 1.2 forward:                                                                                              
+                                                                                                                        
+  1. NO MOCK DATA IN AGENT OUTPUTS. If a specialist's research tool                                                     
+  fails (Firecrawl down, source returns 404, parsing fails) the agent                                                   
+  returns { status: "partial", reason: "specific cause", available: {...} }.                                            
+  It NEVER fabricates plausible-looking data to fill the gap. The user                                                  
+  sees the partial state with the reason. This applies to all 13+                                                       
+  specialists, the Coordinator, the Synthesizer, the Critic, the                                                        
+  Question Director, the Extractor — every agent.                                                                       
+                                                                                                                        
+  2. PLACEHOLDERS HAVE OWNERS. When a prompt says "for now just                                                         
+  placeholder, real version in [later prompt]", that placeholder MUST
+  have a TODO comment in the code referencing the prompt that owns it                                                   
+  (e.g., // TODO[prompt-4.3]: replace with real audit-trail-popover).                                                   
+  At each Stabilize Checkpoint between waves, grep for TODO[prompt-X]                                                   
+  where X has already been completed — fail the checkpoint if any                                                       
+  remain.                                                                                                               
+                                                                                                                        
+  3. STRIPE STAYS MOCK FOR BUILDATHON ONLY. The Free + Pro tier                                                         
+  flipping is intentional (per Prompt 9.3 + 9.10). Real Stripe                                                          
+  integration happens post-buildathon. Do not silently make it real                                                     
+  mid-buildathon. If a prompt's intent seems to require real payment,                                                   
+  push back to me before implementing.                                                                                  
+                                                                                                                        
+  These three rules trump anything in subsequent prompts that conflicts                                                 
+  with them.

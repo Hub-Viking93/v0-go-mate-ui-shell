@@ -1,0 +1,48 @@
+Build lib/agents/coordinator.ts.
+
+The Coordinator is a head chef. It reads the user's complete profile and decides which specialist agents to dispatch. The decision is rule-based and explainable, not a black box. No LLM is needed for the dispatch decision itself — it's pure code. The Coordinator returns a list of specialists to run plus the rationale for each.
+
+Function:
+Copy
+decideDispatch(profile: Profile): DispatchDecision
+
+type DispatchDecision = { specialists: SpecialistInvocation[]; rationale: { specialist: string, reason: string }[]; }
+
+type SpecialistInvocation = { name: string; inputs: any; // profile slice the specialist needs }
+
+
+Always-run specialists:
+- visa_specialist
+- tax_strategist
+- cost_specialist
+- housing_specialist
+- cultural_adapter
+- documents_specialist
+- healthcare_navigator (always but goes deeper if needs)
+- banking_helper
+
+Conditional specialists:
+- schools_specialist if children_count > 0
+- pet_specialist if pets ≠ "none"
+- posted_worker_specialist if posting_or_secondment === "yes"
+- digital_nomad_compliance if purpose === "digital_nomad"
+- job_compliance_specialist if purpose === "work" AND job_offer === "yes" AND posting_or_secondment !== "yes"
+- family_reunion_specialist if visa_role === "dependent" OR settlement_reason === "family_reunion"
+- departure_tax_specialist if origin (current_location) is in EXIT_TAX_COUNTRIES list (Sweden, USA, Norway, Eritrea, France, Germany under some conditions, Netherlands)
+- vehicle_import_specialist if bringing_vehicle === "yes"
+- property_purchase_specialist if home_purchase_intent === "yes"
+- trailing_spouse_career_specialist if spouse_joining === "yes" AND spouse_seeking_work === "yes"
+- pension_continuity_specialist if pension_continuity_required === "yes"
+
+For each dispatched specialist, the rationale is a one-line plain-English explanation: e.g., "Schools Specialist dispatched because user is moving with 2 children", "Posted Worker Specialist dispatched because EU-to-EU 14-month posting requires A1 certificate path".
+
+Build EXIT_TAX_COUNTRIES as an exported constant in lib/gomate/exit-tax-list.ts: ["Sweden", "United States", "Norway", "Eritrea", "France", "Germany", "Netherlands", ...]. Reference: countries with exit tax or related provisions on emigration of citizens.
+
+Add app/api/research/dispatch-preview/route.ts that returns the dispatch decision for the current user's profile without actually running anything. The visible agent panels page calls this first to render the panel grid before agents start.
+
+Run pnpm tsc --noEmit.
+
+When you're done, show me the dispatch decisions for these three profiles:
+1. Filipino fiancée moving to Sweden as dependent, settling permanently with no kids/pets
+2. German engineer posted to Stockholm for 18 months, family of 4 with 2 kids
+3. American digital nomad to Spain solo with chronic condition and a dog

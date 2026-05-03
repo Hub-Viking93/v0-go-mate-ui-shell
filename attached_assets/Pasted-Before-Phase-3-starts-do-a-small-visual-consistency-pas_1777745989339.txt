@@ -1,0 +1,74 @@
+Before Phase 3 starts, do a small visual-consistency pass on the                                                      
+  side panel in /onboarding so it visually previews the look of the                                                     
+  v2 dashboard that will be built in Phase 4.                                                                           
+                                                                                                                        
+  The /dashboard v2 cards don't exist yet (Phase 4.1 builds them).                                                      
+  But we can lock the FIELD RENDERING design language NOW so when 
+  Phase 4 builds dashboard cards, they're consistent with what the                                                      
+  user already saw in onboarding.                                 
+                                                                                                                        
+  ACTIONS:                                                        
+                                                                                                                        
+  1. Create artifacts/gomate/src/components/profile-field-chip.tsx —                                                    
+     the shared primitive for rendering ONE extracted profile field
+     with its audit icon. Used by:                                                                                      
+     - The /onboarding side panel (now)                                                                                 
+     - Profile Details Card on /dashboard (Phase 4.1, future)                                                           
+     - Anywhere else a single profile field is displayed                                                                
+                                                                                                                        
+     API:                                                                                                               
+     type ProfileFieldChipProps = {                                                                                     
+       fieldKey: AllFieldKey                                                                                            
+       value: unknown                                             
+       confidence?: 'explicit' | 'inferred' | 'assumed'                                                                 
+       onAuditClick?: () => void
+       variant?: 'compact' | 'full'  // compact for side panel, full for dashboard                                      
+     }                                                                                                                  
+                                                                                                                        
+     Visual:                                                                                                            
+     - compact: single line, label left, value right, audit icon at far right
+       padding-y-2 px-3, border-bottom subtle, hover bg-bg-surface-alt                                                  
+     - full: card layout with label above value, audit icon top-right,                                                  
+       padding-4, radius-lg, border-subtle, shadow-sm                                                                   
+     - Both use SAME color tokens, SAME audit icon component, SAME font                                                 
+       sizing relative to context                                                                                       
+     - Audit icon: small circle with gradient fill (per confidence level —                                              
+       explicit=primary, inferred=accent, assumed=warning), tooltip on hover                                            
+                                                                                                                        
+  2. Create artifacts/gomate/src/components/profile-preview-list.tsx —                                                  
+     the side panel container that renders a list of ProfileFieldChip                                                   
+     in compact variant. This component:                                                                                
+     - Subscribes to the SSE profile updates from /api/chat                                                             
+     - Renders fields in the playbook's onboarding sequence order                                                       
+       (name → birth_year → origin → destination → purpose → ...)                                                       
+     - Each newly-arrived field fades in (animate-fade-up from design                                                   
+       system) with 60ms stagger if multiple arrive at once                                                             
+     - Empty state: "Your profile will appear here as we get to know you"                                               
+     - Header: "Your profile so far" with a small count "(3 of ~14 fields)"                                             
+                                                                                                                        
+  3. Refactor the /onboarding right side panel to use                                                                   
+     ProfilePreviewList instead of whatever ad-hoc rendering Replit                                                     
+     built before. Same data flow (SSE-driven), better visual                                                           
+     consistency.                                                                                                       
+                                                                                                                        
+  4. Document in artifacts/gomate/src/components/profile-field-chip.tsx                                                 
+     header comment: "This component is shared between /onboarding
+     side panel (compact variant) and /dashboard Profile Details Card                                                   
+     (full variant, Phase 4.1). Do not duplicate field rendering logic                                                  
+     — extend this component."                                                                                          
+                                                                                                                        
+  5. When Phase 4.1 builds the Profile Details Card on /dashboard, it                                                   
+     MUST use ProfileFieldChip in 'full' variant. Add this as a TODO
+     in WAVE-1.md or a new DESIGN-SYSTEM.md so future-Replit doesn't                                                    
+     re-implement.                                                                                                      
+                                                                                                                        
+  Verification:                                                                                                         
+  - /onboarding side panel uses new components, looks polished                                                          
+  - A field in compact variant and the same field in full variant share:                                                
+    field label, audit icon placement, color tokens, hover state                                                        
+  - Render a /dev/profile-field-chip route showing 3 fields in both                                                     
+    variants side by side for visual QA                                                                                 
+                                                                                                                        
+  This locks the design language for profile fields BEFORE Phase 3                                                      
+  starts populating research outputs that will sit alongside profile                                                    
+  fields on the eventual dashboard.  

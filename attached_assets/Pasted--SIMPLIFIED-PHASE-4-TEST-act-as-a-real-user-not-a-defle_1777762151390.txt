@@ -1,0 +1,207 @@
+ SIMPLIFIED PHASE 4 TEST — act as a real user, not a deflective test bot.                                              
+                                                                                                                        
+  The previous test failed because personas.ts gave deflective answers                                                  
+  ("let's skip", "later"). That's not how real users behave. Throw out                                                  
+  that approach.                                                                                                        
+                                                                                                                        
+  NEW TEST PROTOCOL:                                                                                                    
+                                                                                                                        
+  For each of 4 personas below, ROLE-PLAY as that person through the                                                    
+  ENTIRE onboarding flow. Type natural, substantive answers to every
+  question the AI asks. Verify each step works correctly. If something                                                  
+  breaks, FIX IT and re-run that persona until it passes flawlessly.
+                                                                                                                        
+  This is NOT a test that tests deflective edge cases. This is a test                                                   
+  that simulates a real user typing real answers and verifies the                                                       
+  system handles them correctly.                                                                                        
+                                                                  
+  ═══════════════════════════════════════════════════════════════                                                       
+  PERSONA A — Roselle (Filipino → Sweden, sambo visa)             
+  ═══════════════════════════════════════════════════════════════                                                       
+  
+  Bootstrap message:                                                                                                    
+  "I'm Roselle, 28, Filipino citizen, moving to Sweden to be with my
+  Swedish partner Anders. We've been together for 4 years, planning                                                     
+  to apply for sambo visa next month."                                                                                  
+                                                                                                                        
+  Then answer the AI's follow-up questions as Roselle would:                                                            
+  - target_city → "Stockholm"                                                                                           
+  - monthly_income → "I make about $3,500 per month freelancing as a designer"                                          
+  - savings → "I have around $15,000 saved up"                                                                          
+  - target_arrival → "I want to arrive in Stockholm around mid-June, so about 30 days from now"
+  - language_skill → "Beginner Swedish, conversational English"                                                         
+  - partner_work → "Anders works at Spotify as a software engineer"                                                     
+  - monthly_budget → "Around $2,000 per month for living expenses in Stockholm"                                         
+  - moving_alone → "Yes, just me — Anders is already there"                                                             
+  - (any other follow-up): answer naturally as Roselle would. Be helpful, give real info.                               
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  PERSONA B — Axel (German posting → Sweden, family)                                                                    
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                  
+  Bootstrap:                                                                                                            
+  "My name is Axel, I'm 30, moving from Germany to Sweden for a   
+  14-month work posting with my wife and two kids."                                                                     
+                                                                                                                        
+  Follow-ups (answer as Axel):                                                                                          
+  - target_city → "Stockholm"                                                                                           
+  - employer → "Siemens — they're sending me to lead the local engineering team"                                        
+  - children_ages → "5 and 8"                                                                                           
+  - spouse_career_field → "My wife Emma works in Marketing"                                                             
+  - monthly_income → "EUR 8,500 per month base, plus posting bonus"                                                     
+  - target_arrival → "Around 60 days from now"                                                                          
+  - (any other): answer naturally as Axel.                                                                              
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════ 
+  PERSONA C — Priya (US → Spain, digital nomad, solo)                                                                   
+  ═══════════════════════════════════════════════════════════════                                                       
+  
+  Bootstrap:                                                                                                            
+  "Hi, I'm Priya, US citizen, software engineer making $14k/month 
+  remote, want to move to Spain for the digital nomad visa. Solo,                                                       
+  no family, no pets."                                                                                                  
+                                                                                                                        
+  Follow-ups:                                                                                                           
+  - target_city → "Barcelona"                                     
+  - savings → "$80,000 in savings"                                                                                      
+  - language_skill → "Beginner Spanish, fluent English"
+  - target_arrival → "In about 3 months"                                                                                
+  - income_consistency → "Steady employment with my US company for 4 years"
+  - (any other): answer naturally.                                                                                      
+                                                                  
+  ═══════════════════════════════════════════════════════════════                                                       
+  PERSONA D — Stevenson family (UK → Australia with kids + dog)   
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                                                                        
+  Bootstrap:                                                                                                            
+  "We're the Stevensons — me (James, 38, British), my wife Emma, our                                                    
+  two kids ages 7 and 10, and our 5-year-old Border Collie. Moving                                                      
+  to Melbourne, Australia for my new job at Atlassian. They're                                                          
+  sponsoring my 482 visa."                                                                                              
+                                                                                                                        
+  Follow-ups:                                                                                                           
+  - monthly_income → "AUD 180,000 per year base salary"                                                                 
+  - spouse_career_field → "Emma is a registered nurse"                                                                  
+  - pet_vaccination_status → "Up to date, all current"
+  - children_school_type_preference → "Public school"                                                                   
+  - target_arrival → "Around 90 days from now once visa processes"                                                      
+  - (any other): answer naturally.                                                                                      
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  WHAT TO VERIFY (per persona, end-to-end)                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  
+  1. EXTRACTION QUALITY:                                                                                                
+     - After bootstrap message, side panel should show 6-10 fields
+       populated within 5 seconds                                                                                       
+     - Field values match what was said (no "I'm 30 years old" stored
+       in birth_year — that's the v1 bug, must be fixed)                                                                
+     - Audit icons next to each field                                                                                   
+                                                                                                                        
+  2. QUESTION QUALITY:                                                                                                  
+     - Questions are RELEVANT to the persona (Roselle gets sambo-visa-                                                  
+       related questions, Axel gets posting-related questions, etc.)                                                    
+     - Questions don't repeat anything already extracted                                                                
+     - Questions are phrased warmly, not robotic                                                                        
+     - When you give an answer, the next question reflects it                                                           
+                                                                                                                        
+  3. SIDE PANEL SYNC:                                                                                                   
+     - When AI is asking question N, side panel shows previously-                                                       
+       answered fields and indicates "next: [field]"                                                                    
+     - When you answer, side panel updates within 2 seconds
+                                                                                                                        
+  4. ONBOARDING COMPLETION:                                                                                             
+     - After 6-10 substantive answers, AI should say "Profile complete,                                                 
+       ready to generate your plan" or similar                                                                          
+     - "Generate my plan" button becomes available                
+                                                                                                                        
+  5. RESEARCH (after clicking Generate):                                                                                
+     - Agent panels appear showing the right specialists per persona:                                                   
+       * Roselle: visa, tax, cost-of-living, housing, cultural,                                                         
+         documents, family-reunion (sambo visa context)                                                                 
+       * Axel: ... + posted-worker, school                                                                              
+       * Priya: ... no school/pet/family-reunion                                                                        
+       * Stevenson: ... + school + pet                                                                                  
+     - Each specialist completes within reasonable time (~10-30s)                                                       
+     - Specialists scrape REAL official sources (Migrationsverket for                                                   
+       Sweden, DGT for Spain, etc.)                                                                                     
+     - Citations are real URLs that resolve                                                                             
+                                                                                                                        
+  6. DASHBOARD QUALITY:                                                                                                 
+     - Dashboard renders profile-aware cards (different cards per                                                       
+       persona, per the dispatch list above)                                                                            
+     - Each card shows REAL DATA from the research                                                                      
+     - Roselle's visa card mentions Filipino-specific apostille from                                                    
+       DFA Manila                                                                                                       
+     - Axel's posted-worker card mentions A1 certificate AND PWD  
+     - Priya's tax card mentions US-Spain tax treaty + Beckham Law                                                      
+     - Stevenson's pet card mentions Australia's strict quarantine                                                      
+       requirements (~10 days minimum)                                                                                  
+     - Audit icons on every claim — click to see chain-of-evidence                                                      
+                                                                                                                        
+  7. DOCUMENT CHECKLIST:                                                                                                
+     - Generated checklist is correct for the visa type                                                                 
+     - Documents are persona-relevant (Filipino documents for Roselle,                                                  
+       German Apostille for Axel, etc.)                                                                                 
+     - Each document has a source URL (where to obtain it)                                                              
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  BUG-HANDLING (binding)                                          
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                                                                        
+  If anything in the verification list above fails for any persona:                                                     
+                                                                                                                        
+  1. STOP. Investigate root cause. Read actual code, actual SSE events,                                                 
+     actual DB state. Don't guess.                                
+                                                                                                                        
+  2. FIX at the source. Acceptable fixes:                                                                               
+     - Tighten extractor prompt to prevent hallucination
+     - Add validation step                                                                                              
+     - Fix Question Director's required-fields calculation        
+     - Correct dispatch logic in Coordinator                                                                            
+     - Fix dashboard's shouldShow predicate                                                                             
+     - Tighten specialist's source URL extraction                                                                       
+                                                                                                                        
+  3. DO NOT acceptable as fixes:                                                                                        
+     - Workaround in test code                                                                                          
+     - .skip on the failing assertion                                                                                   
+     - try/catch to silence the error
+     - Comment out the verification                                                                                     
+     - Lower a quality threshold to make wrong output "acceptable"
+                                                                                                                        
+  4. RE-RUN the persona that failed AFTER fix. Must pass cleanly.                                                       
+     Then re-run all 4 personas back-to-back. All 4 must pass.                                                          
+                                                                                                                        
+  5. DOCUMENT each bug + root cause + fix in                                                                            
+     artifacts/test-reports/phase-4-bugs-fixed.md.                                                                      
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════                                                       
+  TIMING                                                                                                                
+  ═══════════════════════════════════════════════════════════════                                                       
+                                                                  
+  Per persona: ~5-10 minutes (signup → onboarding with real answers                                                     
+  → research → dashboard verification)
+                                                                                                                        
+  4 personas back-to-back: ~30-45 minutes if everything works first                                                     
+  try.
+                                                                                                                        
+  Plus bug fix iterations: variable. Time-box: 3 hours total. If                                                        
+  you hit 3h without 4/4 PASS — STOP and report what's blocking.
+                                                                                                                        
+  ═══════════════════════════════════════════════════════════════ 
+  ACCEPTANCE                                                                                                            
+  ═══════════════════════════════════════════════════════════════ 
+                                                                                                                        
+  Phase 4 is complete when:
+  - All 4 personas complete onboarding flawlessly                                                                       
+  - All 4 personas reach research phase with right specialists    
+  - All 4 personas see correct, profile-aware dashboard with real                                                       
+    research data                                                                                                       
+  - All 4 personas have working audit popovers                                                                          
+  - Generated guide content is persona-relevant with real citations                                                     
+  - Re-run 3 times for each persona, all 3 pass                   
+                                                                                                                        
+  Report: regenerate phase-4-gate-report.md with these results.                                                         
+                                                                                                                        
+  This is the most important verification of the buildathon. Don't                                                      
+  ship without 4/4 green.

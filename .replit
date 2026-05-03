@@ -1,0 +1,174 @@
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-personas"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-personas-research"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-personas-sofia"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-personas-all"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-persona-roselle"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-roselle-axel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "screenshot-roselle-axel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-roselle-only"
+
+[[workflows.workflow]]
+name = "e2e-personas"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PERSONA_ACCOUNT_EMAIL=\"$TEST_EMAIL\" PERSONA_ACCOUNT_PASSWORD=\"$TEST_PASSWORD\" ONBOARDING_ONLY=1 node artifacts/api-server/scripts/e2e-personas-round1.mjs"
+
+[[workflows.workflow]]
+name = "e2e-personas-research"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PERSONA_ACCOUNT_EMAIL=\"$TEST_EMAIL\" PERSONA_ACCOUNT_PASSWORD=\"$TEST_PASSWORD\" node artifacts/api-server/scripts/e2e-personas-research.mjs"
+
+[[workflows.workflow]]
+name = "test-personas-sofia"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/gomate && PERSONA=sofia pnpm exec playwright test personas-round1.spec.ts --reporter=list"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "test-personas-all"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/gomate && pnpm exec playwright test personas-round1.spec.ts --reporter=list --workers=1 --timeout=900000"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "test-persona-roselle"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/gomate && PERSONA=roselle pnpm exec playwright test personas-round1.spec.ts --reporter=list --workers=1 --timeout=900000"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "e2e-roselle-axel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PERSONA_ACCOUNT_EMAIL=\"$TEST_EMAIL\" PERSONA_ACCOUNT_PASSWORD=\"$TEST_PASSWORD\" node artifacts/api-server/scripts/e2e-roselle-axel.mjs"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "screenshot-roselle-axel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/gomate && PERSONA_ACCOUNT_EMAIL=\"$TEST_EMAIL\" PERSONA_ACCOUNT_PASSWORD=\"$TEST_PASSWORD\" pnpm exec playwright test screenshot-roselle-axel.spec.ts --reporter=list --workers=1 --timeout=300000"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "e2e-roselle-only"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PERSONA=roselle PERSONA_ACCOUNT_EMAIL=\"$TEST_EMAIL\" PERSONA_ACCOUNT_PASSWORD=\"$TEST_PASSWORD\" node artifacts/api-server/scripts/e2e-roselle-axel.mjs"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 8082
+externalPort = 3002
+
+[[ports]]
+localPort = 23722
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://lrdxpxkjouqjujatupkx.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyZHhweGtqb3VxanVqYXR1cGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2ODc4MTksImV4cCI6MjA4NTI2MzgxOX0.t2ayqF5LGBzG94dkLvVdmdB1QP_LgyvSj_qPqMR5iqc"
+SUPABASE_URL = "https://lrdxpxkjouqjujatupkx.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyZHhweGtqb3VxanVqYXR1cGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2ODc4MTksImV4cCI6MjA4NTI2MzgxOX0.t2ayqF5LGBzG94dkLvVdmdB1QP_LgyvSj_qPqMR5iqc"
+GOMATE_BUILDATHON_FREE = "true"
+VITE_GOMATE_BUILDATHON_FREE = "true"
+
+[nix]
+channel = "stable-25_05"

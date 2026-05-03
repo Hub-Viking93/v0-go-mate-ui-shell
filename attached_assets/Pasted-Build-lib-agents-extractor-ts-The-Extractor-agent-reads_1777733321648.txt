@@ -1,0 +1,36 @@
+Build lib/agents/extractor.ts.
+
+The Extractor agent reads ONE user message and ONE specific field we asked them about (the pending field). It returns one of: a clean string value, a number, a yes/no, or "I couldn't tell." Plus a confidence score: explicit | inferred | assumed.
+
+The Extractor never tries to grab fields we didn't ask about. If the user volunteers extra information ("I'm 30 and bringing my dog Max"), it flags "additional_fields_detected" with a list of field keys that were mentioned — Question Director uses this for follow-up planning.
+
+Function signature:
+Copy
+extractField( userMessage: string, pendingField: AllFieldKey, lastAIMessage?: string ): Promise
+
+type ExtractionResult = { value: string | number | "yes" | "no" | null; confidence: "explicit" | "inferred" | "assumed"; rawText: string; // exactly what the user typed for audit trail additionalFieldsDetected: AllFieldKey[]; // fields the user mentioned but we didn't ask about uncertaintyReason?: string; // if value is null }
+
+
+The system prompt should be tiny. Something like:
+"You are extracting a SINGLE field from a user's message in a relocation interview.
+The user was asked about: \"{config.label}\" — {config.intent}
+Their response: \"{userMessage}\"
+{if pendingField is yes/no field} This is a yes/no field — extract \"yes\" or \"no\" or \"unclear\".
+{else} Extract the value as a concise string. For amounts include currency. For locations use \"City, Country\" format.
+You may also detect if the user mentioned OTHER fields from this list: {schema field names}. List those in additionalFieldsDetected.
+Return JSON: { value, confidence, additionalFieldsDetected }"
+
+Use the model from router.ts (Haiku 4.5). Use OpenAI-compatible JSON mode. Use existing fetch-with-retry pattern.
+
+After the LLM call, write an audit row via writeAuditRow() with the agent_name="extractor", phase="extraction", value, confidence, source_user_message, prompt and response (hashed).
+
+If the LLM call fails entirely, return { value: null, confidence: "assumed", uncertaintyReason: "extractor_failed" }.
+
+Test manually: import the function, call it with userMessage="I'm 30 years old and moving to Spain" and pendingField="name". Should return { value: null, confidence: ..., additionalFieldsDetected: ["birth_year", "destination"] }.
+
+Then call with userMessage="My name is Axel" and pendingField="name". Should return { value: "Axel", confidence: "explicit" }.
+
+Run pnpm tsc --noEmit.
+
+When you're done, walk me through three test invocations and the audit rows they produce.
+Copy

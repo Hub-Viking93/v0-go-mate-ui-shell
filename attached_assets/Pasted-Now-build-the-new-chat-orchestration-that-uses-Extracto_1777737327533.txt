@@ -1,0 +1,41 @@
+Now build the new chat orchestration that uses Extractor + Validator + Profile Writer + Question Director.
+
+Step 1: Move the existing app/api/chat/route.ts to app/api/chat-v1/route.ts. Don't change its content. Just relocate it.
+
+Step 2: Move the existing app/(app)/chat/page.tsx to app/(app)/chat-v1/page.tsx. Don't change its content.
+
+Step 3: Create new app/api/chat/route.ts. This handles two modes:
+- collecting/onboarding: the new multi-agent extraction flow
+- arrived: the existing buildPostArrivalSystemPrompt flow (do not change behavior — just route to it)
+
+For the collecting mode:
+
+POST handler:
+1. Auth check (existing pattern with supabase.auth.getUser()).
+2. Rate limit check (existing usage-guard).
+3. Get the request body: { messages: UIMessage[], profile?: Profile }.
+4. Get the user's relocation_plans row to determine plan_id and stage.
+5. If stage is "arrived" → use existing post-arrival logic with buildPostArrivalSystemPrompt.
+6. If stage is "collecting" → run the new orchestration:
+   a. Extract the last user message text (use existing getMessageText helper).
+   b. Determine pending field — get from getNextPendingField(profile) on first call, or carry from previous turn.
+   c. Get the last AI message for context.
+   d. Run Extractor agent with userMessage, pendingField, lastAIMessage.
+   e. If extractor returned { value: null }: skip ahead to Question Director with shouldClarifyAdditional logic. Don't write to profile.
+   f. If extractor returned a value: run Validator. If invalid, skip to Question Director with retryHint as clarification.
+   g. If validator returned valid: run Profile Writer. Profile is updated.
+   h. Run Question Director with updated profile, conversation history, additionalFieldsDetected from extractor.
+   i. If Question Director returns isOnboardingComplete=true: update relocation_plans.locked=true, transition stage to "complete" (DO NOT auto-trigger research — that's the user's manual action).
+   j. Return the question text + animation cue + updated profile state.
+
+Use Server-Sent Events for streaming the response so the mascot UI can show "thinking" then the question text.
+
+Don't delete chat-v1 stuff. The comparison page will use it.
+
+Add a new API endpoint at app/api/plans/trigger-research/route.ts that the user calls when they click "Generate my plan" button. This endpoint:
+1. Verifies the user's plan is in stage="complete" with locked=true.
+2. Sets user_triggered_research_at = now() on relocation_plans.
+3. Triggers the research orchestration (we'll build that in Phase 3 — for now just update the timestamp).
+4. Transitions stage to "generating".
+
+When you're done, walk me through the request/response cycle for a single onboarding turn. Show me the audit rows that get written.

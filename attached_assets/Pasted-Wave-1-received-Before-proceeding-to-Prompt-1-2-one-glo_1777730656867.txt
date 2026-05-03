@@ -1,0 +1,64 @@
+Wave 1 received. Before proceeding to Prompt 1.2, one global update                                                   
+  that applies to all subsequent waves:                                                                                 
+                                                                                                                        
+  Drop Opus 4.7 from the model routing entirely. Wrong choice for                                                       
+  this product.                                                                                                         
+                                                                                                                        
+  Reasoning:                                                                                                            
+  1. This is a relocation domain app, not a complex reasoning system.
+     Sonnet 4.6 handles every agent role here cleanly — coordinator                                                     
+     dispatch, specialist research, synthesis, critique. Opus is for                                                    
+     problems where Sonnet visibly fails. None of our roles fall there.                                                 
+  2. Opus is slower than Sonnet. The Spine includes live agent panels                                                   
+     (step 7) where users watch specialists work in real time.                                                          
+     Latency-per-token matters more than peak reasoning here. Sonnet                                                    
+     produces visibly faster panels — better UX for the buildathon                                                      
+     submission video and judges' walkthrough.                                                                          
+  3. "Used Opus" isn't a buildathon-scoring lever. "Agents work fast                                                    
+     and produce grounded, cited output" is. We pick the model that                                                     
+     wins on the visible criteria.                                                                                      
+                                                                                                                        
+  Updated model routing (apply to all Wave 2+ agent implementations):                                                   
+                                                                  
+  - Extractor: claude-haiku-4-5 (single-field extraction, fast and cheap)                                               
+  - Validator: pure code, no LLM                                  
+  - Profile Writer: pure code, no LLM                                                                                   
+  - Question Director: claude-sonnet-4-6 (context-aware question phrasing)                                              
+  - Coordinator: claude-sonnet-4-6 (NOT Opus)                                                                           
+  - All Specialists (Visa, Tax, Cost-of-Living, Housing, Cultural,                                                      
+    Documents, Posted Worker, Insurance, Departure Origin, Goods                                                        
+    Shipping, Driver's License, Embassy, Family Visa Cascade, Healthcare                                                
+    Continuity, Schools, Pet, Family Reunion): claude-sonnet-4-6                                                        
+  - Synthesizer: claude-sonnet-4-6 (NOT Opus)                                                                           
+  - Critic: claude-sonnet-4-6                                                                                           
+  - Guide Composer + section writers: claude-sonnet-4-6                                                                 
+  - Pre-departure narrator: claude-sonnet-4-6                                                                           
+  - Prioritization Agent (Prompt 9.9): claude-sonnet-4-6                                                                
+                                                                                                                        
+  Default rule for any agent the playbook doesn't explicitly name a                                                     
+  model for: claude-sonnet-4-6.                                                                                         
+                                                                                                                        
+  Exception (only): if during build you find a specific role where                                                      
+  Sonnet 4.6 visibly fails on quality (not "could be slightly better" —                                                 
+  actual quality failure), THEN we consider Opus for that one role.                                                     
+  Until that happens: Sonnet 4.6 default.                                                                               
+                                                                                                                        
+  Three concrete actions:                                                                                               
+                                                                  
+  1. Update WAVE-1.md: change the line "Coordinators use direct                                                         
+     Anthropic integration with claude-opus-4-7" to               
+     "Coordinators use direct Anthropic integration with claude-sonnet-4-6.                                             
+     Opus 4.7 is available via the integration but not used by default —
+     reserved for cases where Sonnet visibly fails." Commit as a small                                                  
+     doc fix.                                                                                                           
+                                                                                                                        
+  2. If you set up any "default model" constant in @workspace/agents                                                    
+     during Wave 1 (e.g., src/_kernel/models.ts or similar), set the
+     default to claude-sonnet-4-6, not opus.                                                                            
+                                                                                                                        
+  3. Note 2 in my earlier translation map approval (the OpenRouter                                                      
+     fallback for Opus) is now moot. Drop it from your mental model.                                                    
+     We don't need OpenRouter at all for the foreseeable future —                                                       
+     Replit's direct Anthropic integration covers everything.                                                           
+                                                                                                                        
+  Confirm these three actions are done (with the doc commit SHA).

@@ -1,0 +1,92 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "TaXKz1bP3mp_e3mhlThGy"
+uri = "file://screenshots/mascot-all-states.jpg"
+type = "image"
+title = "Mascot — all 7 animation states"
+
+[[outputs]]
+id = "ZlICCvUfReUjc-uMPBUMa"
+uri = "file://screenshots/mascot-with-airplane-full.jpg"
+type = "image"
+title = "Mascot — logo-DNA pass with grid + orbiting airplane (all 7 states + active waving)"
+
+[[outputs]]
+id = "Qa5SnaptXIZz-gNwkqsgi"
+uri = "file://artifacts/test-reports/phase-4-gate-report.md"
+type = "text"
+title = "Phase 4 E2E Gate Report (consolidated)"
+
+[[outputs]]
+id = "31CZtNjgB7hoiZ8JH-TT6"
+uri = "file://artifacts/screenshots/phase-4/roselle/04-after-bundled-input.png"
+type = "image"
+title = "Roselle — onboarding after bundled input"
+
+[[outputs]]
+id = "rYWUao6YGuTqLfXTN7SKk"
+uri = "file://artifacts/screenshots/phase-4/axel/04-after-bundled-input.png"
+type = "image"
+title = "Axel — onboarding after bundled input"
+
+[[outputs]]
+id = "V5bkXbjjuOMtRk-BoYR3Z"
+uri = "file://artifacts/screenshots/phase-4/priya/04-after-bundled-input.png"
+type = "image"
+title = "Priya — onboarding after bundled input"
+
+[[outputs]]
+id = "95lOhtIQCwPExRr6c0RSu"
+uri = "file://artifacts/screenshots/phase-4/stevenson/04-after-bundled-input.png"
+type = "image"
+title = "Stevenson — onboarding after bundled input"
+
+[[outputs]]
+id = "NVD5HQ1Ln6BeNyFKrYP7o"
+uri = "file://artifacts/test-reports/persona-100-screenshots/james-top.png"
+type = "image"
+title = "Stevenson — Top (100% / 39 of 39)"
+
+[[outputs]]
+id = "lYKrSeHWPDxPchKuOfUVI"
+uri = "file://artifacts/test-reports/persona-100-screenshots/james-bottom.png"
+type = "image"
+title = "Stevenson — Bottom"
+
+[[outputs]]
+id = "AY2MR7zeDodOp88hU7SQV"
+uri = "file://artifacts/test-reports/persona-100-screenshots/axel-top.png"
+type = "image"
+title = "Axel — Top (100% / 40 of 40)"
+
+[[outputs]]
+id = "wXLn9Y_S55Vx5tWkDwnM_"
+uri = "file://artifacts/test-reports/persona-100-screenshots/axel-bottom.png"
+type = "image"
+title = "Axel — Bottom"
+
+[[outputs]]
+id = "Va4EwBdtqqQjv_T83Cj3k"
+uri = "file://artifacts/test-reports/persona-100-screenshots/priya-top.png"
+type = "image"
+title = "Priya — Top (100% / 19 of 19)"
+
+[[outputs]]
+id = "QnFYr7VpCBR8tpAF4mbMA"
+uri = "file://artifacts/test-reports/persona-100-screenshots/priya-bottom.png"
+type = "image"
+title = "Priya — Bottom"
+
+[[outputs]]
+id = "ahE1TbxmIG7Qzk8Vgea_B"
+uri = "file://artifacts/test-reports/persona-100-screenshots/roselle-top.png"
+type = "image"
+title = "Roselle — Top (100% / 26 of 26)"
+
+[[outputs]]
+id = "WCtmlwK3lQAM-85y9VI4R"
+uri = "file://artifacts/test-reports/persona-100-screenshots/roselle-bottom.png"
+type = "image"
+title = "Roselle — Bottom"

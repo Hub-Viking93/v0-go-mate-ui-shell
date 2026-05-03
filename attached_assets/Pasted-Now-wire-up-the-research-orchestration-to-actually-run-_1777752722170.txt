@@ -1,0 +1,45 @@
+Now wire up the research orchestration to actually run, and build the UI for visible agent panels.
+
+Step 1: Replace app/api/research/trigger/route.ts.
+
+The new logic:
+1. Auth check.
+2. Verify the user clicked "Generate my plan" (user_triggered_research_at is set).
+3. Verify plan stage is "complete" or transitioning.
+4. Call Coordinator.decideDispatch(profile) to get the specialist list.
+5. Update relocation_plans.research_status = "in_progress".
+6. Run all specialists in parallel via Promise.allSettled, each wrapped with the orchestrator's retry/audit.
+7. After all specialists finish, run Synthesizer.
+8. Run Critic on synthesized guide.
+9. If Critic finds gaps with suggestedSpecialist, optionally dispatch one more round (cap at 1 to prevent infinite loops).
+10. Set relocation_plans.research_status = "completed" or "partial" (if some specialists failed).
+11. Set research_completed_at = now().
+12. Set stage = "ready_for_pre_departure".
+
+Step 2: Build the agent panel UI at app/(app)/research/page.tsx.
+
+Layout:
+- Top: Coordinator panel showing rationale ("Visa Specialist dispatched because...", "Posted Worker Specialist dispatched because...").
+- Main grid: one panel per dispatched specialist. Each panel shows:
+  - Agent name and emoji icon
+  - Status: idle (not started yet) | researching (scraping) | drafting (synthesizing) | validating (cross-checking) | complete | failed
+  - Current activity in plain English: "Reading Migrationsverket residence permit page", "Computing exit tax for Sweden departure"
+  - Source URLs being consulted (with live links, small icons showing scrape status)
+  - Progress (e.g., "3 of 5 sources read")
+  - When complete: brief 2-line summary of what was found
+  - Click to expand: full draft section the agent produced
+
+- Bottom: when Synthesizer is running, panels start to fade. Unified guide starts rendering inline.
+- When Critic completes: any new specialist dispatches appear as new panels.
+
+Step 3: Build agent-panel.tsx and agent-panel-grid.tsx components.
+
+Step 4: Use Server-Sent Events (SSE) to push agent status updates from backend to UI. Add app/api/agents/[name]/status/route.ts that streams events: { agentName, status, currentActivity, sourceUrls, progress }. The frontend subscribes and updates panels in real-time.
+
+Step 5: When user navigates to /research while research is running, they see panels. When research completes, page transitions to /dashboard with the new guide ready.
+
+Important — DO NOT auto-trigger research on profile completion. Research only starts when user_triggered_research_at is set, which only happens via the explicit POST /api/plans/trigger-research endpoint.
+
+Run pnpm tsc --noEmit.
+
+When you're done, walk me through running research for the German posting profile. Show me the panels populating live.

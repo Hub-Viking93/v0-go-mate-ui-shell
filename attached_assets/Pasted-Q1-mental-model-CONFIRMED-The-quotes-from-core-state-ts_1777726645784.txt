@@ -1,0 +1,55 @@
+Q1 mental model: CONFIRMED. The quotes from core-state.ts and                                                         
+  dashboard-state.ts match what I expected. derivePlanAuthority is the                                                  
+  contract v2 must preserve. LLM proposes deltas → state-machine                                                        
+  validates → relocation_plans.profile_data updates → next derive call                                                  
+  reflects new state. Don't break this.                                                                                 
+                                                                                                                        
+  Q2: Option A — new lib/agents/ workspace package at repo root,                                                        
+  imported as @workspace/agents from artifacts/api-server. Approved.                                                    
+                                                                                                                        
+  But your verification surfaced something bigger that the playbook
+  doesn't account for: my audit was pre-migration. The playbook is                                                      
+  written assuming the old Next.js 16 App Router architecture                                                           
+  (app/api/*/route.ts, app/(app)/*/page.tsx, RSC patterns, Next.js SSE,                                                 
+  Next.js middleware, @supabase/ssr). The live code is now:                                                             
+                                                                                                                        
+  - Express backend (artifacts/api-server)                                                                              
+  - Vite + wouter frontend (artifacts/gomate, NOT Next.js)                                                              
+  - Supabase used differently (no SSR helpers; client-only auth)                                                        
+  - Different SSE pattern (Express res.write vs Next.js Route Handler
+    Response stream)                                                                                                    
+                                                                                                                        
+  The LOGIC in subsequent prompts is portable. The PATHS and a few                                                      
+  framework idioms are not. Before producing the task breakdown for                                                     
+  Prompt 1, I need you to produce a TRANSLATION MAP that I can apply                                                    
+  mentally to every subsequent prompt. Include in your file-by-file                                                     
+  breakdown:                                                                                                            
+                                                                                                                        
+  1. A "playbook pattern → live repo pattern" table. Examples:                                                          
+     - app/api/X/route.ts → artifacts/api-server/src/routes/X.ts  
+     - app/(app)/X/page.tsx → artifacts/gomate/src/pages/X.tsx                                                          
+     - middleware.ts → artifacts/api-server/src/middleware/auth.ts                                                      
+     - Server Components → wouter routes + client components                                                            
+     - @supabase/ssr → @supabase/supabase-js client-only pattern                                                        
+     - Next.js SSE Response stream → Express res.write SSE pattern                                                      
+     - app/api/route.ts new shadcn install paths → artifacts/gomate/src/components/ui/                                  
+                                                                                                                        
+  2. Note any places where the Next.js pattern was load-bearing for the                                                 
+     playbook's intent — e.g. if a prompt assumed Server Components for                                                 
+     security reasons, flag how Express handles the equivalent.                                                         
+                                                                  
+  3. Note explicitly any prompts in the playbook you think may need                                                     
+     substantive rewrites vs simple path translation.             
+                                                                                                                        
+  Produce that translation map as part of your file-by-file breakdown
+  for Prompt 1. Once I see and approve the map, you can start writing                                                   
+  Prompt 1's code. Subsequent prompts (2.x, 3.x, ...) we'll process the                                                 
+  same way: I paste the prompt, you translate paths to live repo paths                                                  
+  before writing code, no need to ask me each time after the map is                                                     
+  locked.                                                                                                               
+                                                                                                                        
+  Q3, Q4, Q5: confirmed as you wrote them. Migration logic for Q4                                                       
+  sounds correct.                                                 
+                                                                                                                        
+  Proceed with file-by-file breakdown + translation map. Still no code                                                  
+  until I green-light both.

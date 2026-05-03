@@ -1,0 +1,74 @@
+The current mascot looks like a generic AI-builder robot — square
+  head, glowing green eyes, antenna. Cold, geometric, uncanny. NOT                                                      
+  what the spec calls for.                                                                                              
+                                                                                                                        
+  REPLACE the current mascot SVG with the specified warm globe-character.                                               
+  The component shell (Mascot.tsx, state prop, Framer Motion transitions,                                               
+  size variants) STAYS. Only the inline SVG content changes.                                                            
+  
+  New visual spec (replace the SVG in components/mascot.tsx):                                                           
+                                                                  
+  CHARACTER: Animated planet earth character. Round, friendly, soft.                                                    
+  NOT a robot. NOT square. NOT geometric.                         
+                                                                                                                        
+  Composition (single inline SVG, viewBox "0 0 200 200"):                                                               
+                                                                                                                        
+  1. Soft drop shadow ellipse beneath (cy=185, rx=70, ry=8, fill #18140E                                                
+     with opacity 0.08) — gives a "sitting on ground" feel        
+                                                                                                                        
+  2. Globe body — circle cx=100 cy=100 r=72, fill linear gradient from                                                  
+     #6FE9B0 (top) to #2D6A4F (bottom). Slight asymmetry — not                                                          
+     geometrically perfect.                                                                                             
+                                                                                                                        
+  3. Continents — 2-3 organic blob shapes in deeper green (#1B3A2D),                                                    
+     placed naturally on the globe surface:                                                                             
+     - Larger blob top-left (around cx=70 cy=80)                                                                        
+     - Medium blob bottom-right (around cx=130 cy=120)                                                                  
+     - Tiny island (around cx=145 cy=85)                                                                                
+     Use path elements with smooth curves (C commands), NOT polygons.                                                   
+                                                                                                                        
+  4. Latitude lines — 2 thin curved lines (#FFFFFF with opacity 0.15)                                                   
+     wrapping the globe, suggesting it's a planet not just a circle.                                                    
+                                                                                                                        
+  5. Face (centered slightly above middle, around cy=95):                                                               
+     - Two eyes: ellipses cx=85/115 cy=95 rx=7 ry=9, fill #18140E                                                       
+       (warm near-black, NOT pure black)                                                                                
+     - Tiny white highlight on each eye (small circle, top-right of                                                     
+       pupil, fill white opacity 0.8) — gives life                                                                      
+     - Mouth: path starting at (90, 115), smooth curve to (110, 115),                                                   
+       stroke #18140E width 2.5, stroke-linecap round, fill none.                                                       
+       Gentle upward curve.                                                                                             
+                                                                                                                        
+  6. NO antenna. NO sharp angles. NO glowing eyes. NO geometric grid                                                    
+     pattern. NO hexagonal body. NO arms unless waving/celebrating                                                      
+     state.                                                                                                             
+                                                                  
+  State-specific element groups (hidden by default, shown per state):                                                   
+                                                                  
+  - <g id="hand-right"> — small rounded hand shape, hidden by default,                                                  
+    shown in waving + celebrating states                          
+  - <g id="hand-left"> — same, shown in celebrating only                                                                
+  - <g id="thinking-dots"> — three small circles above the head                                                         
+    (cy=20-30 area), hidden by default, shown in thinking                                                               
+  - <g id="confetti"> — 6-8 small colored shapes (mint, coral #D85C3A,                                                  
+    yellow #F5D547, plum #6B4C8E), hidden by default, shown in                                                          
+    celebrating, animate radial burst                                                                                   
+                                                                                                                        
+  Color palette ALL elements must use:                                                                                  
+  - Globe primary: #5EE89C / #2D6A4F gradient                                                                           
+  - Continents: #1B3A2D                                                                                                 
+  - Eyes: #18140E                                                 
+  - Highlights: white opacity 0.8                                                                                       
+  - Confetti: mint, coral, yellow, plum from list above                                                                 
+  - Background: transparent                                                                                             
+  - Shadow: #18140E opacity 0.08                                                                                        
+                                                                                                                        
+  WARM. SOFT. ROUND. PREMIUM. Not a hackathon robot.                                                                    
+                                                                                                                        
+  Also remove the "antenna" line on top of head. There must be NO                                                       
+  antenna in any state.                                           
+                                                                                                                        
+  After updating: run all 7 states in /dev/mascot. Send me a screenshot                                                 
+  of each state. The whole vibe should feel like the brand mark                                                         
+  (gomate-avatar.tsx with globe + airplane) — warm green planet — but                                                   
+  animated and alive with personality. Same brand DNA, more soul.
