@@ -34,6 +34,10 @@ export interface PersistedVisaOption {
   benefits: string[];
   limitations: string[];
   officialLink?: string;
+  /** Every URL the visa specialist scraped — surfaced in the visa
+   *  workspace as a TrustBadge dropdown so users can verify against
+   *  multiple authorities, not just the single officialLink. */
+  sourceUrls?: string[];
   applicationSteps?: string[];
   recommended?: boolean;
 }
@@ -178,8 +182,21 @@ export function buildVisaResearchPayload(
   const processingWeeks = asNumber(kf["estimated_processing_weeks"]);
   const eligibilityChecks = asStringArray(kf["key_eligibility_checks"]);
   const warnings = asStringArray(kf["warnings"]);
+  const costSummary = asString(kf["estimated_cost_summary"]);
+  const validitySummary = asString(kf["validity_summary"]);
+  const primaryAuthorityUrl = asString(kf["primary_authority_url"]);
 
-  const officialLink = o.citations[0]?.url;
+  // Resolve official source URL with a 3-tier fallback so the user
+  // ALWAYS gets somewhere to read about their visa:
+  //   1. The LLM-picked primary_authority_url (from SOURCES).
+  //   2. The first scraped citation URL.
+  //   3. null (UI hides the link when this is the case).
+  const officialLink = primaryAuthorityUrl ?? o.citations[0]?.url ?? null;
+  // All sourced URLs the user can browse — used by the visa workspace
+  // to render a TrustBadge dropdown of every authority we read.
+  const sourceUrls = (o.citations ?? [])
+    .map((c) => c.url)
+    .filter((u): u is string => typeof u === "string" && u.length > 0);
   const paragraphs = o.contentParagraphs ?? [];
 
   const option: PersistedVisaOption = {
@@ -191,12 +208,17 @@ export function buildVisaResearchPayload(
     processingTime:
       processingWeeks != null
         ? `Approx. ${processingWeeks} week${processingWeeks === 1 ? "" : "s"}`
-        : "See official source for current processing times",
-    cost: "See official source for current fees",
-    validity: visaCategory === "work" ? "Tied to employment" : "See official source",
+        : "",
+    // Cost and validity are now LLM-summarised from sources. Empty
+    // string when null so the frontend's existing placeholder
+    // detection ("—") kicks in and the user is pointed at the
+    // officialLink instead of reading a useless "See official source".
+    cost: costSummary ?? "",
+    validity: validitySummary ?? "",
     benefits: [],
     limitations: warnings,
-    officialLink,
+    officialLink: officialLink ?? undefined,
+    sourceUrls,
     applicationSteps: paragraphs[2] ? [paragraphs[2]] : undefined,
     recommended: true,
   };

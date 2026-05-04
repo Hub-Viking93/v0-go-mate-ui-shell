@@ -23,6 +23,11 @@ import {
 import { cn } from "@/lib/utils"
 
 export interface VisaOption {
+  // sourceUrls — every URL the specialist scraped for this option.
+  // Renders as a TrustBadge dropdown in /visa so the user can verify
+  // against multiple authorities, not just officialLink.
+  sourceUrls?: string[]
+
   name: string
   type: string
   eligibility: "high" | "medium" | "low" | "unknown"

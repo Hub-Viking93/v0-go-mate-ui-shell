@@ -443,87 +443,111 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)]">
+    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)] bg-gradient-to-b from-background to-emerald-50/30 dark:to-emerald-950/10">
       {/* Confetti celebration when profile is 100% complete */}
       <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
-      
-      {/* Header with progress */}
-      <div className="flex-shrink-0 p-4 border-b border-border bg-gradient-to-r from-[#1B3A2D]/[0.03] to-transparent">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <GoMateAvatar size="lg" />
-            <div>
-              <h1 className="font-semibold text-foreground flex items-center gap-2">
-                {planStage === "arrived" ? "Settling-In Coach" : "GoMate Chat"}
-                {profile.destination && (
-                  <span className="flex items-center gap-1.5 text-muted-foreground font-normal text-sm">
-                    <CountryFlag country={profile.destination} size="sm" />
-                    {profile.destination}
-                  </span>
-                )}
-                {planStage === "arrived" && (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] py-0">
-                    Post-arrival mode
-                  </Badge>
-                )}
-              </h1>
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                {planStage === "arrived" ? (
-                  <>
-                    <Shield className="w-3.5 h-3.5 text-emerald-600" />
-                    You're settled — ask about registrations, deadlines, or anything you're stuck on
-                  </>
-                ) : planLocked ? (
-                  <>
-                    <Shield className="w-3.5 h-3.5 text-primary" />
-                    Plan locked - ask questions freely
-                  </>
-                ) : null}
-                {!planLocked && planStage !== "arrived" && interviewState === "interview" && "Let's plan your relocation"}
-                {!planLocked && planStage !== "arrived" && interviewState === "review" && "Review your profile"}
-                {!planLocked && planStage !== "arrived" && interviewState === "complete" && "Your personalized plan"}
-                {visaStatus && profile.citizenship && profile.destination && (
-                  <VisaStatusBadge
-                    citizenship={profile.citizenship}
-                    destination={profile.destination}
-                    size="sm"
-                  />
-                )}
-              </p>
+
+      {/* Editorial header — deep forest gradient + radial sage glow,
+          serif headline, status row. Same visual language as the
+          dashboard hero so /onboarding and /chat read as part of the
+          same product. */}
+      <div
+        className="flex-shrink-0 relative overflow-hidden text-white"
+        style={{
+          background:
+            "linear-gradient(135deg, #14302A 0%, #1B3A2D 38%, #234D3A 72%, #2D6A4F 100%)",
+          boxShadow:
+            "0 2px 8px rgba(20,48,42,0.18), 0 12px 32px rgba(20,48,42,0.20)",
+        }}
+      >
+        {/* Radial sage glow on the right */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 80% at 100% 0%, rgba(94,232,156,0.18) 0%, transparent 60%)",
+          }}
+        />
+        <div className="relative px-5 sm:px-8 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <GoMateAvatar size="lg" className="ring-2 ring-emerald-300/30 shadow-lg" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-200/80">
+                  {planStage === "arrived" ? "Settling-in coach" : planLocked ? "Plan assistant" : "Conversational onboarding"}
+                </p>
+                <h1
+                  className="font-serif tracking-tight text-white mt-0.5 flex items-center gap-2.5 flex-wrap"
+                  style={{ fontSize: "22px", fontWeight: 600, lineHeight: 1.15 }}
+                >
+                  {planStage === "arrived" ? "GoMate" : "GoMate Chat"}
+                  {profile.destination && (
+                    <span className="inline-flex items-center gap-1.5 text-emerald-100/85 text-[14px] font-normal">
+                      <CountryFlag country={profile.destination} size="sm" />
+                      {profile.destination}
+                    </span>
+                  )}
+                </h1>
+                <p className="text-[12px] text-emerald-100/75 flex items-center gap-2 mt-1">
+                  {planStage === "arrived" ? (
+                    <>
+                      <Shield className="w-3.5 h-3.5 text-emerald-300" />
+                      You're settled — ask about registrations, deadlines, anything stuck.
+                    </>
+                  ) : planLocked ? (
+                    <>
+                      <Shield className="w-3.5 h-3.5 text-emerald-300" />
+                      Plan locked — ask questions freely.
+                    </>
+                  ) : interviewState === "interview" ? (
+                    <>
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Let's plan your move, together.
+                    </>
+                  ) : interviewState === "review" ? (
+                    "Review your profile."
+                  ) : (
+                    "Your personalized plan."
+                  )}
+                  {visaStatus && profile.citizenship && profile.destination && (
+                    <VisaStatusBadge
+                      citizenship={profile.citizenship}
+                      destination={profile.destination}
+                      size="sm"
+                    />
+                  )}
+                </p>
+              </div>
             </div>
-          </div>
-          <Badge
-            variant={interviewState === "complete" ? "default" : "secondary"}
-            className={cn(
-              "flex items-center gap-1.5",
-              interviewState === "complete" && "bg-gradient-to-r from-emerald-500 to-emerald-600 border-0"
-            )}
-          >
-            {interviewState === "complete" ? (
-              <>
+            {/* Only the "Complete" pill renders post-onboarding.
+                The pre-completion progress percentage was removed —
+                it never mapped cleanly to the user's perceived
+                position because computeFilledFields() on the backend
+                counts every non-null profile key, not just required
+                ones. The "Next question" label below already shows
+                what the user actually needs (what's coming) without
+                lying about how far along they are. */}
+            {interviewState === "complete" && (
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-1.5 backdrop-blur-sm border-0 text-[11px] font-semibold shrink-0 bg-emerald-400/25 text-emerald-50 ring-1 ring-emerald-300/40"
+              >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Complete
-              </>
-            ) : (
-              <>
-                <Globe className="w-3.5 h-3.5" />
-                {progressPercent}%
-              </>
+              </Badge>
             )}
-          </Badge>
-        </div>
+          </div>
 
-        {/* Progress bar */}
-        <div className="space-y-1.5">
-          <Progress value={progressPercent} className="h-2" />
-          <p className="text-xs text-muted-foreground">
-            {filledFields.length} of {dynamicRequiredFields.length} fields completed
-            {pendingField && interviewState === "interview" && (
-              <span className="text-primary ml-2">
-                Next: {FIELD_CONFIG[pendingField]?.label || pendingField.replace(/_/g, " ")}
+          {/* Next-field hint replaces the progress bar. Hidden once
+              locked or after arrival — the concept is moot then. */}
+          {!planLocked && planStage !== "arrived" && pendingField && interviewState === "interview" && (
+            <p className="text-[11px] text-emerald-100/70 mt-3">
+              <span className="text-emerald-200">Next question:</span>{" "}
+              <span className="text-white font-medium">
+                {FIELD_CONFIG[pendingField]?.label || pendingField.replace(/_/g, " ")}
               </span>
-            )}
-          </p>
+            </p>
+          )}
         </div>
       </div>
 
@@ -572,7 +596,7 @@ export default function ChatPage() {
               className={cn(
                 "max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3",
                 message.role === "user"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-[#2D6A4F] text-white"
                   : "bg-card border border-border"
               )}
             >
@@ -742,6 +766,15 @@ export default function ChatPage() {
 
       {/* Input area */}
       <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
+        {/* Generate-my-plan CTA — visible only after the AI has
+            confirmed onboarding is complete but BEFORE the user has
+            actually triggered research. Shipping this inline above
+            the chat input means the user can keep chatting freely
+            (questions, clarifications) and still has a clear path
+            forward to lock the plan and start research. */}
+        {onboardingCompleted && !planLocked && (
+          <GeneratePlanCta />
+        )}
         <form onSubmit={handleSubmit} className="flex gap-3">
           <input
             type="text"
@@ -753,13 +786,13 @@ export default function ChatPage() {
                 : "Type your message..."
             }
             disabled={isLoading}
-            className="flex-1 px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/40 focus:border-[#2D6A4F]/40 disabled:opacity-50"
           />
           <Button
             type="submit"
             disabled={!input.trim() || isLoading}
             size="icon"
-            className="h-12 w-12 rounded-xl"
+            className="h-12 w-12 rounded-xl bg-[#2D6A4F] hover:bg-[#234D3A] text-white shadow-sm disabled:bg-stone-200 disabled:text-stone-400"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -948,17 +981,72 @@ export default function ChatPage() {
 
         <p className="text-xs text-muted-foreground text-center mt-3">
           GoMate provides informational guidance only. Always verify with{" "}
-          <a
-            href="https://www.gomaterelocate.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            official sources
-          </a>
-          .
+          <strong className="font-semibold text-foreground">official sources</strong>.
         </p>
       </div>
+    </div>
+  )
+}
+
+// ===========================================================
+// GeneratePlanCta — inline call-to-action that fires the
+// research pipeline. Renders inside the chat input area when
+// onboarding is complete but the plan isn't locked yet, so the
+// user has an obvious next step without leaving the chat. On
+// success, the page hard-navigates to /dashboard?research=triggered
+// so the dashboard's ResearchProgressModal picks up the run.
+// ===========================================================
+function GeneratePlanCta() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleClick = async () => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/plans/trigger-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
+      // Hard navigation so the dashboard re-fetches plan state
+      // from a clean slate and the ResearchProgressModal opens.
+      window.location.href = "/dashboard?research=triggered"
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start research")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-3 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 p-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-sm text-emerald-900 dark:text-emerald-200">
+        <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <span>Profile complete — ready to build your move plan.</span>
+      </div>
+      <Button
+        onClick={handleClick}
+        disabled={busy}
+        className="gap-2 rounded-full bg-gradient-to-r from-[#1B3A2D] to-[#2D6A4F] text-white hover:opacity-95 shadow-md"
+        data-testid="chat-generate-plan"
+      >
+        {busy ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Starting…
+          </>
+        ) : (
+          <>Generate my plan</>
+        )}
+      </Button>
+      {error && (
+        <p className="text-xs text-rose-600 dark:text-rose-400 shrink-0">{error}</p>
+      )}
     </div>
   )
 }

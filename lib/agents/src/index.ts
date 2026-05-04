@@ -50,6 +50,7 @@ export {
 
 // Wave 1.5 — Supabase adapter for the LogWriter interface
 export { createSupabaseLogWriter } from "./log-writer-supabase.js";
+export { getDateContext, getDateContextLine, type DateContext } from "./date-context.js";
 
 // Wave 2.0 — intake-field registry (snapshot of profile-schema.ts)
 export {

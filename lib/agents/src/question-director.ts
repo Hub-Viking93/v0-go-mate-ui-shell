@@ -29,6 +29,7 @@ import { FIELD_INFO, type AllFieldKey } from "./intake-fields.js";
 import { getValidationRule } from "./validation-rules.js";
 import { callLLM } from "./router.js";
 import { writeAuditRow } from "./audit.js";
+import { getDateContextLine } from "./date-context.js";
 import type { LogWriter } from "./types.js";
 
 export type AnimationCue =
@@ -203,6 +204,7 @@ function buildSystemPrompt(args: {
 
   return [
     `You are GoMate's Question Director. Your job is to ask the next onboarding question.`,
+    getDateContextLine(),
     `Tone: warm, calm, professional.`,
     personalization,
     constraint,

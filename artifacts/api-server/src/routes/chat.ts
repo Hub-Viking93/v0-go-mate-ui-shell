@@ -308,38 +308,41 @@ async function handleCollectingStage(args: HandleCollectingArgs): Promise<void> 
     writer,
   });
 
-  // 2. Lock the plan when onboarding completes. We do NOT touch
-  // user_triggered_research_at — that's the user's button.
+  // 2. Mark onboarding complete when all required fields land. We
+  // DO NOT lock the plan here — locking is the user's explicit
+  // action via the Generate-my-plan button (handled by
+  // POST /api/plans/trigger-research). Locking here meant the
+  // client jumped straight into the post-onboarding free-chat the
+  // moment the last field was extracted, hiding the Generate CTA.
   //
-  // Recovery property: if the lock UPDATE fails we report
-  // planLocked=false, which keeps the client's view consistent with
-  // the DB. The client will send another turn (or refresh), at which
-  // point getRequiredFields() still returns [] (the profile didn't
-  // change), so isOnboardingComplete fires again and the lock is
-  // re-attempted. There is no spurious "complete" claim from the
-  // server — the metadata always reflects what actually committed.
+  // Recovery property: if the UPDATE fails we report
+  // onboardingCompleted=false, which keeps the client's view
+  // consistent with the DB. The client will send another turn (or
+  // refresh), at which point getRequiredFields() still returns []
+  // (the profile didn't change), so isOnboardingComplete fires
+  // again and the update is re-attempted.
   let planLocked = false;
   let onboardingCompleted = false;
   let lockError: string | undefined;
   if (result.isOnboardingComplete) {
     const now = new Date().toISOString();
-    const { error: lockErr } = await args.supabase
+    const { error: updErr } = await args.supabase
       .from("relocation_plans")
       .update({
-        locked: true,
         stage: "complete",
         onboarding_completed: true,
         updated_at: now,
       })
       .eq("id", args.planId)
       .eq("user_id", args.userId);
-    if (lockErr) {
-      lockError = lockErr.message;
-      logger.error({ err: lockErr, planId: args.planId }, "chat: failed to lock plan");
+    if (updErr) {
+      lockError = updErr.message;
+      logger.error({ err: updErr, planId: args.planId }, "chat: failed to mark onboarding complete");
       // Non-fatal — see recovery property comment above.
     } else {
-      planLocked = true;
       onboardingCompleted = true;
+      // planLocked stays false. The trigger-research route is what
+      // actually flips locked=true.
     }
   }
 

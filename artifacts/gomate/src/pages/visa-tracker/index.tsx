@@ -331,29 +331,60 @@ export default function VisaTrackerPage() {
             </div>
           ) : (
             <>
-              {/* Selected visa info bar */}
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-foreground">{selectedVisa.name}</span>
+              {/* Selected visa info bar.
+                  When the LLM returns placeholder phrasing like "See
+                  official source for current fees" for cost/validity,
+                  the field is effectively empty — show an em-dash and
+                  surface a real, clickable link to the official source
+                  next to the row instead. That's what the user actually
+                  needs (a destination they can read), not a sentence
+                  that says "go look elsewhere". */}
+              {(() => {
+                const isPlaceholder = (v: string | undefined) =>
+                  !v || /see\s+official\s+source/i.test(v)
+                const placeholderDash = (v: string | undefined) =>
+                  isPlaceholder(v) ? "—" : v
+                const sources: TrustSource[] = []
+                for (const u of (selectedVisa as { sourceUrls?: string[] }).sourceUrls ?? []) {
+                  sources.push({ name: visaUrlDomain(u), url: u, authority: "official" })
+                }
+                if (selectedVisa.officialLink) {
+                  sources.push({
+                    name: `${selectedVisa.name} — official portal`,
+                    url: selectedVisa.officialLink,
+                    authority: "official",
+                  })
+                }
+                return (
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-primary shrink-0" />
+                        <span className="font-medium text-foreground">{selectedVisa.name}</span>
+                      </div>
+                      <div className="flex gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1 flex-wrap">
+                        <span>Processing: <span className="text-foreground">{placeholderDash(selectedVisa.processingTime)}</span></span>
+                        <span>Cost: <span className="text-foreground">{placeholderDash(selectedVisa.cost)}</span></span>
+                        <span>Validity: <span className="text-foreground">{placeholderDash(selectedVisa.validity)}</span></span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {sources.length > 0 && (
+                        <TrustBadge sources={sources} />
+                      )}
+                      <button
+                        onClick={() => patchApplication({
+                          selectedVisaType: null,
+                          applicationStatus: null,
+                        })}
+                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                      >
+                        Change
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-3 text-xs text-muted-foreground mt-1">
-                    <span>Processing: {selectedVisa.processingTime}</span>
-                    <span>Cost: {selectedVisa.cost}</span>
-                    <span>Validity: {selectedVisa.validity}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => patchApplication({
-                    selectedVisaType: null,
-                    applicationStatus: null,
-                  })}
-                  className="text-xs text-muted-foreground hover:text-foreground underline"
-                >
-                  Change
-                </button>
-              </div>
+                )
+              })()}
 
               {/* Posted Worker Compliance (only for corporate postings) */}
               {data.postingOrSecondment === "yes" && data.purpose === "work" && (

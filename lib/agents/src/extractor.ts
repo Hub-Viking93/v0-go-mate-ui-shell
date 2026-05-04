@@ -31,6 +31,7 @@ import {
 import { callLLM } from "./router.js";
 import { writeAuditRow } from "./audit.js";
 import { getValidationRule } from "./validation-rules.js";
+import { getDateContextLine } from "./date-context.js";
 import type { ConfidenceLevel, LogWriter } from "./types.js";
 
 export type ExtractionConfidence = Extract<
@@ -75,6 +76,8 @@ const VALID_CONFIDENCE: ReadonlySet<ExtractionConfidence> = new Set([
 function buildSystemPrompt(): string {
   return [
     "You extract a SINGLE field from a user's message in a relocation interview.",
+    getDateContextLine(),
+    "When the user gives a relative date phrase ('this year', 'next month', 'November this year', 'in two weeks', 'end of summer', etc.), NORMALIZE it to ISO YYYY-MM-DD anchored to today's date — never store the raw relative phrase. If only a month + year is implied, use the 1st of that month. If only a year is implied, use January 1st of that year.",
     "You output ONLY a JSON object — no prose, no markdown fences, no explanation.",
     "If the field is not clearly present, set value to null and provide a short uncertaintyReason.",
     "Never extract a field other than the one specified as pending. Other fields the user volunteered go in additionalFieldsDetected, NOT in value.",

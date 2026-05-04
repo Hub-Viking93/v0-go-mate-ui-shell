@@ -79,7 +79,7 @@ export function OnboardingInput({
   return (
     <div
       className={cn(
-        "relative flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_4px_18px_-6px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 transition-shadow focus-within:ring-2 focus-within:ring-emerald-500/40",
+        "relative flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_4px_18px_-6px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 transition-shadow focus-within:ring-2 focus-within:ring-[#2D6A4F]/40",
         disabled && "opacity-70",
       )}
       data-testid="onboarding-input"
@@ -94,8 +94,8 @@ export function OnboardingInput({
           disabled={disabled}
           rows={1}
           aria-label={`Answer for ${pendingFieldLabel}`}
-          className="min-h-[40px] flex-1 resize-none border-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
-          style={{ maxHeight: 180 }}
+          className="min-h-[56px] flex-1 resize-none border-none bg-transparent px-3 py-3 text-[16px] leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
+          style={{ maxHeight: 240 }}
         />
         <button
           type="button"
@@ -103,16 +103,16 @@ export function OnboardingInput({
           disabled={!canSubmit}
           aria-label="Submit answer"
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all",
             canSubmit
-              ? "bg-emerald-500 text-white shadow-md hover:bg-emerald-600 active:scale-95"
+              ? "bg-[#2D6A4F] text-white shadow-md hover:bg-[#234D3A] active:scale-95"
               : "bg-slate-100 text-slate-400",
           )}
         >
           {disabled ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-5 w-5" />
           )}
         </button>
       </div>

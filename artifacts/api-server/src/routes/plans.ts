@@ -170,6 +170,14 @@ router.post("/plans/trigger-research", async (req, res) => {
     const now = new Date().toISOString();
     const updates: Record<string, unknown> = {
       user_triggered_research_at: now,
+      // The Generate-my-plan click is the canonical lock moment.
+      // Until this point, the chat route only flips
+      // onboarding_completed=true; the plan stays unlocked so the
+      // user can still amend earlier answers. Once they press
+      // Generate, lock so the post-onboarding free-chat surface
+      // takes over and answers are immutable for downstream
+      // research.
+      locked: true,
       updated_at: now,
     };
     if (plan.stage === "collecting" || !plan.stage) {

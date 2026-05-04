@@ -5,7 +5,7 @@ import {
   UserSquare2,
   ShieldCheck,
   Wallet,
-  Sparkles,
+  Home,
 } from "lucide-react"
 
 export type DashboardTabId =
@@ -26,7 +26,7 @@ const TABS: readonly TabSpec[] = [
   { id: "profile", label: "Profile", icon: UserSquare2 },
   { id: "visa", label: "Visa & Legal", icon: ShieldCheck },
   { id: "money", label: "Money", icon: Wallet },
-  { id: "settling", label: "Settling", icon: Sparkles },
+  { id: "settling", label: "Settling", icon: Home },
 ] as const
 
 interface DashboardTabsProps {

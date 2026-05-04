@@ -128,7 +128,7 @@ export function AppShell({ children }: AppShellProps) {
                 boxShadow: "0 0 0 1px rgba(94,232,156,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
               }}
             >
-              <img src="/images/gomate-logo.png" alt="GoMate" className="w-5 h-5" />
+              <img src="/images/gomate-logo.png" alt="GoMate" className="w-8 h-8 object-contain" />
             </div>
             <span
               className="font-serif text-sidebar-foreground"
@@ -236,16 +236,37 @@ export function AppShell({ children }: AppShellProps) {
         <GuestModeBanner variant="mobile" />
       </header>
 
-      <main className="lg:pl-60">
-        <div className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-20 lg:pb-0">
-          {children}
-        </div>
-        <LegalFooter />
-      </main>
+      {(() => {
+        // Conversational surfaces (/onboarding, /chat) own the entire
+        // viewport — they're sized with h-[calc(100vh-...)] and their
+        // own input bar already shows the legal disclaimer inline.
+        // Wrapping them in a min-h container + appending LegalFooter
+        // forces the whole page to be taller than the viewport,
+        // which makes the dashboard-grade hero scroll away. Detect
+        // those routes and skip the chrome.
+        const isChatSurface =
+          pathname.startsWith("/chat") || pathname.startsWith("/onboarding")
+        if (isChatSurface) {
+          return <main className="lg:pl-60">{children}</main>
+        }
+        return (
+          <main className="lg:pl-60">
+            <div className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-20 lg:pb-0">
+              {children}
+            </div>
+            <LegalFooter />
+          </main>
+        )
+      })()}
 
-      {!pathname.startsWith("/chat") && (
+      {/* The Ask-GoMate FAB is hidden on conversational surfaces
+          (/chat and /onboarding) where the user is already inside
+          a chat — duplicating an "Ask GoMate" button on top of an
+          active conversation is confusing. Also hidden on /research
+          which is now an internal trigger surface. */}
+      {!pathname.startsWith("/chat") && !pathname.startsWith("/onboarding") && !pathname.startsWith("/research") && (
         <Link
-          href="/chat"
+          href="/onboarding"
           className="fixed bottom-24 right-6 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 bg-gradient-to-r from-[#1B3A2D] to-[#2D6A4F] text-white px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:from-[#234D3A] hover:to-[#357A5A] transition-all duration-200"
         >
           <MessageSquare className="w-5 h-5" />

@@ -218,30 +218,63 @@ export function PreDepartureTimeline() {
 
   if (!timeline) {
     return (
-      <Card className="p-8">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-            <Sparkles className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold">Generate your move plan</h2>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
-              Once you press the button below, our specialists will sequence every pre-move action —
-              visa pickup, apostille chain, A1 certificate, banking bridge, pet vaccination — into a
-              week-by-week timeline with critical path highlighted.
-            </p>
-            {error && (
-              <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-xl px-3 py-2 mb-3">
-                {error}
-              </div>
-            )}
-            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? "Generating…" : "Generate my pre-move checklist"}
-            </Button>
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card shadow-[0_12px_40px_rgba(20,48,42,0.08)]">
+        <div
+          className="h-[3px]"
+          style={{
+            background:
+              "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)",
+          }}
+        />
+        <div className="p-7 md:p-8">
+          <div className="flex items-start gap-5">
+            {/* Real, contextual icon — Plane reads as "departure /
+                move plan". The previous Sparkles glyph reads as
+                generic "AI", which is what it landed on every other
+                AI-generated card too. */}
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-[#1B3A2D]/10 ring-1 ring-emerald-500/30 flex items-center justify-center shrink-0">
+              <Plane className="w-7 h-7 text-emerald-700 dark:text-emerald-400" strokeWidth={1.8} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Pre-move plan</p>
+              <h2
+                className="font-serif text-foreground mt-1"
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 600,
+                  letterSpacing: "-0.012em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Generate your week-by-week move plan
+              </h2>
+              <p className="text-[14px] text-muted-foreground mt-2.5 leading-relaxed max-w-xl">
+                Our specialists sequence every pre-move action —
+                {" "}<span className="text-foreground font-medium">visa pickup</span>,
+                {" "}<span className="text-foreground font-medium">apostille chain</span>,
+                {" "}<span className="text-foreground font-medium">A1 certificate</span>,
+                {" "}<span className="text-foreground font-medium">banking bridge</span>,
+                {" "}<span className="text-foreground font-medium">pet vaccination</span>
+                {" "}— into a timeline with critical path highlighted.
+              </p>
+              {error && (
+                <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-xl px-3 py-2 mt-4">
+                  {error}
+                </div>
+              )}
+              <Button
+                onClick={handleGenerate}
+                disabled={generating}
+                size="lg"
+                className="gap-2 mt-5 rounded-full bg-gradient-to-r from-[#1B3A2D] to-[#2D6A4F] text-white shadow-md hover:opacity-95"
+              >
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plane className="w-4 h-4" />}
+                {generating ? "Generating…" : "Generate my pre-move checklist"}
+              </Button>
+            </div>
           </div>
         </div>
-      </Card>
+      </div>
     );
   }
 

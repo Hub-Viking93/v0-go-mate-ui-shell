@@ -50,10 +50,15 @@ Produce a JSON object with this exact schema:
     "visa_category": "work | study | family | digital_nomad | tourist | residence",
     "estimated_processing_weeks": <number or null>,
     "primary_authority": "Name of the immigration authority",
+    "primary_authority_url": "<single canonical URL from SOURCES that the user should bookmark for this visa — null if no source covers it>",
+    "estimated_cost_summary": "<one short sentence about fees or null. Examples: 'JPY 3,000 application + JPY 4,000 issuance (paid at embassy)', 'Free for EU/EEA citizens'. Use the user's likely currency. NEVER invent figures — set to null if SOURCES don't mention fees.>",
+    "validity_summary": "<one short sentence about how long the visa lasts and renewal terms, or null. Examples: 'Up to 4 years 3 months, renewable in-country', 'Tied to employment contract, max 4 years'. Set to null if SOURCES don't cover validity.>",
     "key_eligibility_checks": ["bullet 1", "bullet 2"],
     "warnings": ["any red flags specific to this profile"]
   }
 }
+
+CRITICAL: Never fabricate figures or URLs. If SOURCES don't cover cost or validity, set those fields to null. The UI surfaces "—" for null and prompts the user to consult the official authority directly.
 
 ${URL_GUARDRAIL}`;
 }
