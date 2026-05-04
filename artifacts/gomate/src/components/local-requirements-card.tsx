@@ -208,44 +208,100 @@ function RequirementItemCard({
   )
 }
 
-function CategorySection({
+const CATEGORY_TINTS = [
+  { stripe: "from-emerald-400 via-teal-500 to-emerald-500", icon: "text-emerald-700 dark:text-emerald-400", chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-900/40" },
+  { stripe: "from-amber-400 via-orange-400 to-amber-500", icon: "text-amber-700 dark:text-amber-400", chip: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200/60 dark:border-amber-900/40" },
+  { stripe: "from-sky-400 via-blue-500 to-sky-500", icon: "text-sky-700 dark:text-sky-400", chip: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200/60 dark:border-sky-900/40" },
+  { stripe: "from-rose-400 via-pink-500 to-rose-500", icon: "text-rose-700 dark:text-rose-400", chip: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200/60 dark:border-rose-900/40" },
+  { stripe: "from-purple-400 via-violet-500 to-purple-500", icon: "text-purple-700 dark:text-purple-400", chip: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200/60 dark:border-purple-900/40" },
+  { stripe: "from-stone-400 via-stone-500 to-stone-400", icon: "text-stone-700 dark:text-stone-400", chip: "bg-stone-50 text-stone-700 dark:bg-stone-950/40 dark:text-stone-300 border-stone-200/60 dark:border-stone-900/40" },
+]
+
+function CategoryCard({
   category,
+  tintIndex,
 }: {
   category: RequirementCategory
+  tintIndex: number
 }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const items = category.items || []
+  const tint = CATEGORY_TINTS[tintIndex % CATEGORY_TINTS.length]
+  const previewCount = expanded ? items.length : Math.min(2, items.length)
+  const previewItems = items.slice(0, previewCount)
+  const remaining = items.length - previewCount
 
   return (
-    <div className="border rounded-xl overflow-hidden border-border">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          {getCategoryIcon(category.category)}
-          <span className="font-medium text-foreground">{category.category || "Other"}</span>
-          <Badge variant="outline" className="text-xs">
-            {(category.items || []).length} item{(category.items || []).length !== 1 ? "s" : ""}
-          </Badge>
+    <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card flex flex-col group hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300">
+      <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${tint.stripe}`} />
+      <div className="p-5 md:p-6 flex flex-col gap-3 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`shrink-0 ${tint.icon}`}>
+              {getCategoryIcon(category.category)}
+            </div>
+            <h3 className="font-serif text-lg leading-tight tracking-tight text-foreground truncate">
+              {category.category || "Other"}
+            </h3>
+          </div>
+          <span className={`shrink-0 text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 ${tint.chip}`}>
+            {items.length} item{items.length !== 1 ? "s" : ""}
+          </span>
         </div>
-        {expanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        )}
-      </button>
 
-      {expanded && (
-        <div className="p-4 space-y-3">
-          {(category.items || []).map((item, index) => (
-            <RequirementItemCard
-              key={index}
-              item={item}
-              categoryName={category.category || "Other"}
-            />
-          ))}
-        </div>
-      )}
+        {previewItems.length > 0 ? (
+          <ul className="space-y-2.5">
+            {previewItems.map((item, i) => (
+              <li key={i} className="border-t border-dashed border-stone-200 dark:border-stone-800 pt-2.5 first:border-t-0 first:pt-0">
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
+                  {item.estimatedTime && (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+                      <Clock className="w-3 h-3" /> {item.estimatedTime}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.description}</p>
+                {(item.cost || item.officialLink) && (
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {item.cost && (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <DollarSign className="w-3 h-3" />
+                        {item.cost}
+                      </span>
+                    )}
+                    {item.officialLink && (
+                      <a
+                        href={item.officialLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        Official source <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No items in this category.</p>
+        )}
+
+        {items.length > 2 && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="mt-auto inline-flex items-center gap-1 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline self-start pt-1"
+          >
+            {expanded ? (
+              <>Show less <ChevronUp className="w-3 h-3" /></>
+            ) : (
+              <>Show all {items.length} items <ChevronDown className="w-3 h-3" /></>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -404,47 +460,79 @@ export function LocalRequirementsCard({
   }
 
   // Show research results
+  const totalItems = (research.categories ?? []).reduce(
+    (acc, c) => acc + (c.items?.length ?? 0),
+    0,
+  )
+
   return (
-    <div className="gm-card-static p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Local Requirements</h2>
-          {city && (
-            <Badge variant="outline" className="text-xs">
-              {city}
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            Updated {formatResearchDate(research.researchedAt)}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResearch}
-            disabled={isResearching}
-            className="h-8 w-8 p-0"
-          >
-            {isResearching ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+    <div className="space-y-6">
+      {/* Editorial hero — matches the "Suggested guide" / Tailored cards
+          on the Overview tab so Settling reads as part of the same surface. */}
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
+        <div
+          className="h-[3px]"
+          style={{
+            background:
+              "linear-gradient(90deg, #7C5A2E 0%, #D97706 60%, #F26D4C 100%)",
+          }}
+        />
+        <div className="p-6 md:p-7 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="min-w-0">
+            <span className="gm-eyebrow">Local Requirements</span>
+            <h2
+              className="mt-2 font-serif text-foreground"
+              style={{
+                fontSize: "26px",
+                fontWeight: 600,
+                letterSpacing: "-0.012em",
+                lineHeight: 1.15,
+              }}
+            >
+              Settling-in playbook for{" "}
+              <span className="text-foreground/90">
+                {city ? `${city}, ${destination}` : destination || "your destination"}
+              </span>
+            </h2>
+            {research.summary ? (
+              <p className="mt-3 text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+                {research.summary}
+              </p>
             ) : (
-              <RefreshCw className="w-4 h-4" />
+              <p className="mt-3 text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+                {totalItems} local requirement{totalItems === 1 ? "" : "s"} across {(research.categories ?? []).length} categor{(research.categories ?? []).length === 1 ? "y" : "ies"}, sourced from official authorities.
+              </p>
             )}
-          </Button>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              Updated {formatResearchDate(research.researchedAt)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResearch}
+              disabled={isResearching}
+              className="gap-1.5 rounded-full"
+            >
+              {isResearching ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stale cache warning */}
       {isResearchStale(research.researchedAt) && (
-        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
           <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              This research is over 7 days old and may be outdated.
-            </p>
-          </div>
+          <p className="text-sm text-amber-700 dark:text-amber-400 flex-1">
+            This research is over 7 days old and may be outdated.
+          </p>
           <Button
             variant="outline"
             size="sm"
@@ -452,37 +540,36 @@ export function LocalRequirementsCard({
             disabled={isResearching}
             className="border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 bg-transparent"
           >
-            {isResearching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+            {isResearching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh now"}
           </Button>
         </div>
       )}
 
-      {research.summary && (
-        <p className="text-sm text-muted-foreground mb-4">{research.summary}</p>
-      )}
-
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">
           {error}
         </div>
       )}
 
-      <div className="space-y-4">
-        {(research.categories || []).map((category, index) => (
-          <CategorySection key={index} category={category} />
-        ))}
-      </div>
-
-      {(!research.categories || research.categories.length === 0) && (
-        <div className="text-center py-8 text-muted-foreground">
+      {/* Category grid — 1 column on phones, 2 on lg, matching the Overview
+          insights grid below the hero. Each card previews top items + lets
+          the user expand for the full set. */}
+      {(research.categories ?? []).length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {(research.categories ?? []).map((category, index) => (
+            <CategoryCard key={index} category={category} tintIndex={index} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground rounded-xl border border-dashed border-border">
           <HelpCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No requirements found. Try refreshing the research.</p>
         </div>
       )}
 
-      <div className="text-xs text-muted-foreground mt-4 p-3 bg-muted/30 rounded-lg border border-border/50">
-        <p className="font-medium mb-1">Important</p>
-        <p>
+      <div className="text-xs text-muted-foreground p-4 bg-muted/30 rounded-xl border border-border/50">
+        <p className="font-semibold mb-1 text-foreground/80">Important</p>
+        <p className="leading-relaxed">
           {research.disclaimer ||
             "Requirements may vary based on your visa type and personal circumstances. Always verify with official sources."}
         </p>

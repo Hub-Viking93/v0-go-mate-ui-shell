@@ -1,7 +1,11 @@
-// Phase 5.3 — pre-departure timeline page.
-// Loads from GET /api/pre-departure. If the timeline doesn't exist yet,
-// surfaces a "Generate" CTA that hits POST /api/pre-departure/generate.
-// Status updates flow through PATCH /api/pre-departure/:actionId.
+// PreDepartureTimeline — week-by-week move plan UI.
+//
+// Self-contained component. Reads from GET /api/pre-departure, generates
+// via POST /api/pre-departure/generate, updates statuses via PATCH
+// /api/pre-departure/:actionId. Used inside the /checklist page's
+// "Pre-move" tab so the rich timeline lives under the consolidated
+// Checklist surface (the standalone /pre-departure route is now a
+// Redirect to /checklist?tab=pre-move).
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -99,7 +103,7 @@ function formatCountdown(moveDateIso: string): { primary: string; sub: string } 
   };
 }
 
-export default function PreDeparturePage() {
+export function PreDepartureTimeline() {
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -149,7 +153,6 @@ export default function PreDeparturePage() {
   };
 
   const handleStatusChange = async (action: ActionView, next: ActionStatus) => {
-    // optimistic update
     setTimeline((t) =>
       t ? { ...t, actions: t.actions.map((a) => (a.id === action.id ? { ...a, status: next } : a)) } : t,
     );
@@ -165,7 +168,6 @@ export default function PreDeparturePage() {
         t ? { ...t, actions: t.actions.map((a) => (a.id === action.id ? { ...a, ...data.action } : a)) } : t,
       );
     } catch {
-      // revert
       setTimeline((t) =>
         t ? { ...t, actions: t.actions.map((a) => (a.id === action.id ? action : a)) } : t,
       );
@@ -208,51 +210,45 @@ export default function PreDeparturePage() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto p-6 flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" /> Loading your pre-departure timeline…
+      <div className="flex items-center gap-2 text-muted-foreground p-6">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading your pre-move timeline…
       </div>
     );
   }
 
   if (!timeline) {
     return (
-      <div className="max-w-3xl mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Plane className="w-6 h-6 text-emerald-600" />
-          <h1 className="text-2xl font-semibold tracking-tight">Pre-departure timeline</h1>
-        </div>
-        <Card className="p-8">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold">Generate your move plan</h2>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Once you press the button below, our specialists will sequence every pre-move action
-                — visa pickup, apostille chain, A1 certificate, banking bridge, pet vaccination —
-                into a week-by-week timeline with critical path highlighted.
-              </p>
-              {error && (
-                <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-xl px-3 py-2 mb-3">
-                  {error}
-                </div>
-              )}
-              <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {generating ? "Generating…" : "Generate my pre-departure checklist"}
-              </Button>
-            </div>
+      <Card className="p-8">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <Sparkles className="w-6 h-6 text-emerald-600" />
           </div>
-        </Card>
-      </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold">Generate your move plan</h2>
+            <p className="text-sm text-muted-foreground mt-1 mb-4">
+              Once you press the button below, our specialists will sequence every pre-move action —
+              visa pickup, apostille chain, A1 certificate, banking bridge, pet vaccination — into a
+              week-by-week timeline with critical path highlighted.
+            </p>
+            {error && (
+              <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-xl px-3 py-2 mb-3">
+                {error}
+              </div>
+            )}
+            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {generating ? "Generating…" : "Generate my pre-move checklist"}
+            </Button>
+          </div>
+        </div>
+      </Card>
     );
   }
 
   const countdown = formatCountdown(timeline.moveDate);
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header — countdown + stats */}
       <div className="rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] text-white p-6 sm:p-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.25),transparent_60%)]" />
@@ -338,7 +334,7 @@ export default function PreDeparturePage() {
       <Card className="p-5 bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-200/60 dark:border-emerald-900/40">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            <Plane className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold">Stuck on a step?</h3>

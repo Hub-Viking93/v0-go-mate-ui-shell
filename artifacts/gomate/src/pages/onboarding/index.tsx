@@ -7,6 +7,7 @@ import { Mascot, type AnimationState } from "@/components/mascot"
 import { SpeechBubble } from "@/components/speech-bubble"
 import { OnboardingInput } from "@/components/onboarding-input"
 import { ProfilePreviewList } from "@/components/profile-preview-list"
+import ChatPage from "@/pages/chat"
 import {
   EMPTY_PROFILE,
   FIELD_CONFIG,
@@ -348,6 +349,16 @@ export default function OnboardingPage() {
     ? FIELD_CONFIG[pendingField]?.label || pendingField.replace(/_/g, " ")
     : "answer"
   const expectedAnswerType = getInputTypeForField(pendingField)
+
+  // Once the plan is locked or onboarding is marked complete, this
+  // page transforms into a free-form chat with the AI — no profile
+  // sidebar, no "Generate my plan" CTA, no field-specific question
+  // flow. The legacy /chat page already implements that surface, so
+  // we delegate to it here. We wait for profileLoaded so the user
+  // doesn't briefly see the onboarding UI before the redirect.
+  if (profileLoaded && (planLocked || onboardingCompleted)) {
+    return <ChatPage />
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col md:min-h-[calc(100vh-2rem)]">

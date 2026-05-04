@@ -38,6 +38,10 @@ const SPECIALIST_TO_SECTION: Record<string, GuideSectionKey> = {
   posted_worker_specialist: "posted_worker",
   job_compliance_specialist: "jobs",
   schools_specialist: "education",
+  // study_program_specialist also feeds the Education section. When
+  // both run (a study-purpose user who also has children), the later
+  // entry wins — acceptable; the section writer can still cite either.
+  study_program_specialist: "education",
 };
 
 interface SpecialistOutputBody {
@@ -151,6 +155,7 @@ function buildLegacySectionShapes(
   const cultureSpec = getSpec(specialistsData, "cultural_adapter");
   const jobsSpec = getSpec(specialistsData, "job_compliance_specialist");
   const docsSpec = getSpec(specialistsData, "documents_specialist");
+  const studySpec = getSpec(specialistsData, "study_program_specialist");
 
   return {
     visa_section: (() => {
@@ -303,7 +308,15 @@ function buildLegacySectionShapes(
         socialNorms: tips.slice(0, 6),
         workCulture: channels.slice(0, 4),
         doAndDonts: {
-          dos: tips.filter((t) => /^(do |bring|use|learn|always|expect)/i.test(t)).slice(0, 5),
+          // top_etiquette_tips from the cultural specialist are by spec
+          // positive "do this" guidance, so use them as-is. Only drop
+          // entries with clearly negative phrasing (don't / avoid /
+          // never) to prevent double-rendering as a Don't. The previous
+          // restrictive whitelist regex (do/bring/use/...) silently
+          // dropped almost every tip and left the Do column empty.
+          dos: tips
+            .filter((t) => !/^(don'?t\b|avoid\b|never\b|do not\b)/i.test(t))
+            .slice(0, 5),
           donts: cultureWarnings.slice(0, 5),
         },
         localTips: channels,
@@ -330,17 +343,71 @@ function buildLegacySectionShapes(
           };
         })()
       : null,
-    education_section: education
-      ? {
-          overview: prose("education"),
-          systemType: "",
-          applicationProcess: [],
-          tuitionInfo: "",
-          scholarships: [],
-          tips: [],
-          systemOverview: prose("education"),
-        }
-      : null,
+    education_section: (() => {
+      const studyOverview = strField(studySpec.system_overview);
+      const visaLink = strField(studySpec.visa_link_summary);
+      const programs = arr<Record<string, unknown>>(studySpec.programs);
+      const scholarships = arr<Record<string, unknown>>(studySpec.scholarships);
+      const studyWarnings = arr<string>(studySpec.warnings);
+      const tuitionRange = (studySpec.approx_tuition_range_eur ?? null) as
+        | { low?: number | null; high?: number | null; per?: string | null }
+        | null;
+
+      // If neither the composer produced an education section nor the
+      // study_program_specialist returned anything, drop the section
+      // entirely so the Education tab on the guide hides itself.
+      if (!education && !studyOverview && programs.length === 0) return null;
+
+      const tuitionInfo = (() => {
+        if (!tuitionRange) return "";
+        const { low, high, per } = tuitionRange;
+        if (low == null && high == null) return "";
+        const range = low != null && high != null && low !== high
+          ? `EUR ${low.toLocaleString()}–${high.toLocaleString()}`
+          : `EUR ${(low ?? high)!.toLocaleString()}`;
+        return per ? `${range} per ${per}` : range;
+      })();
+
+      // Derive a coarse application-process bullet list from program
+      // metadata: intake months + lead time give the user a deadline
+      // shape even when prose isn't available.
+      const applicationProcess: string[] = [];
+      const leadMonths = programs
+        .map((p) => Number(p.application_lead_months))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (leadMonths.length > 0) {
+        const min = Math.min(...leadMonths);
+        const max = Math.max(...leadMonths);
+        applicationProcess.push(
+          min === max
+            ? `Start applications ~${min} months before your intended start date`
+            : `Start applications ${min}–${max} months before your intended start date`,
+        );
+      }
+      const intakes = Array.from(
+        new Set(programs.flatMap((p) => arr<string>(p.intake_months))),
+      );
+      if (intakes.length > 0) {
+        applicationProcess.push(`Intakes typically open: ${intakes.slice(0, 4).join(", ")}`);
+      }
+      if (visaLink) applicationProcess.push(visaLink);
+
+      return {
+        overview: prose("education") || studyOverview,
+        systemType: studyOverview || "",
+        applicationProcess,
+        tuitionInfo,
+        scholarships: scholarships
+          .map((s) => strField(s.name))
+          .filter((s): s is string => !!s)
+          .slice(0, 8),
+        tips: studyWarnings.slice(0, 5),
+        systemOverview: prose("education") || studyOverview,
+        // Surface the structured program list so the frontend can render
+        // a richer "Recommended programs" block in a future iteration.
+        programs: programs.slice(0, 8),
+      };
+    })(),
   };
 }
 

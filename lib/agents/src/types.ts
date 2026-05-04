@@ -42,6 +42,7 @@ export type AgentName =
   | "cost_specialist"
   | "housing_specialist"
   | "schools_specialist"
+  | "study_program_specialist"
   | "healthcare_navigator"
   | "banking_helper"
   | "documents_specialist"

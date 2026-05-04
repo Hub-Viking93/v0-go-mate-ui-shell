@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, CheckCircle2, Circle, Clock, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react"
+import { Calendar, CheckCircle2, Circle, Clock, ChevronDown, ChevronRight, AlertTriangle, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { parseTimeRange } from "@/lib/gomate/text-parsers"
 
@@ -121,25 +121,11 @@ export function PreMoveTimeline({ timelineSection, planId, targetDate }: PreMove
   )
 
   if (!timelineSection || !timelineSection.phases?.length) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 rounded-lg bg-muted">
-            <Calendar className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold">Pre-Move Timeline</h3>
-        </div>
-        <p className="text-sm text-muted-foreground mb-3">
-          Your full week-by-week pre-departure plan — apostilles, A1 certificates, banking bridge, lease termination — lives on the dedicated Pre-departure page.
-        </p>
-        <a
-          href="/pre-departure"
-          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
-        >
-          Open Pre-departure timeline →
-        </a>
-      </Card>
-    )
+    // Guide composer didn't embed a timeline_section, but the user may
+    // still have a generated pre-departure plan stored on the plan row.
+    // Fall back to that — same data that powers /checklist?tab=pre-move
+    // — so the Timeline tab is never just a dead-end link.
+    return <PreDepartureFallback />
   }
 
   if (!targetDate) {
@@ -311,5 +297,180 @@ export function PreMoveTimeline({ timelineSection, planId, targetDate }: PreMove
         )
       })}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PreDepartureFallback — when the guide didn't embed a timeline_section,
+// pull from /api/pre-departure (same source as /checklist?tab=pre-move)
+// and render a compact preview: countdown, progress, top upcoming actions,
+// and a deep-link to the full checklist.
+// ---------------------------------------------------------------------------
+
+interface FallbackAction {
+  id: string
+  title: string
+  category: string
+  weeksBeforeMoveStart: number
+  status: "not_started" | "in_progress" | "complete" | "blocked" | "skipped"
+  onCriticalPath?: boolean
+}
+
+interface FallbackTimeline {
+  actions: FallbackAction[]
+  moveDate: string
+  longestLeadTimeWeeks: number
+}
+
+function PreDepartureFallback() {
+  const [data, setData] = useState<FallbackTimeline | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/pre-departure")
+        if (!active) return
+        if (res.status === 404) {
+          setData(null)
+          return
+        }
+        if (!res.ok) return
+        const json = await res.json()
+        setData(json as FallbackTimeline)
+      } catch {
+        /* ignore — empty-state handles it */
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <Skeleton className="h-6 w-48 mb-4" />
+        <Skeleton className="h-2 w-full mb-3" />
+        <Skeleton className="h-4 w-3/4 mb-1.5" />
+        <Skeleton className="h-4 w-2/3" />
+      </Card>
+    )
+  }
+
+  // Nothing generated yet — still link to checklist where the user can
+  // press "Generate" themselves.
+  if (!data || data.actions.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 rounded-lg bg-muted">
+            <Calendar className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <h3 className="font-semibold">Pre-Move Timeline</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          Generate your pre-departure plan from the Checklist page and the week-by-week
+          actions will appear here automatically.
+        </p>
+        <a
+          href="/checklist?tab=pre-move"
+          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+        >
+          Generate timeline
+          <ArrowRight className="w-3.5 h-3.5" />
+        </a>
+      </Card>
+    )
+  }
+
+  const total = data.actions.length
+  const done = data.actions.filter((a) => a.status === "complete").length
+  const inProgress = data.actions.filter((a) => a.status === "in_progress").length
+  const upcoming = data.actions
+    .filter((a) => a.status !== "complete" && a.status !== "skipped")
+    .sort((a, b) => b.weeksBeforeMoveStart - a.weeksBeforeMoveStart)
+    .slice(0, 5)
+  const progressPct = total > 0 ? Math.round((done / total) * 100) : 0
+  const days = daysUntil(data.moveDate)
+
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Calendar className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold">Pre-Move Timeline</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {total} actions · {data.longestLeadTimeWeeks}-week lead time on the longest item
+            </p>
+          </div>
+        </div>
+        <Badge variant={days > 0 ? "default" : "destructive"} className="text-sm shrink-0">
+          <Clock className="w-3.5 h-3.5 mr-1" />
+          {days > 0 ? `${days} days to move` : "Move date passed"}
+        </Badge>
+      </div>
+
+      {/* Progress */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
+          <span>
+            <span className="font-semibold text-foreground">{done}</span> done · {inProgress} in progress · {total - done - inProgress} not started
+          </span>
+          <span className="font-semibold text-foreground">{progressPct}%</span>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Upcoming */}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-stone-600 dark:text-stone-400">
+          Up next
+        </p>
+        <ul className="space-y-1.5">
+          {upcoming.map((a) => {
+            const Icon =
+              a.status === "in_progress" ? Clock :
+              a.status === "complete" ? CheckCircle2 : Circle
+            const iconColor =
+              a.status === "in_progress" ? "text-amber-600" :
+              a.status === "complete" ? "text-emerald-600" : "text-stone-400"
+            return (
+              <li key={a.id} className="flex items-start gap-2 text-sm">
+                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${iconColor}`} />
+                <div className="min-w-0 flex-1">
+                  <span className="text-foreground">{a.title}</span>
+                  <span className="text-muted-foreground ml-1.5 text-xs">
+                    · {a.weeksBeforeMoveStart}w before
+                  </span>
+                  {a.onCriticalPath && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wide font-semibold text-rose-600 dark:text-rose-400">
+                      Critical
+                    </span>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <a
+        href="/checklist?tab=pre-move"
+        className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+      >
+        Open full timeline
+        <ArrowRight className="w-3.5 h-3.5" />
+      </a>
+    </Card>
   )
 }

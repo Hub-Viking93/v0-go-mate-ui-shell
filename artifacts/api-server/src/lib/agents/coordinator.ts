@@ -111,6 +111,15 @@ export const CONDITIONAL_SPEC_FIELDS: Record<string, AllFieldKey[]> = {
     "children_special_needs",
     "duration",
   ],
+  study_program_specialist: [
+    "destination",
+    "target_city",
+    "purpose",
+    "study_type",
+    "study_field",
+    "study_funding",
+    "duration",
+  ],
   pet_specialist: [
     "destination",
     "pets",
@@ -460,6 +469,24 @@ export function decideDispatch(profile: Profile): DispatchDecision {
     rationale.push({
       specialist: "schools_specialist",
       reason: `Schools Specialist dispatched because user is moving with ${kidsCount} ${kidsCount === 1 ? "child" : "children"}.`,
+    });
+  }
+
+  if (profile.purpose === "study") {
+    const studyType = typeof profile.study_type === "string" ? profile.study_type : "";
+    const studyTypeLabel =
+      studyType === "language_school" ? "language-school"
+      : studyType === "university" ? "university"
+      : studyType === "vocational" ? "vocational"
+      : studyType === "exchange" ? "exchange"
+      : "study";
+    specialists.push({
+      name: "study_program_specialist",
+      inputs: slice(profile, CONDITIONAL_SPEC_FIELDS.study_program_specialist),
+    });
+    rationale.push({
+      specialist: "study_program_specialist",
+      reason: `Study-Program Specialist dispatched because purpose is study (${studyTypeLabel}) — surfaces accredited programs that can sponsor the student visa, application timelines, and scholarship pathways.`,
     });
   }
 

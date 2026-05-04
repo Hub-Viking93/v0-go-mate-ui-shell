@@ -383,12 +383,18 @@ export default function VisaTrackerPage() {
               )}
 
               {/* Status Stepper */}
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <h2 className="text-lg font-semibold text-foreground mb-4">Application Status</h2>
-                <VisaStatusStepper
-                  currentStatus={visaApplication.applicationStatus}
-                  onStatusChange={(status) => patchApplication({ applicationStatus: status })}
-                />
+              <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
+                <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-400 via-blue-500 to-sky-500" />
+                <div className="p-5 md:p-6">
+                  <p className="gm-eyebrow text-sky-700 dark:text-sky-400">Where you are</p>
+                  <h2 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5 mb-5">
+                    Application Status
+                  </h2>
+                  <VisaStatusStepper
+                    currentStatus={visaApplication.applicationStatus}
+                    onStatusChange={(status) => patchApplication({ applicationStatus: status })}
+                  />
+                </div>
               </div>
 
               {/* Deadline Card */}
@@ -400,65 +406,72 @@ export default function VisaTrackerPage() {
               />
 
               {/* Date Inputs & Notes */}
-              <div className="p-6 rounded-2xl bg-card border border-border space-y-4">
-                <h2 className="text-lg font-semibold text-foreground">Application Details</h2>
+              <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
+                <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500" />
+                <div className="p-5 md:p-6 space-y-5">
+                  <div>
+                    <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Track key dates</p>
+                    <h2 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5">
+                      Application Details
+                    </h2>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <DateField
-                    label="Submitted On"
-                    icon={<CalendarDays className="w-3 h-3" />}
-                    value={visaApplication.submittedAt}
-                    onChange={(v) => patchApplication({ submittedAt: v })}
-                  />
-                  <DateField
-                    label="Expected Decision"
-                    icon={<CalendarDays className="w-3 h-3" />}
-                    value={visaApplication.expectedDecisionAt}
-                    onChange={(v) => patchApplication({ expectedDecisionAt: v })}
-                  />
-                  <DateField
-                    label="Approved On"
-                    icon={<CheckCircle2 className="w-3 h-3" />}
-                    value={visaApplication.approvedAt}
-                    onChange={(v) => patchApplication({ approvedAt: v })}
-                  />
-                  <DateField
-                    label="Visa Start Date"
-                    icon={<CalendarDays className="w-3 h-3" />}
-                    value={visaApplication.visaStartDate}
-                    onChange={(v) => patchApplication({ visaStartDate: v })}
-                  />
-                  <DateField
-                    label="Visa Expiry Date"
-                    icon={<CalendarDays className="w-3 h-3" />}
-                    value={visaApplication.visaExpiryDate}
-                    onChange={(v) => patchApplication({ visaExpiryDate: v })}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <DateField
+                      label="Submitted On"
+                      icon={<CalendarDays className="w-3 h-3" />}
+                      value={visaApplication.submittedAt}
+                      onChange={(v) => patchApplication({ submittedAt: v })}
+                    />
+                    <DateField
+                      label="Expected Decision"
+                      icon={<CalendarDays className="w-3 h-3" />}
+                      value={visaApplication.expectedDecisionAt}
+                      onChange={(v) => patchApplication({ expectedDecisionAt: v })}
+                    />
+                    <DateField
+                      label="Approved On"
+                      icon={<CheckCircle2 className="w-3 h-3" />}
+                      value={visaApplication.approvedAt}
+                      onChange={(v) => patchApplication({ approvedAt: v })}
+                    />
+                    <DateField
+                      label="Visa Start Date"
+                      icon={<CalendarDays className="w-3 h-3" />}
+                      value={visaApplication.visaStartDate}
+                      onChange={(v) => patchApplication({ visaStartDate: v })}
+                    />
+                    <DateField
+                      label="Visa Expiry Date"
+                      icon={<CalendarDays className="w-3 h-3" />}
+                      value={visaApplication.visaExpiryDate}
+                      onChange={(v) => patchApplication({ visaExpiryDate: v })}
+                    />
+                  </div>
 
-                {/* Notes */}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                    <StickyNote className="w-3 h-3" /> Notes
-                  </label>
-                  <textarea
-                    value={visaApplication.notes || ""}
-                    onChange={(e) => patchApplication({ notes: e.target.value || null })}
-                    placeholder="Application reference number, embassy contact, reminders..."
-                    rows={3}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                  />
+                  {/* Notes */}
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-600 dark:text-stone-400 flex items-center gap-1 mb-1.5">
+                      <StickyNote className="w-3 h-3" /> Notes
+                    </label>
+                    <textarea
+                      value={visaApplication.notes || ""}
+                      onChange={(e) => patchApplication({ notes: e.target.value || null })}
+                      placeholder="Application reference number, embassy contact, reminders..."
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-800 bg-background focus:outline-none focus:ring-1 focus:ring-emerald-500/40 focus:border-emerald-500/40 resize-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Visa-specific document checklist */}
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <VisaDocumentChecklist
-                  items={visaDocuments}
-                  statuses={documentStatuses}
-                  onStatusToggle={handleDocStatusToggle}
-                />
-              </div>
+              {/* Visa-specific document checklist — already wraps itself in
+                  an editorial card (3px stripe + serif header + progress). */}
+              <VisaDocumentChecklist
+                items={visaDocuments}
+                statuses={documentStatuses}
+                onStatusToggle={handleDocStatusToggle}
+              />
 
               {/* Visa Renewal Timeline */}
               {renewalMilestones && visaApplication.applicationStatus === "approved" && visaApplication.visaExpiryDate && (

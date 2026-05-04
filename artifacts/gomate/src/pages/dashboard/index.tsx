@@ -52,9 +52,11 @@ import {
   Unlock,
   Shield,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Compass
 } from "lucide-react"
 import { type Profile } from "@/lib/gomate/profile-schema"
+import { cn } from "@/lib/utils"
 import {
   deriveDashboardState,
   computeVisibleCards,
@@ -65,6 +67,8 @@ import {
   type VisibleCard,
 } from "@/lib/gomate/dashboard-state"
 import { PLACEHOLDER_CARD_REGISTRY } from "@/components/dashboard-cards/placeholder-cards"
+import { ResearchProgressModal } from "@/components/research/ResearchProgressModal"
+import { DashboardGuidedTour } from "@/components/dashboard/dashboard-guided-tour"
 
 interface RelocationPlan {
   id: string
@@ -524,6 +528,57 @@ export default function DashboardPage() {
   const [visaResearch, setVisaResearch] = useState<VisaResearchData | null>(null)
   const [localRequirements, setLocalRequirements] = useState<LocalRequirementsData | null>(null)
   const [researchStatus, setResearchStatus] = useState<string | null>(null)
+  const [showResearchModal, setShowResearchModal] = useState(false)
+  const [showGuidedTour, setShowGuidedTour] = useState(false)
+  const [preMoveSummary, setPreMoveSummary] = useState<{
+    completed: number
+    total: number
+    criticalRemaining: number
+  }>({ completed: 0, total: 0, criticalRemaining: 0 })
+
+  // Pull pre-departure timeline progress so the Visa & Legal "Checklist"
+  // tile reflects real numbers (was hardcoded 0/0 before). The endpoint
+  // returns 404 if the user hasn't generated a timeline yet — leave the
+  // summary at zeros in that case.
+  useEffect(() => {
+    if (!plan?.id) return
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/pre-departure")
+        if (!active || !res.ok) return
+        const data = await res.json()
+        const actions: Array<{ status?: string; onCriticalPath?: boolean }> = data.actions ?? []
+        const total = actions.length
+        const completed = actions.filter((a) => a.status === "complete").length
+        const criticalRemaining = actions.filter(
+          (a) => a.onCriticalPath && a.status !== "complete" && a.status !== "skipped",
+        ).length
+        if (active) setPreMoveSummary({ completed, total, criticalRemaining })
+      } catch {
+        /* ignore — leave at zeros */
+      }
+    })()
+    return () => { active = false }
+  }, [plan?.id, plan?.research_status])
+
+  // Open the progress modal whenever we land on the dashboard with
+  // research in flight — either because the URL carries the
+  // ?research=triggered hint from onboarding or because the plan row
+  // already says research_status=in_progress (e.g. user reloaded mid-run).
+  useEffect(() => {
+    if (loading) return
+    const fromOnboarding =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("research") === "triggered"
+    if (fromOnboarding || researchStatus === "in_progress") {
+      setShowResearchModal(true)
+    }
+    // We only want this to react to the loading -> false transition and
+    // to a status flip into in_progress, not to subsequent status changes
+    // that happen while the modal is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, researchStatus])
 
   // Poll the profile endpoint while research is in_progress so the banner
   // (and the "Tailored to your move" cards underneath) update without the
@@ -874,7 +929,35 @@ export default function DashboardPage() {
   const budgetData = generateBudgetFromProfile(profile, monthsUntilMove)
   const visaData = generateVisaDataFromProfile(profile)
   const documentItems = generateDocumentItems(profile)
-  
+
+  // Modal close-condition: research is "ready" the moment EITHER
+  // (a) the per-card payloads are populated, OR (b) research_status has
+  // moved to a terminal value. Either signal means the dashboard
+  // behind the modal has something meaningful to show.
+  const researchTerminalStatus =
+    researchStatus === "completed" ||
+    researchStatus === "partial" ||
+    researchStatus === "failed"
+  const hasResearchData = Boolean(visaResearch && localRequirements)
+  const researchDataReady = researchTerminalStatus || hasResearchData
+
+  const handleResearchModalComplete = () => {
+    setShowResearchModal(false)
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("research")) {
+        url.searchParams.delete("research")
+        window.history.replaceState({}, "", url.toString())
+      }
+      const tourSeen = window.localStorage.getItem("gomate.guidedTourCompleted.v1")
+      if (!tourSeen) {
+        // Defer slightly so the modal close-animation doesn't collide
+        // with the tour's first highlight ring fading in.
+        setTimeout(() => setShowGuidedTour(true), 350)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 md:p-8 lg:p-10 space-y-6">
@@ -910,7 +993,7 @@ export default function DashboardPage() {
             {dashboardState.description}
           </p>
           <Button asChild size="lg" className="rounded-xl gap-2 px-8 py-6 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-            <Link href="/chat">
+            <Link href="/onboarding">
               <MessageSquare className="w-5 h-5" />
               {dashboardState.chatActionLabel}
             </Link>
@@ -992,6 +1075,17 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
+              <Button
+                onClick={() => setShowGuidedTour(true)}
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 rounded-xl text-white/80 hover:bg-white/10 hover:text-white"
+                data-testid="restart-tour-button"
+                aria-label="Restart dashboard tour"
+              >
+                <Compass className="w-4 h-4" />
+                Tour
+              </Button>
               {isLocked && (
                 <Badge variant="secondary" className="gap-1.5 bg-white/10 text-white/90 border-white/20 backdrop-blur-sm">
                   <Shield className="w-3.5 h-3.5" />
@@ -1028,7 +1122,7 @@ export default function DashboardPage() {
                     "linear-gradient(180deg, #F26D4C 0%, #E85D3C 100%)",
                 }}
               >
-                <Link href="/chat">
+                <Link href="/onboarding">
                   <MessageSquare className="w-4 h-4" />
                   {dashboardState.chatActionLabel}
                 </Link>
@@ -1329,31 +1423,270 @@ export default function DashboardPage() {
       <DashboardPanel id="visa" active={activeTab}>
       {hasDestination && hasCitizenship && (
         <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <VisaStatusTile
-              destination={targetCountry}
-              hasResearch={Boolean(visaResearch)}
-              selectedVisaType={plan?.visa_application?.selectedVisaType ?? null}
-              applicationStatus={plan?.visa_application?.applicationStatus ?? null}
-              visaExpiryDate={plan?.visa_application?.visaExpiryDate ?? null}
-            />
-            <ChecklistStatusTile
-              postArrivalCompleted={settlingSummary?.stats?.completed ?? progressData?.post_arrival_progress?.completed ?? 0}
-              postArrivalTotal={settlingSummary?.stats?.total ?? progressData?.post_arrival_progress?.total ?? 0}
-              postArrivalOverdue={settlingSummary?.stats?.overdue ?? 0}
-              documentsReady={Object.values(documentStatuses ?? {}).map(normalizeDocumentStatus).filter((s) => s.status === "ready" || s.status === "submitted").length}
-              documentsTotal={Object.keys(documentStatuses ?? {}).length}
-            />
-          </div>
-          <div className="rounded-2xl border border-dashed border-border p-6 text-center">
-            <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground mb-3">
-              Full visa research, application status{profile.posting_or_secondment === "yes" ? ", deadlines and posted-worker compliance" : " and deadlines"} live in the dedicated Visa workspace.
-            </p>
-            <Button asChild size="sm">
-              <Link href="/visa">Open Visa workspace <ArrowRight className="w-4 h-4 ml-1" /></Link>
-            </Button>
-          </div>
+          {(() => {
+            const selectedName = plan?.visa_application?.selectedVisaType ?? null
+            const appStatus = plan?.visa_application?.applicationStatus ?? null
+            const visaExpiry = plan?.visa_application?.visaExpiryDate ?? null
+            const options = visaResearch?.visaOptions ?? []
+            const selected = selectedName
+              ? options.find((v) => v.name === selectedName)
+              : null
+            const topOptions = [...options].sort((a, b) => {
+              const order = { high: 0, medium: 1, low: 2, unknown: 3 } as const
+              return (order[a.eligibility] ?? 3) - (order[b.eligibility] ?? 3)
+            }).slice(0, 3)
+
+            const requiredDocs = Object.entries(documentStatuses ?? {})
+              .map(([id, raw]) => ({ id, ...normalizeDocumentStatus(raw) }))
+            const readyDocs = requiredDocs.filter((d) => d.status === "ready" || d.status === "submitted")
+            const upcomingDocs = requiredDocs.filter((d) => d.status !== "ready" && d.status !== "submitted").slice(0, 5)
+
+            const statusLabelMap: Record<string, string> = {
+              not_started: "Not started",
+              preparing: "Preparing application",
+              submitted: "Submitted",
+              decision_pending: "Awaiting decision",
+              approved: "Approved",
+              rejected: "Rejected",
+            }
+
+            const expiryDays = visaExpiry
+              ? Math.ceil((new Date(visaExpiry).getTime() - Date.now()) / 86_400_000)
+              : null
+
+            return (
+              <div className="space-y-6">
+                {/* Editorial hero — matches the Settling-tab + Tailored
+                    insights surface so all tabs feel like one product. */}
+                <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
+                  <div
+                    className="h-[3px]"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)",
+                    }}
+                  />
+                  <div className="p-6 md:p-7 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div className="min-w-0">
+                      <span className="gm-eyebrow">Visa &amp; Legal</span>
+                      <h2
+                        className="mt-2 font-serif text-foreground"
+                        style={{
+                          fontSize: "26px",
+                          fontWeight: 600,
+                          letterSpacing: "-0.012em",
+                          lineHeight: 1.15,
+                        }}
+                      >
+                        {selected
+                          ? <>Your pathway: <span className="text-foreground/90">{selected.name}</span></>
+                          : <>Pick your pathway to {targetCountry}</>}
+                      </h2>
+                      <p className="mt-3 text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+                        {selected
+                          ? `Status: ${statusLabelMap[appStatus ?? "not_started"] ?? "Not started"} · ${selected.processingTime} processing · ${selected.cost}`
+                          : options.length > 0
+                            ? `${options.length} routes shortlisted by our specialists for your profile. Pick one to lock in deadlines, documents and progress tracking.`
+                            : "Run research from the dashboard's main button to surface your visa options."}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button asChild size="sm" className="gap-1.5 rounded-full">
+                        <Link href="/visa">
+                          {selected ? "Open workspace" : "Compare options"}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected pathway card — deeper card style with eligibility
+                    badge, processing, cost, validity, expiry warning. */}
+                {selected && (
+                  <div className="relative overflow-hidden rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/10">
+                    <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500" />
+                    <div className="p-5 md:p-6 space-y-3">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-emerald-700 dark:text-emerald-400">
+                              Selected pathway
+                            </span>
+                            {appStatus && (
+                              <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                {statusLabelMap[appStatus] ?? appStatus}
+                              </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-serif text-lg md:text-xl mt-1 text-foreground">
+                            {selected.name}
+                          </h3>
+                        </div>
+                        {expiryDays !== null && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] py-0",
+                              expiryDays < 0
+                                ? "border-rose-500/40 text-rose-700 dark:text-rose-400"
+                                : expiryDays <= 90
+                                  ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                                  : "border-emerald-500/40 text-emerald-700 dark:text-emerald-400",
+                            )}
+                          >
+                            {expiryDays < 0
+                              ? "Visa expired"
+                              : expiryDays <= 90
+                                ? `${expiryDays}d to expiry`
+                                : `${expiryDays}d valid`}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-dashed border-emerald-200 dark:border-emerald-900/40">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Processing</p>
+                          <p className="text-sm font-medium text-foreground">{selected.processingTime}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Cost</p>
+                          <p className="text-sm font-medium text-foreground">{selected.cost}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Validity</p>
+                          <p className="text-sm font-medium text-foreground">{selected.validity}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Visa options grid — only when nothing selected yet. */}
+                {!selected && topOptions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-stone-600 dark:text-stone-400">
+                        Top routes for you
+                      </h3>
+                      <Link
+                        href="/visa"
+                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        See all {options.length}
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {topOptions.map((opt) => {
+                        const stripeColor =
+                          opt.eligibility === "high" ? "from-emerald-400 via-teal-400 to-emerald-500" :
+                          opt.eligibility === "medium" ? "from-amber-400 via-orange-400 to-amber-500" :
+                          opt.eligibility === "low" ? "from-rose-400 via-red-400 to-rose-500" :
+                          "from-stone-300 via-stone-400 to-stone-300"
+                        const eligLabel =
+                          opt.eligibility === "high" ? "Likely eligible" :
+                          opt.eligibility === "medium" ? "Possibly eligible" :
+                          opt.eligibility === "low" ? "Unlikely" : "Unclear"
+                        const eligTint =
+                          opt.eligibility === "high" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                          opt.eligibility === "medium" ? "bg-amber-100 text-amber-800 border-amber-200" :
+                          opt.eligibility === "low" ? "bg-rose-100 text-rose-800 border-rose-200" :
+                          "bg-stone-100 text-stone-700 border-stone-200"
+                        return (
+                          <Link
+                            key={opt.name}
+                            href="/visa"
+                            className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300 flex flex-col gap-2.5"
+                          >
+                            <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${stripeColor}`} />
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="font-serif text-base leading-tight tracking-tight text-foreground">
+                                {opt.name}
+                              </h4>
+                              <span className={`shrink-0 text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 ${eligTint}`}>
+                                {eligLabel}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {opt.eligibilityReason}
+                            </p>
+                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-2 border-t border-dashed border-stone-200 dark:border-stone-800">
+                              <span><span className="font-semibold text-foreground">{opt.processingTime}</span></span>
+                              <span>·</span>
+                              <span>{opt.cost}</span>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Document preview + checklist progress in one row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Document preview */}
+                  <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
+                    <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" />
+                    <div className="p-5 md:p-6 flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="gm-eyebrow text-amber-700 dark:text-amber-400">Documents</p>
+                          <h3 className="font-serif text-lg leading-tight tracking-tight text-foreground mt-1">
+                            What you still need to gather
+                          </h3>
+                        </div>
+                        <span className="text-2xl font-serif font-bold tabular-nums text-foreground leading-none">
+                          {readyDocs.length}/{requiredDocs.length}
+                        </span>
+                      </div>
+
+                      {upcomingDocs.length > 0 ? (
+                        <ul className="space-y-1.5">
+                          {upcomingDocs.map((d) => (
+                            <li key={d.id} className="flex items-start gap-2 text-xs">
+                              <Circle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-stone-400" />
+                              <span className="text-foreground capitalize">
+                                {d.id.replace(/-/g, " ").replace(/_/g, " ")}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : requiredDocs.length > 0 ? (
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> All documents ready.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">
+                          Documents appear here once visa research is complete.
+                        </p>
+                      )}
+
+                      <Link
+                        href="/checklist?tab=documents"
+                        className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline pt-1"
+                      >
+                        Open documents
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Pre-move + Documents + Settling progress (existing tile) */}
+                  <ChecklistStatusTile
+                    postArrivalCompleted={settlingSummary?.stats?.completed ?? progressData?.post_arrival_progress?.completed ?? 0}
+                    postArrivalTotal={settlingSummary?.stats?.total ?? progressData?.post_arrival_progress?.total ?? 0}
+                    postArrivalOverdue={settlingSummary?.stats?.overdue ?? 0}
+                    documentsReady={readyDocs.length}
+                    documentsTotal={requiredDocs.length}
+                    preMoveCompleted={preMoveSummary.completed}
+                    preMoveTotal={preMoveSummary.total}
+                    preMoveCriticalRemaining={preMoveSummary.criticalRemaining}
+                  />
+                </div>
+              </div>
+            )
+          })()}
         </TierGate>
       )}
       </DashboardPanel>
@@ -1507,6 +1840,9 @@ export default function DashboardPage() {
               postArrivalOverdue={settlingSummary?.stats?.overdue ?? 0}
               documentsReady={Object.values(documentStatuses ?? {}).map(normalizeDocumentStatus).filter((s) => s.status === "ready" || s.status === "submitted").length}
               documentsTotal={Object.keys(documentStatuses ?? {}).length}
+              preMoveCompleted={preMoveSummary.completed}
+              preMoveTotal={preMoveSummary.total}
+              preMoveCriticalRemaining={preMoveSummary.criticalRemaining}
             />
           )}
         </TierGate>
@@ -1526,6 +1862,22 @@ export default function DashboardPage() {
         }}
       />
     </div>
+    <ResearchProgressModal
+      profileId={plan?.id ?? null}
+      open={showResearchModal}
+      dataReady={researchDataReady}
+      onComplete={handleResearchModalComplete}
+    />
+    <DashboardGuidedTour
+      open={showGuidedTour}
+      onTabChange={setActiveTab}
+      onClose={() => {
+        setShowGuidedTour(false)
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("gomate.guidedTourCompleted.v1", "true")
+        }
+      }}
+    />
     </DashboardAuditProvider>
   )
 }
@@ -1583,9 +1935,17 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
         try { const j = await res.json(); if (j?.error) msg = j.error } catch { /* ignore */ }
         throw new Error(msg)
       }
-      if (method === "research") setLocation("/research")
-      else if (method === "preDeparture") setLocation("/pre-departure")
-      else window.location.reload()
+      // research: stay on dashboard and let the ResearchProgressModal
+      // pick up ?research=triggered + the new research_status=in_progress
+      // (full reload because backend just flipped DB state and we want
+      // the dashboard to re-fetch from a clean slate).
+      if (method === "research") {
+        window.location.href = "/dashboard?research=triggered"
+      } else if (method === "preDeparture") {
+        setLocation("/checklist?tab=pre-move")
+      } else {
+        window.location.reload()
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed")
     } finally {

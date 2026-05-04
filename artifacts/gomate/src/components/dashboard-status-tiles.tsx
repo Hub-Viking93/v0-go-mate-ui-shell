@@ -106,6 +106,9 @@ interface ChecklistStatusTileProps {
   postArrivalOverdue?: number
   documentsReady?: number
   documentsTotal?: number
+  preMoveCompleted?: number
+  preMoveTotal?: number
+  preMoveCriticalRemaining?: number
 }
 
 export function ChecklistStatusTile({
@@ -114,9 +117,13 @@ export function ChecklistStatusTile({
   postArrivalOverdue = 0,
   documentsReady = 0,
   documentsTotal = 0,
+  preMoveCompleted = 0,
+  preMoveTotal = 0,
+  preMoveCriticalRemaining = 0,
 }: ChecklistStatusTileProps) {
   const postPct = postArrivalTotal > 0 ? Math.round((postArrivalCompleted / postArrivalTotal) * 100) : 0
   const docPct = documentsTotal > 0 ? Math.round((documentsReady / documentsTotal) * 100) : 0
+  const preMovePct = preMoveTotal > 0 ? Math.round((preMoveCompleted / preMoveTotal) * 100) : 0
 
   return (
     <Link
@@ -136,7 +143,17 @@ export function ChecklistStatusTile({
         <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors mt-2" />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-lg bg-muted/30 p-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pre-move</p>
+          <p className="text-lg font-semibold font-mono text-foreground">{preMovePct}%</p>
+          <p className="text-[10px] text-muted-foreground">
+            {preMoveCompleted}/{preMoveTotal} done
+            {preMoveCriticalRemaining > 0 && (
+              <span className="text-rose-600 dark:text-rose-400"> · {preMoveCriticalRemaining} critical</span>
+            )}
+          </p>
+        </div>
         <div className="rounded-lg bg-muted/30 p-3">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Documents</p>
           <p className="text-lg font-semibold font-mono text-foreground">{docPct}%</p>
@@ -148,7 +165,7 @@ export function ChecklistStatusTile({
           <p className="text-[10px] text-muted-foreground">
             {postArrivalCompleted}/{postArrivalTotal} done
             {postArrivalOverdue > 0 && (
-              <span className="text-red-600 dark:text-red-400"> · {postArrivalOverdue} late</span>
+              <span className="text-rose-600 dark:text-rose-400"> · {postArrivalOverdue} late</span>
             )}
           </p>
         </div>

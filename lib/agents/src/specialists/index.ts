@@ -28,6 +28,7 @@ export { documentsSpecialist } from "./documents.js";
 
 // Conditional (Wave 2.y)
 export { schoolsSpecialist } from "./schools.js";
+export { studyProgramSpecialist } from "./study_program.js";
 export { healthcareSpecialist } from "./healthcare.js";
 export { bankingSpecialist } from "./banking.js";
 export { petSpecialist } from "./pet.js";

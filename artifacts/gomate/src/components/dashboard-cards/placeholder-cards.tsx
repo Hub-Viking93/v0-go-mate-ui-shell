@@ -1,9 +1,13 @@
-import type { ReactElement } from "react"
+import { useEffect, useState, type ReactElement } from "react"
 import {
   Banknote,
   Globe,
   CalendarClock,
   Sparkles,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Circle,
   type LucideIcon,
 } from "lucide-react"
 import { SchoolsCard } from "./schools-card"
@@ -205,15 +209,192 @@ export function CulturalCard({ reason, specialistOutput, destination }: { reason
   )
 }
 
+interface PreDepActionLite {
+  id: string
+  title: string
+  category: string
+  weeksBeforeMoveStart: number
+  status: "not_started" | "in_progress" | "complete" | "blocked" | "skipped"
+  onCriticalPath?: boolean
+  deadlineIso?: string
+}
+
+interface PreDepTimelineLite {
+  actions: PreDepActionLite[]
+  totalActions: number
+  moveDate: string
+  longestLeadTimeWeeks: number
+}
+
+function formatDaysToMove(moveDateIso: string): string {
+  const days = Math.ceil((new Date(moveDateIso).getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return "Past your move date"
+  if (days === 0) return "Move day"
+  if (days < 14) return `${days} day${days === 1 ? "" : "s"} to move`
+  const weeks = Math.round(days / 7)
+  return `${weeks} weeks to move`
+}
+
 export function PreDepartureTimelineCard({ reason }: { reason: string }) {
+  const [data, setData] = useState<PreDepTimelineLite | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/pre-departure")
+        if (!active) return
+        if (res.status === 404) {
+          setData(null)
+          return
+        }
+        if (!res.ok) return
+        const json = await res.json()
+        setData(json as PreDepTimelineLite)
+      } catch {
+        /* swallow — placeholder fallback covers it */
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  // Skeleton while we fetch — same outer chrome as the placeholder card
+  // so the layout doesn't shift when data arrives.
+  if (loading) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 md:p-6 flex flex-col gap-3 animate-pulse">
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-stone-300 via-stone-400 to-stone-300 dark:from-stone-700 dark:via-stone-600 dark:to-stone-700" />
+        <div className="flex items-start gap-3">
+          <CalendarClock className="w-5 h-5 mt-0.5 text-stone-400" />
+          <div className="min-w-0 flex-1">
+            <div className="h-3 w-24 bg-stone-200 dark:bg-stone-800 rounded mb-2" />
+            <div className="h-5 w-40 bg-stone-200 dark:bg-stone-800 rounded" />
+          </div>
+        </div>
+        <div className="h-4 w-full bg-stone-200 dark:bg-stone-800 rounded" />
+        <div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-800 rounded" />
+      </div>
+    )
+  }
+
+  // Generate-CTA when no timeline exists yet.
+  if (!data) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 md:p-6 flex flex-col gap-3 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300">
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-stone-300 via-stone-400 to-stone-300 dark:from-stone-700 dark:via-stone-600 dark:to-stone-700" />
+        <div className="flex items-start gap-3">
+          <CalendarClock className="w-5 h-5 mt-0.5 shrink-0 text-stone-500 dark:text-stone-400" />
+          <div className="min-w-0 flex-1">
+            <p className="gm-eyebrow mb-1 text-stone-600 dark:text-stone-400">{reason}</p>
+            <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">
+              Pre-Departure Timeline
+            </h3>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Your week-by-week countdown of what to do before flight day — apostilles, visa pickup,
+          banking bridge, lease termination — sequenced from your profile.
+        </p>
+        <a
+          href="/checklist?tab=pre-move"
+          className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline pt-1"
+        >
+          Generate timeline
+          <ArrowRight className="w-3.5 h-3.5" />
+        </a>
+      </div>
+    )
+  }
+
+  const total = data.actions.length
+  const done = data.actions.filter((a) => a.status === "complete").length
+  const inProgress = data.actions.filter((a) => a.status === "in_progress").length
+  const upcoming = data.actions
+    .filter((a) => a.status !== "complete" && a.status !== "skipped")
+    .sort((a, b) => b.weeksBeforeMoveStart - a.weeksBeforeMoveStart)
+    .slice(0, 3)
+  const progressPct = total > 0 ? Math.round((done / total) * 100) : 0
+
   return (
-    <PlaceholderCard
-      title="Pre-Departure Timeline"
-      description="Your week-by-week countdown of what to do before flight day — packing, paperwork, farewells, all in order."
-      reason={reason}
-      Icon={CalendarClock}
-      accent="stone"
-    />
+    <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 md:p-6 flex flex-col gap-3 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300" data-card-state="live">
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500" />
+      <div className="flex items-start gap-3">
+        <CalendarClock className="w-5 h-5 mt-0.5 shrink-0 text-emerald-600/70 dark:text-emerald-500/70" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="gm-eyebrow mb-1 text-emerald-700 dark:text-emerald-400">{reason}</p>
+            <span className="text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 bg-emerald-100 text-emerald-800 border-emerald-200">
+              {formatDaysToMove(data.moveDate)}
+            </span>
+          </div>
+          <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">
+            Pre-Departure Timeline
+          </h3>
+        </div>
+      </div>
+
+      {/* Progress bar + counts */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
+          <span>
+            <span className="font-semibold text-foreground">{done}</span> done · {inProgress} in progress · {total - done - inProgress} not started
+          </span>
+          <span className="font-semibold text-foreground">{progressPct}%</span>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Up next — 3 most-imminent open actions */}
+      {upcoming.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-stone-600 dark:text-stone-400">
+            Up next
+          </p>
+          <ul className="space-y-1">
+            {upcoming.map((a) => {
+              const Icon =
+                a.status === "in_progress" ? Clock :
+                a.status === "complete" ? CheckCircle2 : Circle
+              const iconColor =
+                a.status === "in_progress" ? "text-amber-600" :
+                a.status === "complete" ? "text-emerald-600" : "text-stone-400"
+              return (
+                <li key={a.id} className="flex items-start gap-2 text-xs">
+                  <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${iconColor}`} />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-foreground">{a.title}</span>
+                    <span className="text-muted-foreground ml-1.5">
+                      · {a.weeksBeforeMoveStart}w before
+                    </span>
+                    {a.onCriticalPath && (
+                      <span className="ml-1.5 text-[9px] uppercase tracking-wide font-semibold text-rose-600 dark:text-rose-400">
+                        Critical
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      <a
+        href="/checklist?tab=pre-move"
+        className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline pt-1"
+      >
+        Open full checklist
+        <ArrowRight className="w-3.5 h-3.5" />
+      </a>
+    </div>
   )
 }
 

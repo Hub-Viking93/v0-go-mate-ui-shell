@@ -14,7 +14,6 @@ import SignUpSuccessPage from "@/pages/auth/sign-up-success";
 import AuthErrorPage from "@/pages/auth/error";
 import AuthCallbackPage from "@/pages/auth/callback";
 import DashboardPage from "@/pages/dashboard";
-import PreDeparturePage from "@/pages/pre-departure";
 import ChatPage from "@/pages/chat";
 import { RedirectToOnboardingIfCollecting } from "@/pages/chat/redirect-to-onboarding";
 // chat-v1 (legacy onboarding chat) is no longer mounted. The v2
@@ -118,7 +117,7 @@ function Router() {
         {(params) => <ProtectedRoute><GuideDetailPage id={params.id} /></ProtectedRoute>}
       </Route>
       <Route path="/visa"><ProtectedRoute><VisaWorkspacePage /></ProtectedRoute></Route>
-      <Route path="/pre-departure"><ProtectedRoute><PreDeparturePage /></ProtectedRoute></Route>
+      <Route path="/pre-departure"><Redirect to="/checklist?tab=pre-move" /></Route>
       <Route path="/checklist"><ProtectedRoute><ChecklistPage /></ProtectedRoute></Route>
       <Route path="/settings"><ProtectedRoute><SettingsPage /></ProtectedRoute></Route>
 

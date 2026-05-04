@@ -2,6 +2,11 @@ import { Router, type IRouter } from "express";
 import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, canCreatePlan } from "../lib/gomate/tier";
 import { hasMinimalProfileForResearch } from "../lib/gomate/core-state";
+import {
+  kickoffResearch,
+  isRunInFlight,
+} from "../lib/agents/research-orchestrator";
+import type { Profile } from "../lib/gomate/profile-schema-snapshot";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -163,16 +168,16 @@ router.post("/plans/trigger-research", async (req, res) => {
       return;
     }
     const now = new Date().toISOString();
-    // Only bump stage forward (collecting -> generating). If the plan is
-    // already further along (ready_for_pre_departure / pre_departure /
-    // generating), keep the persisted stage and just update the trigger
-    // timestamp so re-runs are auditable.
     const updates: Record<string, unknown> = {
       user_triggered_research_at: now,
       updated_at: now,
     };
     if (plan.stage === "collecting" || !plan.stage) {
       updates.stage = "generating";
+    }
+    const alreadyRunning = isRunInFlight(plan.id);
+    if (!alreadyRunning) {
+      updates.research_status = "in_progress";
     }
     const { error: updErr } = await ctx.supabase
       .from("relocation_plans")
@@ -184,11 +189,31 @@ router.post("/plans/trigger-research", async (req, res) => {
       res.status(500).json({ error: "Failed to record research trigger" });
       return;
     }
+    let kickoffResult: ReturnType<typeof kickoffResearch> | null = null;
+    if (!alreadyRunning) {
+      const profile = (plan.profile_data ?? {}) as Profile;
+      kickoffResult = kickoffResearch({
+        profileId: plan.id,
+        planId: plan.id,
+        profile,
+        supabase: ctx.supabase,
+      });
+    }
     res.json({
       success: true,
       planId: plan.id,
       stage: updates.stage || plan.stage,
       user_triggered_research_at: now,
+      researchStarted: !alreadyRunning,
+      alreadyRunning,
+      dispatch: kickoffResult
+        ? {
+            specialists: kickoffResult.snapshot.rationale.map((r) => ({
+              name: r.specialist,
+            })),
+            rationale: kickoffResult.snapshot.rationale,
+          }
+        : null,
     });
   } catch (err) {
     logger.error({ err }, "trigger-research error");

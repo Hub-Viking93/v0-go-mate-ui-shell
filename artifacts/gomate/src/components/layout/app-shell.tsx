@@ -15,7 +15,6 @@ import {
   LogOut,
   Shield,
   UserCircle2,
-  Plane,
 } from "lucide-react";
 import { LegalFooter } from "@/components/legal-disclaimer";
 
@@ -83,7 +82,6 @@ const navigation = [
   { name: "Visa", href: "/visa", icon: Shield },
   { name: "Checklist", href: "/checklist", icon: ListChecks },
   { name: "Guides", href: "/guides", icon: BookOpen },
-  { name: "Pre-departure", href: "/pre-departure", icon: Plane },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

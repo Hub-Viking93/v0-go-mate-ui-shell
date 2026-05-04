@@ -54,6 +54,7 @@ import {
   bankingSpecialist,
   // Conditional
   schoolsSpecialist,
+  studyProgramSpecialist,
   petSpecialist,
   postedWorkerSpecialist,
   digitalNomadComplianceSpecialist,
@@ -109,6 +110,7 @@ const SPECIALIST_FNS: Record<string, SpecialistFn> = {
   healthcare_navigator: healthcareSpecialist,
   banking_helper: bankingSpecialist,
   schools_specialist: schoolsSpecialist,
+  study_program_specialist: studyProgramSpecialist,
   pet_specialist: petSpecialist,
   posted_worker_specialist: postedWorkerSpecialist,
   digital_nomad_compliance: digitalNomadComplianceSpecialist,

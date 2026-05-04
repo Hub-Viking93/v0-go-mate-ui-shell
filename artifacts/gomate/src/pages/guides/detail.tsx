@@ -28,6 +28,7 @@ import {
   ExternalLink,
   Lightbulb,
   AlertTriangle,
+  CheckCircle2,
   RefreshCw,
   Trash2,
   Clock,
@@ -163,6 +164,98 @@ function SectionSources({ citations }: { citations?: InlineCitation[] }) {
   )
 }
 
+/**
+ * Defensively render a "tip"-like array element. Schema drift in the
+ * guide composer has at times produced source-shaped objects ({url,
+ * name}) where strings were expected (tips, dos/donts, localTips,
+ * learningTips, etc.). Without this guard those crash the page with
+ * "Objects are not valid as a React child".
+ *
+ * Returns:
+ *   - the string itself if input is a string
+ *   - an <a> link if input has a `url` field (label = name|title|url)
+ *   - the most plausible text field for other shapes
+ *   - empty fragment for null/undefined
+ */
+function renderTipText(item: unknown): React.ReactNode {
+  if (item == null) return null
+  if (typeof item === "string") return item
+  if (typeof item === "number" || typeof item === "boolean") return String(item)
+  if (typeof item === "object") {
+    const obj = item as Record<string, unknown>
+    const url = typeof obj.url === "string" ? obj.url : null
+    const label =
+      (typeof obj.name === "string" && obj.name) ||
+      (typeof obj.title === "string" && obj.title) ||
+      (typeof obj.text === "string" && obj.text) ||
+      (typeof obj.label === "string" && obj.label) ||
+      url ||
+      ""
+    if (url) {
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-emerald-700 dark:text-emerald-400 hover:underline"
+        >
+          {label}
+        </a>
+      )
+    }
+    if (label) return label
+  }
+  // Last-resort fallback — still safe; never returns the raw object.
+  try {
+    return JSON.stringify(item)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Parse a free-form timeline string into an ISO date (YYYY-MM-DD).
+ * Handles common shapes: "August 2027", "2027-08", "Aug 2027", "Q3 2027".
+ * Returns null if nothing usable can be extracted.
+ */
+function parseFreeFormDate(raw: string): string | null {
+  const s = raw.trim()
+  if (!s) return null
+  // Already an ISO-ish date
+  const isoLike = s.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/)
+  if (isoLike) {
+    const y = Number(isoLike[1])
+    const m = Number(isoLike[2] ?? "1")
+    const d = Number(isoLike[3] ?? "1")
+    if (y > 1900 && m >= 1 && m <= 12) {
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    }
+  }
+  // "Month YYYY"
+  const months = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+  ]
+  const monthMatch = s.toLowerCase().match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/)
+  if (monthMatch) {
+    const monthName = monthMatch[1].slice(0, 3)
+    const monthIdx = months.findIndex((m) => m.startsWith(monthName))
+    const year = Number(monthMatch[2])
+    if (monthIdx >= 0 && year > 1900) {
+      return `${year}-${String(monthIdx + 1).padStart(2, "0")}-01`
+    }
+  }
+  // "Qn YYYY" — use first month of the quarter
+  const quarter = s.toLowerCase().match(/q([1-4])\s+(\d{4})/)
+  if (quarter) {
+    const q = Number(quarter[1])
+    const year = Number(quarter[2])
+    const month = (q - 1) * 3 + 1
+    return `${year}-${String(month).padStart(2, "0")}-01`
+  }
+  return null
+}
+
 interface GuideSection {
   [key: string]: unknown
 }
@@ -261,6 +354,20 @@ interface Guide {
     tips: string[]
     systemOverview?: string
     applicationStrategy?: string
+    /** Structured program list from study_program_specialist. */
+    programs?: Array<{
+      name?: string
+      type?: string
+      city?: string | null
+      language_of_instruction?: string
+      approx_tuition_eur?: number | null
+      tuition_period?: string | null
+      duration_months?: number | null
+      intake_months?: string[]
+      application_lead_months?: number | null
+      visa_sponsor_capable?: boolean
+      url?: string | null
+    }>
   }
   timeline_section: {
     totalMonths: number
@@ -358,22 +465,52 @@ export default function GuideDetailPage({ id }: { id: string }) {
     fetchGuide()
   }, [id, router])
 
-  // Fetch target_date from profile for timeline
+  // Resolve a target move date for the Timeline tab. Priority:
+  //   1. profile_data.target_date (ISO, set explicitly by user)
+  //   2. pre-departure plan's moveDate (already a parsed ISO date from
+  //      the backend's pre-departure generator)
+  //   3. profile_data.timeline (free-form like "August 2027" — parse
+  //      best-effort to first-of-month).
+  // Without this fallback chain the Timeline tab kept saying "Set your
+  // target move date" even for users whose pre-departure plan was
+  // already generated from a parseable timeline string.
   useEffect(() => {
-    async function fetchTargetDate() {
+    let active = true
+    async function resolveTargetDate() {
       try {
         const res = await fetch("/api/profile")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.plan?.profile_data?.target_date) {
-            setTargetDate(data.plan.profile_data.target_date)
+        if (!active || !res.ok) return
+        const data = await res.json()
+        const explicit = data.plan?.profile_data?.target_date
+        if (typeof explicit === "string" && explicit.length > 0) {
+          setTargetDate(explicit)
+          return
+        }
+        // Fallback 2 — pre-departure already parsed it.
+        try {
+          const pdRes = await fetch("/api/pre-departure")
+          if (active && pdRes.ok) {
+            const pd = await pdRes.json()
+            if (typeof pd?.moveDate === "string" && pd.moveDate.length > 0) {
+              setTargetDate(pd.moveDate)
+              return
+            }
           }
+        } catch {
+          /* ignore */
+        }
+        // Fallback 3 — parse free-form timeline string.
+        const raw = data.plan?.profile_data?.timeline
+        if (typeof raw === "string") {
+          const parsed = parseFreeFormDate(raw)
+          if (parsed && active) setTargetDate(parsed)
         }
       } catch {
-        // Non-critical
+        /* non-critical */
       }
     }
-    fetchTargetDate()
+    resolveTargetDate()
+    return () => { active = false }
   }, [])
 
   const handleDownloadPDF = async () => {
@@ -687,7 +824,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
               {guide.useful_tips?.map((tip, i) => (
                 <li key={i} className="flex items-start gap-2 text-muted-foreground">
                   <span className="text-primary mt-1">-</span>
-                  {tip}
+                  {renderTipText(tip)}
                 </li>
               ))}
             </ul>
@@ -796,7 +933,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                       <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
                         {i + 1}
                       </span>
-                      <span className="pt-0.5">{step}</span>
+                      <span className="pt-0.5">{renderTipText(step)}</span>
                     </li>
                   ))}
                 </ol>
@@ -811,7 +948,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                 </h4>
                 <ul className="space-y-1">
                   {guide.visa_section.warnings.map((warning, i) => (
-                    <li key={i} className="text-sm text-amber-700">- {warning}</li>
+                    <li key={i} className="text-sm text-amber-700">- {renderTipText(warning)}</li>
                   ))}
                 </ul>
               </div>
@@ -899,7 +1036,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
               {guide.budget_section?.tips?.map((tip, i) => (
                 <li key={i} className="flex items-start gap-2 text-muted-foreground">
                   <span className="text-primary">-</span>
-                  {tip}
+                  {renderTipText(tip)}
                 </li>
               ))}
             </ul>
@@ -984,7 +1121,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                 </h3>
                 <ul className="space-y-2">
                   {guide.housing_section?.tips?.map((tip, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">- {tip}</li>
+                    <li key={i} className="text-sm text-muted-foreground">- {renderTipText(tip)}</li>
                   ))}
                 </ul>
               </div>
@@ -995,7 +1132,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                 </h3>
                 <ul className="space-y-2">
                   {guide.housing_section?.warnings?.map((warning, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">- {warning}</li>
+                    <li key={i} className="text-sm text-muted-foreground">- {renderTipText(warning)}</li>
                   ))}
                 </ul>
               </div>
@@ -1073,7 +1210,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium shrink-0">
                     {i + 1}
                   </span>
-                  <span className="pt-0.5">{step}</span>
+                  <span className="pt-0.5">{renderTipText(step)}</span>
                 </li>
               ))}
             </ol>
@@ -1116,7 +1253,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">Learning Tips</p>
-                <p className="font-medium text-sm">{guide.culture_section?.language?.learningTips?.[0]}</p>
+                <p className="font-medium text-sm">{renderTipText(guide.culture_section?.language?.learningTips?.[0])}</p>
               </div>
             </div>
           </Card>
@@ -1127,12 +1264,30 @@ export default function GuideDetailPage({ id }: { id: string }) {
               <div className="p-4 rounded-lg bg-green-50 border border-green-200">
                 <h3 className="font-semibold text-green-800 mb-3">Do</h3>
                 <ul className="space-y-2">
-                  {guide.culture_section?.doAndDonts?.dos?.map((item, i) => (
-                    <li key={i} className="text-sm text-green-700 flex items-start gap-2">
-                      <span className="text-green-600">+</span>
-                      {item}
-                    </li>
-                  ))}
+                  {(() => {
+                    // Backwards-compat: older guides have empty dos[]
+                    // because the previous regex filter dropped most
+                    // etiquette tips. Fall back to socialNorms (same
+                    // top_etiquette_tips data, just stored under a
+                    // different field) so the Do column never reads
+                    // empty for already-generated guides.
+                    const dos = guide.culture_section?.doAndDonts?.dos ?? []
+                    const fallback = (guide.culture_section?.socialNorms ?? []).slice(0, 5)
+                    const list = dos.length > 0 ? dos : fallback
+                    if (list.length === 0) {
+                      return (
+                        <li className="text-xs text-muted-foreground italic">
+                          No do's surfaced for this destination yet — regenerate the guide for the latest cultural research.
+                        </li>
+                      )
+                    }
+                    return list.map((item, i) => (
+                      <li key={i} className="text-sm text-green-700 flex items-start gap-2">
+                        <span className="text-green-600">+</span>
+                        {renderTipText(item)}
+                      </li>
+                    ))
+                  })()}
                 </ul>
               </div>
               <div className="p-4 rounded-lg bg-red-50 border border-red-200">
@@ -1141,7 +1296,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                   {guide.culture_section?.doAndDonts?.donts?.map((item, i) => (
                     <li key={i} className="text-sm text-red-700 flex items-start gap-2">
                       <span className="text-red-600">-</span>
-                      {item}
+                      {renderTipText(item)}
                     </li>
                   ))}
                 </ul>
@@ -1177,7 +1332,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
               {guide.culture_section?.localTips?.map((tip, i) => (
                 <li key={i} className="flex items-start gap-2 text-muted-foreground">
                   <span className="text-primary">-</span>
-                  {tip}
+                  {renderTipText(tip)}
                 </li>
               ))}
             </ul>
@@ -1194,7 +1349,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
               <h3 className="font-semibold mb-3">In-Demand Skills</h3>
               <div className="flex flex-wrap gap-2 mb-6">
                 {guide.jobs_section?.inDemandSkills?.map((skill, i) => (
-                  <Badge key={i} variant="secondary">{skill}</Badge>
+                  <Badge key={i} variant="secondary">{renderTipText(skill)}</Badge>
                 ))}
               </div>
 
@@ -1250,7 +1405,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium shrink-0">
                       {i + 1}
                     </span>
-                    <span className="pt-0.5">{step}</span>
+                    <span className="pt-0.5">{renderTipText(step)}</span>
                   </li>
                 ))}
               </ol>
@@ -1280,6 +1435,132 @@ export default function GuideDetailPage({ id }: { id: string }) {
                 </div>
               )}
             </Card>
+
+            {/* Recommended programs — surfaced from study_program_specialist.
+                Editorial card grid matches the Settling-tab + Tailored
+                insights surface so the page reads as one product. */}
+            {guide.education_section?.programs && guide.education_section.programs.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-end justify-between gap-2">
+                  <div>
+                    <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Shortlist</p>
+                    <h2 className="font-serif text-xl tracking-tight text-foreground mt-0.5">
+                      Recommended programs for you
+                    </h2>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
+                    {guide.education_section.programs.length} program{guide.education_section.programs.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {guide.education_section.programs.map((p, i) => {
+                    const typeTint = p.type === "language_school"
+                      ? { stripe: "from-amber-400 via-orange-400 to-amber-500", chip: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40" }
+                      : p.type === "university"
+                        ? { stripe: "from-emerald-400 via-teal-500 to-emerald-500", chip: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40" }
+                        : p.type === "vocational"
+                          ? { stripe: "from-sky-400 via-blue-500 to-sky-500", chip: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/40" }
+                          : { stripe: "from-stone-300 via-stone-400 to-stone-300", chip: "bg-stone-50 text-stone-700 border-stone-200 dark:bg-stone-950/40 dark:text-stone-300 dark:border-stone-900/40" }
+                    const typeLabel = p.type === "language_school" ? "Language school"
+                      : p.type === "university" ? "University"
+                      : p.type === "vocational" ? "Vocational"
+                      : p.type === "exchange" ? "Exchange"
+                      : "Program"
+                    const tuition = p.approx_tuition_eur != null
+                      ? `EUR ${p.approx_tuition_eur.toLocaleString()}${p.tuition_period ? ` / ${p.tuition_period}` : ""}`
+                      : null
+                    const cardBody = (
+                      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 flex flex-col gap-3 group hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300 h-full">
+                        <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${typeTint.stripe}`} />
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="font-serif text-base leading-tight tracking-tight text-foreground">
+                              {p.name || "Program"}
+                            </h3>
+                            {p.city && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{p.city}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 ${typeTint.chip}`}>
+                            {typeLabel}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-dashed border-stone-200 dark:border-stone-800">
+                          {tuition && (
+                            <div>
+                              <p className="uppercase tracking-[0.1em] text-muted-foreground text-[9px]">Tuition</p>
+                              <p className="text-foreground font-medium tabular-nums">{tuition}</p>
+                            </div>
+                          )}
+                          {p.duration_months != null && (
+                            <div>
+                              <p className="uppercase tracking-[0.1em] text-muted-foreground text-[9px]">Duration</p>
+                              <p className="text-foreground font-medium tabular-nums">{p.duration_months} months</p>
+                            </div>
+                          )}
+                          {p.language_of_instruction && (
+                            <div>
+                              <p className="uppercase tracking-[0.1em] text-muted-foreground text-[9px]">Language</p>
+                              <p className="text-foreground font-medium truncate">{p.language_of_instruction}</p>
+                            </div>
+                          )}
+                          {p.application_lead_months != null && (
+                            <div>
+                              <p className="uppercase tracking-[0.1em] text-muted-foreground text-[9px]">Apply ahead</p>
+                              <p className="text-foreground font-medium tabular-nums">{p.application_lead_months} months</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {p.intake_months && p.intake_months.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground">Intake</span>
+                            {p.intake_months.slice(0, 4).map((m, j) => (
+                              <span key={j} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-foreground">
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2 mt-auto">
+                          {p.visa_sponsor_capable === true ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle2 className="w-3 h-3" /> Visa-sponsor capable
+                            </span>
+                          ) : p.visa_sponsor_capable === false ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 dark:text-rose-400">
+                              <AlertTriangle className="w-3 h-3" /> Cannot sponsor visa
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">Visa-sponsor unknown</span>
+                          )}
+                          {p.url && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 group-hover:underline">
+                              Open <ExternalLink className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                    return p.url ? (
+                      <a
+                        key={i}
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        {cardBody}
+                      </a>
+                    ) : (
+                      <div key={i}>{cardBody}</div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </TabsContent>
         )}
 

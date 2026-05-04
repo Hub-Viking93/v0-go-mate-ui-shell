@@ -116,6 +116,7 @@ export {
   documentsSpecialist,
   // Conditional
   schoolsSpecialist,
+  studyProgramSpecialist,
   healthcareSpecialist,
   bankingSpecialist,
   petSpecialist,

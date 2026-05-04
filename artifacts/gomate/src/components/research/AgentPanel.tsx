@@ -36,6 +36,7 @@ const AGENT_META: Record<string, { title: string; emoji: string }> = {
   healthcare_navigator: { title: "Healthcare Navigator", emoji: "⚕️" },
   banking_helper: { title: "Banking Helper", emoji: "🏦" },
   schools_specialist: { title: "Schools Specialist", emoji: "🎓" },
+  study_program_specialist: { title: "Study-Program Specialist", emoji: "📚" },
   pet_specialist: { title: "Pet Specialist", emoji: "🐾" },
   posted_worker_specialist: { title: "Posted Worker Specialist", emoji: "🤝" },
   digital_nomad_compliance: { title: "Digital-Nomad Compliance", emoji: "💻" },

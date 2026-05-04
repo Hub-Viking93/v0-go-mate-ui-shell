@@ -65,6 +65,7 @@ export const AGENT_MODEL_ROUTING = {
   // integration is provisioned. Switched to claude-sonnet-4-6 — same family
   // as every other specialist, no integration debt.
   schools_specialist: "claude-sonnet-4-6",
+  study_program_specialist: "claude-sonnet-4-6",
   healthcare_navigator: "claude-sonnet-4-5",
   banking_helper: "claude-sonnet-4-5",
   documents_specialist: "claude-sonnet-4-5",
