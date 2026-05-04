@@ -451,9 +451,7 @@ export default function ChatPage() {
       <div className="flex-shrink-0 p-4 border-b border-border bg-gradient-to-r from-[#1B3A2D]/[0.03] to-transparent">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#1B3A2D] to-[#2D6A4F] shadow-sm">
-              <Sparkles className="w-5 h-5 text-[#5EE89C]" />
-            </div>
+            <GoMateAvatar size="lg" />
             <div>
               <h1 className="font-semibold text-foreground flex items-center gap-2">
                 {planStage === "arrived" ? "Settling-In Coach" : "GoMate Chat"}
