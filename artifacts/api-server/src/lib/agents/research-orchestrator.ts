@@ -70,6 +70,8 @@ import {
   critique,
   // Adapter
   createSupabaseLogWriter,
+  // Helpers
+  trimParagraphsToWordCap,
   // Types
   type LogWriter,
   type SpecialistContext,
@@ -956,8 +958,12 @@ async function finalize(args: {
   const specialistsByName: Record<string, unknown> = {};
   for (const item of args.outputs) {
     const out = item.output;
+    // Hard word-cap each paragraph at 200 words at sentence boundary so
+    // chatty LLM output never blows past the prompt's 180-word target.
+    // Trims at the last complete sentence that fits — never mid-sentence.
+    const cappedParagraphs = trimParagraphsToWordCap(out.contentParagraphs ?? [], 200);
     specialistsByName[item.name] = {
-      contentParagraphs: out.contentParagraphs ?? [],
+      contentParagraphs: cappedParagraphs,
       citations: out.citations ?? [],
       domainSpecificData: out.domainSpecificData ?? {},
       quality: out.quality,

@@ -29,24 +29,31 @@ import type { SpecialistContext, SpecialistOutput, SpecialistProfile } from "./t
 const SPECIALIST = "cultural_adapter";
 
 function buildSystemPrompt(): string {
-  return `You are a cultural adapter for relocating expats. Your job is to flag etiquette, language, and integration considerations the user should know about — adapted to their citizenship, family setup, and stay duration.
+  return `You are a cultural adapter for relocating expats. Your job is to flag etiquette, language, workplace norms, and integration considerations the user should know about — adapted to their citizenship, family setup, and stay duration.
 
 You will receive a CULTURE FACTSHEET (curated COUNTRY_DATA — treat as authoritative). You may NOT cite external URLs unless they are explicitly in the factsheet's rentalPlatforms / jobPlatforms / expatCommunities lists.
+
+The frontend renders four DISTINCT cultural sub-tabs from your output. Each paragraph below MUST be unique and substantive — do not repeat content across paragraphs.
 
 Produce a JSON object with this exact schema:
 {
   "paragraphs": [
-    "Paragraph 1: top 3-5 etiquette / day-to-day cultural norms relevant to this user.",
-    "Paragraph 2: language considerations (factsheet englishLevel + the user's language_skill).",
-    "Paragraph 3: integration channels (expat communities, hubs).",
-    "Paragraph 4: family / religious / safety considerations specific to this profile."
+    "Paragraph 1 — CULTURAL OVERVIEW: 1 paragraph high-level orientation. The single biggest cultural shift this user will feel; the headline trait of the destination's culture; what they should mentally prepare for on day one.",
+    "Paragraph 2 — CULTURAL DEEP DIVE: 1 paragraph on day-to-day social norms beyond the overview — specific etiquette around food, greetings, public behavior, queueing, tipping, gift-giving. Concrete examples, not generalities.",
+    "Paragraph 3 — WORKPLACE CULTURE: 1 paragraph on workplace dynamics specifically — hierarchy / first-name basis, communication style, meeting norms, work-life balance expectations, vacation/parental-leave culture. Skip if user is not moving for work; cover briefly otherwise.",
+    "Paragraph 4 — SOCIAL INTEGRATION: 1 paragraph on how to actually make friends and find community — expat hubs, local meetup channels, language exchanges, hobby clubs, what works and what doesn't for newcomers."
   ],
   "key_facts": {
     "language_difficulty": "low | medium | high",
     "english_workable": <boolean>,
-    "top_etiquette_tips": ["bullet 1", "bullet 2", "bullet 3"],
+    "dos": [
+      "5 positive, specific 'do this' tips. Each tip is one sentence, max ~25 words. Examples: 'Participate in fika (coffee breaks) — declining repeatedly reads as antisocial.' / 'Use the queueing-number system at all service counters — never skip the line.' Be culture-specific, not generic."
+    ],
+    "donts": [
+      "5 explicit 'avoid this' tips, each starting with a negative verb (Don't / Avoid / Never / Skip). One sentence, max ~25 words. Examples: 'Don't be late for meetings or social events — even five minutes is genuinely disrespectful.' / 'Avoid loud phone calls on public transit — silence is the norm, not rudeness.'"
+    ],
     "integration_channels": [{ "name": "string", "url": "string (must be in factsheet)" }],
-    "warnings": ["specific to children, religion, safety, lgbtq if relevant"]
+    "warnings": ["operational risks specific to children, religion, safety, lgbtq, or local hazards if relevant — these are 'watch out' items, NOT etiquette don'ts"]
   }
 }
 

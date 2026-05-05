@@ -69,6 +69,12 @@ Så nedan är planen omstrukturerad till 6 faser.
 
 Det här är första riktiga språnget från info-app till konsult.
 
+### Subphases
+
+- `Phase 1A` Deadline model + urgency i checklistan
+- `Phase 1B` Task detail view med step-by-step walkthroughs
+- `Phase 1C` Official links + booking links + next-click guidance
+
 ### 1.1 Deadline engine
 
 **Varför:** En konsult säger "du har 7 dagar kvar". Inte bara "gör
@@ -87,6 +93,8 @@ Varje task får:
 - deadline-typ: legal / practical / recommended
 - urgency
 
+**Subphase:** `Phase 1A`
+
 ### 1.2 Task walkthroughs
 
 **Varför:** "Registrera dig hos myndigheten" räcker inte. Konsulten
@@ -101,6 +109,8 @@ Varje task får:
 - vanliga misstag
 - vad som händer efteråt
 
+**Subphase:** `Phase 1B`
+
 ### 1.3 Booking links
 
 **Varför:** Många tasks kräver ett faktiskt nästa klick.
@@ -108,6 +118,8 @@ Varje task får:
 **Buildbart nu utan integrationer:** Vi bokar inget åt användaren, men
 vi länkar direkt till rätt bokningssida och förklarar vilken appointment
 de ska välja.
+
+**Subphase:** `Phase 1C`
 
 ### Varför dessa tre hör ihop
 
@@ -126,6 +138,12 @@ Det är därför de ska byggas tillsammans.
 
 Det här är dokument- och bevislagret.
 
+### Subphases
+
+- `Phase 2A` Basic document vault
+- `Phase 2B` Task/document linkage + missing-documents view
+- `Phase 2C` Proof-of-eligibility coach + document prep guidance
+
 ### 2.1 Document vault
 
 **Varför:** Konsultrollen kräver att systemet vet vilka dokument
@@ -139,6 +157,8 @@ med:
 - koppling till tasks
 - grundläggande versionshantering
 
+**Subphase:** `Phase 2A`
+
 ### 2.2 Proof-of-eligibility coach
 
 **Varför:** Privatpersoner fastnar ofta inte på att visumet finns, utan
@@ -150,6 +170,8 @@ på att de inte vet hur de bevisar att de kvalar in.
 - vilken typ av underlag som normalt accepteras
 - vad som saknas
 - vad som är svagt
+
+**Subphase:** `Phase 2C`
 
 ### 2.3 Document preparation guidance
 
@@ -163,6 +185,8 @@ på att de inte vet hur de bevisar att de kvalar in.
 - giltighetstid
 - vanliga misstag
 
+**Subphase:** `Phase 2C`
+
 ### Varför dessa tre hör ihop
 
 - vault utan prep-guide blir tunn
@@ -175,6 +199,12 @@ på att de inte vet hur de bevisar att de kvalar in.
 
 Det här är det som gör produkten konsultmässig i stället för bara
 checklistig.
+
+### Subphases
+
+- `Phase 3A` Readiness model
+- `Phase 3B` Risks + blockers + explanations
+- `Phase 3C` Plan B + denied/delayed handling
 
 ### 3.1 Readiness engine
 
@@ -190,6 +220,8 @@ checklistig.
 
 Varje readiness måste vara förklarbar med blockers och risks.
 
+**Subphase:** `Phase 3A`
+
 ### 3.2 Plan B / alternative paths
 
 **Varför:** Om huvudspåret är svagt måste systemet kunna säga vad nästa
@@ -202,6 +234,8 @@ bästa väg är.
 - alternativ destination
 
 När primär väg ser svag ut.
+
+**Subphase:** `Phase 3C`
 
 ### 3.3 Denied / delayed handling
 
@@ -218,6 +252,8 @@ hyresvärdar backar ur, antagningar blir sena.
 
 Och berätta vad som ändras i planen.
 
+**Subphase:** `Phase 3C`
+
 ### Varför dessa tre hör ihop
 
 - readiness utan plan B blir bara en score
@@ -230,6 +266,13 @@ Och berätta vad som ändras i planen.
 
 Det här gör att GoMate hjälper efter landning, inte bara innan.
 
+### Subphases
+
+- `Phase 4A` First 72 hours / First 30 days
+- `Phase 4B` Banking + healthcare flows
+- `Phase 4C` Driver's license + insurance
+- `Phase 4D` Cultural orientation layer
+
 ### 4.1 First 72 hours / First 30 days
 
 **Varför:** Det här är peak pocket-consultant för B2C.
@@ -240,6 +283,8 @@ Det här gör att GoMate hjälper efter landning, inte bara innan.
 - First 30 days
 
 I rätt ordning, inte bara som lista.
+
+**Subphase:** `Phase 4A`
 
 ### 4.2 Banking + healthcare flows
 
@@ -253,6 +298,8 @@ flöden, inte bara text.
 - hur vårdregistrering går till
 - vilka första vård-/försäkringssteg som är viktigast
 
+**Subphase:** `Phase 4B`
+
 ### 4.3 Driver’s license conversion
 
 **Varför:** Väldigt ofta relevant och ofta missat.
@@ -262,6 +309,8 @@ flöden, inte bara text.
 - om befintligt körkort gäller
 - när det måste bytas
 - hur konvertering går till
+
+**Subphase:** `Phase 4C`
 
 ### 4.4 Cultural / Day 1 orientation
 
@@ -275,6 +324,8 @@ flöden, inte bara text.
 - vårdsystem
 - hyrmarknadens kultur
 
+**Subphase:** `Phase 4D`
+
 ### 4.5 Insurance walkthrough
 
 **Varför:** Försäkring är nästan alltid relevant men ofta diffus.
@@ -285,6 +336,8 @@ flöden, inte bara text.
 - vad som är stark rekommendation
 - vilka kategorier som finns
 - vad användaren sannolikt behöver först
+
+**Subphase:** `Phase 4C`
 
 ### Varför dessa fem hör ihop
 
@@ -302,6 +355,12 @@ Det är samma kontext och därför samma fas.
 Det här är stora, viktiga ytor som är starka men lite mer fristående
 från kärnmotorn.
 
+### Subphases
+
+- `Phase 5A` Housing support
+- `Phase 5B` Departure / repatriation flow
+- `Phase 5C` Pet relocation
+
 ### 5.1 Housing support
 
 **Varför:** En av de största verkliga relocationkategorierna.
@@ -314,6 +373,8 @@ från kärnmotorn.
 - processförklaring
 - timing expectation
 
+**Subphase:** `Phase 5A`
+
 ### 5.2 Departure / repatriation flow
 
 **Varför:** Livscykeln är inte komplett utan utflytt.
@@ -324,6 +385,8 @@ från kärnmotorn.
 - vad som måste sägas upp
 - vad som måste avregistreras
 - vad som ska tas med / säljas / lagras
+
+**Subphase:** `Phase 5B`
 
 ### 5.3 Pet relocation
 
@@ -337,6 +400,8 @@ förberett i schemat.
 - importregler
 - tidslinje
 - flygrelaterade krav
+
+**Subphase:** `Phase 5C`
 
 ### Varför dessa tre hör ihop
 
@@ -354,6 +419,13 @@ De är viktiga, men kan komma efter kärnan.
 
 Det här byggs när solo-kärnan känns stabil.
 
+### Subphases
+
+- `Phase 6A` Notifications
+- `Phase 6B` Family / dependents
+- `Phase 6C` Tax overview
+- `Phase 6D` Rule-change monitoring
+
 ### 6.1 Family / dependents
 
 **Varför:** Enormt viktigt i verkligheten, men ökar komplexiteten
@@ -362,11 +434,15 @@ rejält.
 **Buildbart nu-ish:** Schemat är redan långt framme. Behöver UI,
 school-content, partner-stöd och mer grenlogik.
 
+**Subphase:** `Phase 6B`
+
 ### 6.2 Notifications
 
 **Varför:** En riktig konsult är proaktiv.
 
 **Buildbart nu:** Email först, push senare.
+
+**Subphase:** `Phase 6A`
 
 ### 6.3 Rule-change monitoring
 
@@ -375,12 +451,16 @@ school-content, partner-stöd och mer grenlogik.
 **Buildbart senare:** Monitorera officiella källor, diffa ändringar,
 flagga drabbade användare och trigga omresearch.
 
+**Subphase:** `Phase 6D`
+
 ### 6.4 Tax overview
 
 **Varför:** Viktigt, men inte det första som skapar pocket-consultant-
 känsla för de flesta B2C-användare.
 
 **Buildbart nu:** Enkel year-1-tax walkthrough, inte full tax engine.
+
+**Subphase:** `Phase 6C`
 
 ### Varför dessa fyra hör ihop
 
@@ -416,42 +496,49 @@ i v1.
 
 Om målet är maximal pocket-consultant-känsla så fort som möjligt:
 
-### Först
+### Roadmap-sekvens
 
-**Phase 1 — Action Core**
+1. `Phase 1A`
+2. `Phase 1B`
+3. `Phase 1C`
+4. `Phase 2A`
+5. `Phase 2B`
+6. `Phase 2C`
+7. `Phase 3A`
+8. `Phase 3B`
+9. `Phase 3C`
+10. `Phase 4A`
+11. `Phase 4B`
+12. `Phase 4C`
+13. `Phase 4D`
+14. `Phase 5A`
+15. `Phase 5B`
+16. `Phase 5C`
+17. `Phase 6A`
+18. `Phase 6B`
+19. `Phase 6C`
+20. `Phase 6D`
 
-Det här ger störst känslomässig produktlyft snabbast.
+### Arbetsregel
 
-### Sedan
+Vi ska köra:
 
-**Phase 2 — Evidence Core**
+- en fas i taget på roadmap-nivå
+- men flera mindre subphases inom varje fas
 
-Nu blir systemet inte bara handlingsdrivet, utan också dokumentmedvetet.
+Vi ska inte:
 
-### Därefter
+- bygga hela `Phase 1` i en enda stor batch
+- eller hoppa mellan faser bara för att något känns roligt
 
-**Phase 3 — Judgment Core**
+Rätt arbetssätt är:
 
-Det här är punkten där appen börjar kännas som rådgivare, inte bara
-workflow.
-
-### Efter det
-
-**Phase 4 — Arrival Core**
-
-Nu känns GoMate användbar även efter ankomst.
-
-### Sedan
-
-**Phase 5 — Lifecycle Extensions**
-
-Housing, departure och pets gör produkten bredare och mer komplett.
-
-### Sist
-
-**Phase 6 — Scale-Up**
-
-Family, notifications, rule monitoring och tax.
+- bygg `1A`
+- skeppa / validera
+- bygg `1B`
+- skeppa / validera
+- bygg `1C`
+- först därefter vidare till `Phase 2`
 
 ---
 

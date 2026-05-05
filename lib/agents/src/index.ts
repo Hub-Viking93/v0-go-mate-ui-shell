@@ -133,6 +133,8 @@ export {
   // Infra
   runSpecialist,
   SPECIALIST_BUDGET_MS,
+  trimParagraphToWordCap,
+  trimParagraphsToWordCap,
   scrapeOfficialSource,
   searchAndScrape,
   getAllSources,

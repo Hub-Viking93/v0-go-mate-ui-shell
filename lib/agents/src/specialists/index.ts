@@ -17,6 +17,7 @@ export {
 } from "./types.js";
 
 export { runSpecialist, SPECIALIST_BUDGET_MS } from "./_base.js";
+export { trimParagraphToWordCap, trimParagraphsToWordCap } from "./_prompt-helpers.js";
 
 // Always-run (Wave 2.x)
 export { visaSpecialist } from "./visa.js";

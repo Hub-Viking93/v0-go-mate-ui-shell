@@ -300,13 +300,37 @@ function buildLegacySectionShapes(
       };
     })(),
     culture_section: (() => {
-      const tips = arr<string>(cultureSpec.top_etiquette_tips);
+      const tips = arr<string>(cultureSpec.top_etiquette_tips); // legacy field
       const channels = arr<string>(cultureSpec.integration_channels);
       const enWork = cultureSpec.english_workable === true;
       const lang = strField(cultureSpec.language_difficulty);
       const cultureWarnings = arr<string>(cultureSpec.warnings);
+
+      // Cultural specialist now emits 4 distinct paragraphs (overview /
+      // deep dive / workplace / social integration). Map each to its
+      // sub-tab. Falls back to the legacy concatenated prose for
+      // already-generated guides where paragraphs[] has fewer entries.
+      const cultureParas = arr<string>(culture?.paragraphs);
+      const fallbackProse = prose("culture");
+      const overviewPara = cultureParas[0] || fallbackProse;
+      const deepDivePara = cultureParas[1] || cultureParas[0] || fallbackProse;
+      const workplacePara = cultureParas[2] || "";
+      const integrationPara = cultureParas[3] || "";
+
+      // Specialist now emits explicit dos/donts arrays. Fall back to the
+      // old top_etiquette_tips for back-compat with guides generated
+      // before the schema change.
+      const dosFromSpec = arr<string>(cultureSpec.dos);
+      const dontsFromSpec = arr<string>(cultureSpec.donts);
+      const dos = dosFromSpec.length > 0
+        ? dosFromSpec.slice(0, 5)
+        : tips.filter((t) => !/^(don'?t\b|avoid\b|never\b|do not\b)/i.test(t)).slice(0, 5);
+      const donts = dontsFromSpec.length > 0
+        ? dontsFromSpec.slice(0, 5)
+        : tips.filter((t) => /^(don'?t\b|avoid\b|never\b|do not\b)/i.test(t)).slice(0, 5);
+
       return {
-        overview: prose("culture"),
+        overview: overviewPara,
         language: {
           official: typeof profile.destination === "string" && /philippines/i.test(profile.destination)
             ? "Filipino (Tagalog) and English"
@@ -314,24 +338,16 @@ function buildLegacySectionShapes(
           englishLevel: enWork ? "Widely spoken (workable)" : (lang || "Variable"),
           learningTips: lang ? [`Difficulty: ${lang}`, ...tips.slice(0, 3)] : tips.slice(0, 4),
         },
-        socialNorms: tips.slice(0, 6),
+        socialNorms: dos.length > 0 ? dos : tips.slice(0, 6),
         workCulture: channels.slice(0, 4),
-        doAndDonts: {
-          // top_etiquette_tips from the cultural specialist are by spec
-          // positive "do this" guidance, so use them as-is. Only drop
-          // entries with clearly negative phrasing (don't / avoid /
-          // never) to prevent double-rendering as a Don't. The previous
-          // restrictive whitelist regex (do/bring/use/...) silently
-          // dropped almost every tip and left the Do column empty.
-          dos: tips
-            .filter((t) => !/^(don'?t\b|avoid\b|never\b|do not\b)/i.test(t))
-            .slice(0, 5),
-          donts: cultureWarnings.slice(0, 5),
-        },
+        doAndDonts: { dos, donts },
+        // Operational-risk warnings stay in their own bucket (the UI can
+        // render a "Watch out" panel that is NOT the don'ts column).
+        warnings: cultureWarnings.slice(0, 5),
         localTips: channels,
-        deepDive: prose("culture"),
-        workplaceCulture: prose("culture"),
-        socialIntegration: prose("culture"),
+        deepDive: deepDivePara,
+        workplaceCulture: workplacePara,
+        socialIntegration: integrationPara,
       };
     })(),
     jobs_section: jobs

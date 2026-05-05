@@ -1122,29 +1122,24 @@ export default function DashboardPage() {
   return (
     <DashboardAuditProvider profileId={plan?.id ?? null}>
     <div className="p-6 md:p-8 lg:p-10">
-      {/* Hero — editorial slab. Deep forest gradient + radial sage glow,
-          serif display headline, status row, amber CTA. */}
-      <div className="relative overflow-hidden rounded-3xl mb-8 gm-animate-in gm-delay-1"
+      {/* Hero — editorial slab. White card with emerald accent + subtle
+          sage tint, so it doesn't visually merge with the green sidebar.
+          Text is dark-on-light; CTA stays emerald-gradient for prominence. */}
+      <div className="relative overflow-hidden rounded-3xl mb-8 gm-animate-in gm-delay-1 bg-card border border-emerald-700/25 dark:border-emerald-400/20"
         style={{
-          background:
-            "linear-gradient(135deg, #14302A 0%, #1B3A2D 38%, #234D3A 72%, #2D6A4F 100%)",
           boxShadow:
-            "0 2px 8px rgba(20,48,42,0.18), 0 24px 48px rgba(20,48,42,0.20)",
+            "0 2px 8px rgba(20,48,42,0.06), 0 16px 40px rgba(20,48,42,0.08)",
         }}>
-        {/* Sage glow + grain overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_-10%,rgba(141,183,138,0.30),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_-5%_120%,rgba(94,232,156,0.18),transparent_50%)]" />
-        <div className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
-          }} />
+        {/* Soft sage tint in the top-right corner — keeps a hint of brand
+            colour without the sidebar-merge problem. */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_92%_-10%,rgba(94,232,156,0.10),transparent_55%)] pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-300" />
 
         <div className="relative p-7 md:p-10 lg:p-12">
           {/* Section eyebrow */}
           <div className="flex items-center gap-2.5 mb-5">
-            <span className="h-px w-8 bg-white/30" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
+            <span className="h-px w-8 bg-emerald-700/30 dark:bg-emerald-400/30" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">
               Dashboard
             </span>
           </div>
@@ -1152,7 +1147,7 @@ export default function DashboardPage() {
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
             <div className="max-w-3xl">
               <h1
-                className="text-white"
+                className="text-foreground font-serif"
                 style={{
                   fontSize: "clamp(36px, 5.6vw, 56px)",
                   fontWeight: 600,
@@ -1162,30 +1157,27 @@ export default function DashboardPage() {
               >
                 {profile.name ? `${profile.name}'s move at a glance` : "Your move at a glance"}
               </h1>
-              <p className="text-white/65 mt-4 max-w-xl text-pretty text-[16px] md:text-[17px] leading-[1.55]">
+              <p className="text-muted-foreground mt-4 max-w-xl text-pretty text-[16px] md:text-[17px] leading-[1.55]">
                 {dashboardState.description}
               </p>
 
               {/* Status row — trust signals */}
               {hasDestination && (
-                <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-white/70"
+                <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground"
                   style={{ fontVariantNumeric: "tabular-nums" }}>
                   <span>{dashboardState.profileProgressLabel} confirmed</span>
                   {targetCountry && (
                     <>
-                      <span className="text-white/30">·</span>
-                      <span>Destination: <span className="text-white/90 font-medium">{targetCountry}</span></span>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span>Destination: <span className="text-foreground font-medium">{targetCountry}</span></span>
                     </>
                   )}
                 </div>
               )}
 
-              {/* Source provenance — visible "Verified by N official sources"
-                  pill that opens a popover with every scraped source URL.
-                  Aggregates visa research + local requirements + guides. */}
               {dashboardTrustSources.length > 0 && (
                 <div className="mt-4">
-                  <TrustBadge sources={dashboardTrustSources} variant="subtitle" onDark />
+                  <TrustBadge sources={dashboardTrustSources} variant="subtitle" />
                 </div>
               )}
             </div>
@@ -1195,7 +1187,7 @@ export default function DashboardPage() {
                 onClick={() => setShowGuidedTour(true)}
                 variant="ghost"
                 size="sm"
-                className="gap-1.5 rounded-xl text-white/80 hover:bg-white/10 hover:text-white"
+                className="gap-1.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
                 data-testid="restart-tour-button"
                 aria-label="Restart dashboard tour"
               >

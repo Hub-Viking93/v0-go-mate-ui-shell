@@ -824,7 +824,17 @@ export default function GuideDetailPage({ id }: { id: string }) {
               {guide.useful_tips?.map((tip, i) => (
                 <li key={i} className="flex items-start gap-2 text-muted-foreground">
                   <span className="text-primary mt-1">-</span>
-                  {renderTipText(tip)}
+                  <span className="flex-1">
+                    {typeof tip === "string" ? (
+                      <EnrichedProse
+                        content={tip}
+                        citations={citationsFor(guide, "overview")}
+                        className="[&_p]:!mb-0 [&_p]:!leading-relaxed"
+                      />
+                    ) : (
+                      renderTipText(tip)
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -946,9 +956,22 @@ export default function GuideDetailPage({ id }: { id: string }) {
                   <AlertTriangle className="w-4 h-4" />
                   Important Notes
                 </h4>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {guide.visa_section.warnings.map((warning, i) => (
-                    <li key={i} className="text-sm text-amber-700">- {renderTipText(warning)}</li>
+                    <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
+                      <span className="text-amber-600 mt-0.5">-</span>
+                      <span className="flex-1">
+                        {typeof warning === "string" ? (
+                          <EnrichedProse
+                            content={warning}
+                            citations={citationsFor(guide, "visa")}
+                            className="!text-amber-700 [&_p]:!mb-0 [&_p]:!leading-relaxed"
+                          />
+                        ) : (
+                          renderTipText(warning)
+                        )}
+                      </span>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -1072,26 +1095,14 @@ export default function GuideDetailPage({ id }: { id: string }) {
               </div>
             </div>
 
-            <h3 className="font-semibold mb-3">Rental Platforms</h3>
-            <div className="space-y-2 mb-6">
-              {guide.housing_section?.rentalPlatforms?.map((platform, i) => (
-                <a
-                  key={i}
-                  href={platform.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  <div>
-                    <p className="font-medium">{platform.name}</p>
-                    <p className="text-sm text-muted-foreground">{platform.description}</p>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
-                </a>
-              ))}
-            </div>
+            {/* Rental platforms display intentionally removed — the
+                housing specialist's URL guardrail forced the LLM to
+                emit "See sources" placeholders. Real platform names
+                surface in the prose below + we'll wire a curated
+                country→platforms list as part of consult1.md's
+                housing-stöd batch. */}
 
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-6">
               <strong>Deposit:</strong> {guide.housing_section?.depositInfo}
             </p>
           </Card>
