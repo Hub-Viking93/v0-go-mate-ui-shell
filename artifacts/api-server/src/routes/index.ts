@@ -21,6 +21,7 @@ import researchDispatchPreviewRouter from "./research-dispatch-preview";
 import agentAuditRouter from "./agent-audit";
 import costOfLivingRouter from "./cost-of-living";
 import preDepartureRouter from "./pre-departure";
+import exchangeRateRouter from "./exchange-rate";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(researchDispatchPreviewRouter);
 router.use(agentAuditRouter);
 router.use(costOfLivingRouter);
 router.use(preDepartureRouter);
+router.use(exchangeRateRouter);
 
 export default router;

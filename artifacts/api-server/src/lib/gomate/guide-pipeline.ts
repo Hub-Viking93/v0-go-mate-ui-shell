@@ -123,6 +123,7 @@ function buildLegacySectionShapes(
   profile: Record<string, unknown>,
   specialistsData: SpecData = {},
 ): {
+  currency: string;
   visa_section: Record<string, unknown>;
   budget_section: Record<string, unknown>;
   housing_section: Record<string, unknown>;
@@ -157,7 +158,15 @@ function buildLegacySectionShapes(
   const docsSpec = getSpec(specialistsData, "documents_specialist");
   const studySpec = getSpec(specialistsData, "study_program_specialist");
 
+  // Top-level currency for the guide. Sourced from the cost specialist's
+  // declared currency (the same source that drives Budget Plan card on
+  // the dashboard) so the guide doesn't silently fall back to EUR. The
+  // frontend pairs this with user's homeCurrency via useCurrencyConversion
+  // for dual display.
+  const guideCurrency = strField(costSpec.currency) || "USD";
+
   return {
+    currency: guideCurrency,
     visa_section: (() => {
       const procWeeks = visaSpec.estimated_processing_weeks;
       const procStr = typeof procWeeks === "number" ? `~${procWeeks} weeks` : "";

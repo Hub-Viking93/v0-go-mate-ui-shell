@@ -3,11 +3,10 @@
 import { useEffect, useState, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, ExternalLink, AlertTriangle, RefreshCw, Loader2 } from "lucide-react"
+import { Receipt, ExternalLink, AlertTriangle, RefreshCw, Loader2, ShieldCheck, Calendar, Globe } from "lucide-react"
 import { COUNTRY_DATA } from "@/lib/gomate/guide-generator"
 import { getOfficialSourcesArray } from "@/lib/gomate/official-sources"
 import { getCurrencySymbol } from "@/lib/gomate/currency"
-import type { TaxResearchResult } from "@/lib/gomate/tax-research"
 
 interface TaxOverviewCardProps {
   destination: string
@@ -25,6 +24,38 @@ type TaxInfo = {
   disclaimer: string
   officialLink: string
   lastVerified: string
+}
+
+/**
+ * Shape returned by /api/research/tax. The endpoint adapts the
+ * tax_strategist + departure_tax_specialist outputs from the main
+ * research run. Tax brackets / income calc still come from hardcoded
+ * COUNTRY_DATA — the specialists produce cross-border guidance
+ * (residency triggers, treaty info, exit-tax exposure, deadlines).
+ */
+interface TaxKeyFacts {
+  destination_residency_trigger_days?: number | null
+  double_taxation_treaty_exists?: boolean
+  origin_exit_tax_applies?: boolean
+  filing_deadlines?: string[]
+  professional_advice_recommended?: boolean
+  warnings?: string[]
+}
+
+interface DepartureKeyFacts {
+  departure_tax_filing_required?: boolean
+  exit_tax_obligations?: string[]
+  pension_continuity_required?: boolean
+  warnings?: string[]
+}
+
+interface TaxResearchPayload {
+  paragraphs?: string[]
+  taxStrategist?: TaxKeyFacts | null
+  departureTax?: DepartureKeyFacts | null
+  citations?: { url: string; label?: string }[]
+  researchedAt?: string
+  quality?: "full" | "partial" | "fallback"
 }
 
 /**
@@ -64,8 +95,141 @@ function isStale(researchedAt: string, thresholdDays = 30): boolean {
   return diff > thresholdDays * 24 * 60 * 60 * 1000
 }
 
+/**
+ * Renders the cross-border tax facts produced by the Tax Strategist
+ * (and Departure Tax) specialists during the main research run.
+ * Independent from tax brackets / income calc — those come from
+ * hardcoded COUNTRY_DATA. This section is the "what changes when you
+ * cross the border" answer (residency, treaties, exit tax, deadlines).
+ */
+function CrossBorderFactsSection({
+  destination,
+  taxKeyFacts,
+  departureKeyFacts,
+}: {
+  destination: string
+  taxKeyFacts: TaxKeyFacts | null
+  departureKeyFacts: DepartureKeyFacts | null
+}) {
+  if (!taxKeyFacts && !departureKeyFacts) return null
+  const deadlines = taxKeyFacts?.filing_deadlines ?? []
+  const warnings = [
+    ...(taxKeyFacts?.warnings ?? []),
+    ...(departureKeyFacts?.warnings ?? []),
+  ]
+  const exitTaxNotes = departureKeyFacts?.exit_tax_obligations ?? []
+
+  return (
+    <div className="rounded-xl bg-stone-50/80 dark:bg-stone-900/40 border border-stone-200/60 dark:border-stone-800 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Globe className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+        <h4 className="text-sm font-semibold text-foreground">
+          Cross-border considerations
+        </h4>
+        <Badge variant="outline" className="ml-auto text-[10px]">AI-researched</Badge>
+      </div>
+
+      {taxKeyFacts && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          {typeof taxKeyFacts.destination_residency_trigger_days === "number" && (
+            <div className="flex items-start gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-stone-500 mt-0.5 shrink-0" />
+              <span className="text-stone-700 dark:text-stone-300">
+                Tax-resident in {destination} after{" "}
+                <span className="font-semibold">
+                  {taxKeyFacts.destination_residency_trigger_days} days
+                </span>
+              </span>
+            </div>
+          )}
+          {typeof taxKeyFacts.double_taxation_treaty_exists === "boolean" && (
+            <div className="flex items-start gap-1.5">
+              <ShieldCheck
+                className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                  taxKeyFacts.double_taxation_treaty_exists
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                }`}
+              />
+              <span className="text-stone-700 dark:text-stone-300">
+                Double-taxation treaty:{" "}
+                <span className="font-semibold">
+                  {taxKeyFacts.double_taxation_treaty_exists ? "Yes" : "No"}
+                </span>
+              </span>
+            </div>
+          )}
+          {typeof taxKeyFacts.origin_exit_tax_applies === "boolean" && (
+            <div className="flex items-start gap-1.5">
+              <AlertTriangle
+                className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                  taxKeyFacts.origin_exit_tax_applies ? "text-rose-600" : "text-stone-400"
+                }`}
+              />
+              <span className="text-stone-700 dark:text-stone-300">
+                Exit-tax exposure on leaving:{" "}
+                <span className="font-semibold">
+                  {taxKeyFacts.origin_exit_tax_applies ? "Yes — get advice" : "Likely none"}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {deadlines.length > 0 && (
+        <div className="text-xs">
+          <p className="font-semibold text-stone-700 dark:text-stone-300 mb-1">
+            Filing deadlines
+          </p>
+          <ul className="space-y-0.5 text-stone-600 dark:text-stone-400 list-disc pl-4">
+            {deadlines.slice(0, 4).map((d, i) => (
+              <li key={i}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {exitTaxNotes.length > 0 && (
+        <div className="text-xs">
+          <p className="font-semibold text-stone-700 dark:text-stone-300 mb-1">
+            Exit-tax obligations
+          </p>
+          <ul className="space-y-0.5 text-stone-600 dark:text-stone-400 list-disc pl-4">
+            {exitTaxNotes.slice(0, 4).map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div className="text-xs bg-amber-50/60 dark:bg-amber-950/15 border border-amber-200/50 dark:border-amber-900/30 rounded-lg p-2.5">
+          <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1 inline-flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            Watch out
+          </p>
+          <ul className="space-y-0.5 text-amber-900/90 dark:text-amber-200/90 list-disc pl-4">
+            {warnings.slice(0, 4).map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(taxKeyFacts?.professional_advice_recommended ||
+        departureKeyFacts?.departure_tax_filing_required) && (
+        <p className="text-[11px] text-stone-500 dark:text-stone-400 italic">
+          Professional advice recommended — consult a qualified accountant
+          before filing.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function TaxOverviewCard({ destination, annualIncome, currency, planId }: TaxOverviewCardProps) {
-  const [researched, setResearched] = useState<TaxResearchResult | null>(null)
+  const [researched, setResearched] = useState<TaxResearchPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [researching, setResearching] = useState(false)
   const [fetchedOnce, setFetchedOnce] = useState(false)
@@ -77,7 +241,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
     fetch(`/api/research/tax?planId=${planId}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (data?.research) setResearched(data.research)
+        if (data?.research) setResearched(data.research as TaxResearchPayload)
       })
       .catch(() => {})
       .finally(() => { setLoading(false); setFetchedOnce(true) })
@@ -103,11 +267,17 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
     }
   }, [planId, researching])
 
-  // Use researched data if available, otherwise fall back to COUNTRY_DATA
+  // Tax brackets / take-home calculation come ONLY from hardcoded
+  // COUNTRY_DATA. The Tax Strategist specialist produces cross-border
+  // guidance (residency triggers, treaty info, exit-tax exposure) — not
+  // brackets. Previous code cast `researched` as TaxInfo which silently
+  // erased hardcoded brackets and crashed when annualIncome existed.
   const countryData = COUNTRY_DATA[destination]
   const hardcodedTax = countryData?.taxInfo
-  const taxInfo: TaxInfo | null = (researched as TaxInfo | null) || (hardcodedTax as TaxInfo | undefined) || null
-  const isResearched = !!researched
+  const taxInfo: TaxInfo | null = (hardcodedTax as TaxInfo | undefined) ?? null
+  const taxKeyFacts = researched?.taxStrategist ?? null
+  const departureKeyFacts = researched?.departureTax ?? null
+  const isResearched = !!researched && (!!taxKeyFacts || !!departureKeyFacts)
   const stale = isResearched && researched?.researchedAt ? isStale(researched.researchedAt) : false
 
   // Find official tax link from OFFICIAL_SOURCES as fallback
@@ -155,15 +325,24 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
               </>
             )}
           </p>
-          {planId && fetchedOnce && (
-            <button
-              onClick={triggerResearch}
-              disabled={researching}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-medium shadow-[0_4px_14px_-2px_rgba(217,119,6,0.4)] hover:shadow-[0_6px_20px_-2px_rgba(217,119,6,0.55)] transition-shadow disabled:opacity-60"
-            >
-              {researching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {researching ? "Researching…" : "Research tax data"}
-            </button>
+          {planId && fetchedOnce && !isResearched && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 max-w-md">
+              Run <span className="font-semibold">Generate my plan</span> on the
+              review step — Tax Strategist is part of the standard research run
+              and will populate this card.
+            </p>
+          )}
+
+          {/* Even without hardcoded brackets, the cross-border facts from
+              research are useful — show them when they exist. */}
+          {isResearched && (
+            <div className="mt-4">
+              <CrossBorderFactsSection
+                destination={destination}
+                taxKeyFacts={taxKeyFacts}
+                departureKeyFacts={departureKeyFacts}
+              />
+            </div>
           )}
         </div>
       </Card>
@@ -205,6 +384,16 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isResearched && (
+            <div className="mt-5">
+              <CrossBorderFactsSection
+                destination={destination}
+                taxKeyFacts={taxKeyFacts}
+                departureKeyFacts={departureKeyFacts}
+              />
             </div>
           )}
         </div>
@@ -339,6 +528,14 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
         <div className="text-xs text-muted-foreground">
           <strong>Filing deadline:</strong> {taxInfo.filingDeadline}
         </div>
+
+        {isResearched && (
+          <CrossBorderFactsSection
+            destination={destination}
+            taxKeyFacts={taxKeyFacts}
+            departureKeyFacts={departureKeyFacts}
+          />
+        )}
 
         {/* Disclaimer + official link + research controls */}
         <div className="flex items-start gap-2 text-xs text-muted-foreground border-t pt-3">

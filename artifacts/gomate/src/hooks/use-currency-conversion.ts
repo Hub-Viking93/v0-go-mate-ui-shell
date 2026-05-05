@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useCallback } from "react"
 import { getCurrencySymbol } from "@/lib/gomate/currency"
 
@@ -12,45 +10,94 @@ interface CurrencyConversionResult {
 }
 
 /**
- * Currency conversion hook — DISABLED for the buildathon (2026-05-03).
+ * Currency conversion hook — re-enabled 2026-05.
  *
- * Why: the previous implementation called `api.frankfurter.app` directly
- * from the browser. That endpoint has no CORS headers, so every request
- * was blocked, the rate stayed null, and downstream cards displayed
- * inconsistent / partial values.
+ * Calls our `/api/exchange-rate` proxy (which wraps Frankfurter with a
+ * 1h server-side cache). Browser CORS is no longer an issue since we
+ * go through our own server. When `from === to` or either is missing,
+ * the hook becomes a passthrough (rate = 1, no network call).
  *
- * Behavior now: we ALWAYS render the source currency as-is. `convert()`
- * is a no-op (returns the amount unchanged), `formatDual` and
- * `formatConverted` only emit the source currency string. No network
- * call. `loading` is always false.
- *
- * To re-enable: route conversions through the api-server (e.g.
- * `/api/exchange-rate?from=EUR&to=PHP`) which already has the
- * server-side `lib/gomate/exchange-rate.ts` utility and no CORS issue.
+ * Convention:
+ * - `convert(amount)` returns the amount in `toCurrency` (or null if rate
+ *   isn't loaded yet)
+ * - `formatDual(amount)` shows source value with converted in parens
+ *   when `toCurrency` differs and rate is available
+ * - `formatConverted(amount)` shows just the converted value (or source
+ *   if conversion isn't possible)
  */
 export function useCurrencyConversion(
   fromCurrency: string | null,
-  _toCurrency: string | null,
+  toCurrency: string | null,
 ): CurrencyConversionResult {
-  // Reference unused params so noUnusedParameters compiles cleanly.
-  void _toCurrency
+  const [rate, setRate] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const fromSymbol = fromCurrency ? getCurrencySymbol(fromCurrency) : ""
+  const toSymbol = toCurrency ? getCurrencySymbol(toCurrency) : ""
+
+  const samePair =
+    !fromCurrency ||
+    !toCurrency ||
+    fromCurrency.toUpperCase() === toCurrency.toUpperCase()
+
+  useEffect(() => {
+    let cancelled = false
+    if (samePair) {
+      setRate(samePair && fromCurrency && toCurrency ? 1 : null)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    fetch(
+      `/api/exchange-rate?from=${encodeURIComponent(fromCurrency!)}&to=${encodeURIComponent(toCurrency!)}`,
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return
+        const r = typeof data?.rate === "number" ? data.rate : null
+        setRate(r)
+      })
+      .catch(() => {
+        if (!cancelled) setRate(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [fromCurrency, toCurrency, samePair])
 
   const convert = useCallback(
-    (amount: number): number | null => amount,
-    [],
+    (amount: number): number | null => {
+      if (samePair) return amount
+      if (rate === null) return null
+      return Math.round(amount * rate)
+    },
+    [rate, samePair],
   )
 
   const formatDual = useCallback(
-    (amount: number): string => `${fromSymbol}${amount.toLocaleString()}`,
-    [fromSymbol],
+    (amount: number): string => {
+      const source = `${fromSymbol}${amount.toLocaleString()}`
+      if (samePair || rate === null) return source
+      const converted = Math.round(amount * rate)
+      return `${source} (~${toSymbol}${converted.toLocaleString()})`
+    },
+    [fromSymbol, toSymbol, rate, samePair],
   )
 
   const formatConverted = useCallback(
-    (amount: number): string => `${fromSymbol}${amount.toLocaleString()}`,
-    [fromSymbol],
+    (amount: number): string => {
+      if (samePair) return `${fromSymbol}${amount.toLocaleString()}`
+      if (rate === null) return `${fromSymbol}${amount.toLocaleString()}`
+      const converted = Math.round(amount * rate)
+      return `${toSymbol}${converted.toLocaleString()}`
+    },
+    [fromSymbol, toSymbol, rate, samePair],
   )
 
-  return { rate: null, loading: false, convert, formatDual, formatConverted }
+  return { rate, loading, convert, formatDual, formatConverted }
 }

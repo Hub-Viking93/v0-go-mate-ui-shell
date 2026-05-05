@@ -147,18 +147,32 @@ export function DashboardGuidedTour({
 
   return createPortal(
     <AnimatePresence>
+      {/* Dimming backdrop — pulls focus to the tour popup. Click-to-close
+          so power users can dismiss without hunting for the X button. */}
+      <motion.div
+        key="tour-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+        aria-hidden
+      />
+
       <motion.div
         key="tour-popup"
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-2rem)] max-w-md pointer-events-auto"
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] w-[calc(100vw-2rem)] max-w-md pointer-events-auto"
         data-testid="dashboard-guided-tour"
         role="dialog"
+        aria-modal="true"
         aria-label="Dashboard tour"
       >
-        <div className="relative rounded-2xl border bg-card shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+        <div className="relative rounded-2xl border-2 border-emerald-500/30 bg-card shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
           <button
             type="button"
             onClick={onClose}

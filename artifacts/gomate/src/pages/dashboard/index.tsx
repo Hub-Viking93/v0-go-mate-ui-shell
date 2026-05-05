@@ -21,6 +21,7 @@ import { DashboardTabs, DashboardPanel, type DashboardTabId } from "@/components
 import { computeInterviewProgress } from "@/lib/gomate/progress"
 import { DashboardAuditProvider } from "@/lib/audit-context"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
+import type { NumbeoData } from "@/lib/gomate/numbeo-scraper"
 import { AffordabilityCard } from "@/components/affordability-card"
 import { TaxOverviewCard } from "@/components/tax-overview-card"
 import { getCurrencyFromCountry, resolveUserCurrency } from "@/lib/gomate/currency"
@@ -154,37 +155,104 @@ const defaultMockData = {
   ],
 }
 
-// Generate budget based on profile
-function generateBudgetFromProfile(profile: Profile, monthsUntilMove: number = 6): BudgetPlanData {
+/**
+ * Map the bucketed `profile.duration` value to an average stay in months.
+ * Used to size the savings runway when no per-day stay length is known.
+ */
+function mapDurationToMonths(duration: string | null | undefined): number {
+  switch (duration) {
+    case "3-6_months": return 4.5
+    case "6-12_months": return 9
+    case "1-2_years": return 18
+    case "permanent": return 36
+    case "not_sure": return 12
+    default: return 12
+  }
+}
+
+/**
+ * Generate budget plan from profile + (optional) cost-of-living data.
+ *
+ * When `cost` is passed: totalSavingsTarget = monthlyMinimum × stayMonths
+ * + one-time move costs, all denominated in the cost data's currency
+ * (which the /api/cost-of-living endpoint already converted to the
+ * user's preferred_currency). When cost is missing (research not run
+ * yet, or fetch failed) we fall back to the destination-multiplier
+ * heuristic in USD — the same v0 placeholder we had before.
+ *
+ * monthlySavingsTarget = (totalTarget − currentSavings) / monthsUntilMove,
+ * floored at 0 so it never goes negative when the user is already
+ * over-saved.
+ */
+function generateBudgetFromProfile(
+  profile: Profile,
+  monthsUntilMove: number = 6,
+  cost?: NumbeoData | null,
+  currentSavings: number = 0,
+): BudgetPlanData {
   const destination = profile.destination || "Germany"
   const purpose = profile.purpose || "work"
-  
-  // Adjust costs based on destination (simplified)
-  const costMultiplier = destination.toLowerCase().includes("switzerland") ? 1.5 
+  const stayMonths = mapDurationToMonths(profile.duration)
+
+  // Real path: cost specialist data available (already FX-converted).
+  if (cost?.estimatedMonthlyBudget?.single?.minimum) {
+    const monthlyMin = cost.estimatedMonthlyBudget.single.minimum
+    const livingCosts = Math.round(monthlyMin * stayMonths)
+    const visaFee = purpose === "work" ? 250 : purpose === "study" ? 200 : 350
+    const flightCost = 800
+    const securityDeposit = monthlyMin * 2
+    const firstMonthRent = monthlyMin
+    const emergencyBuffer = monthlyMin * 3
+    const oneTimeCosts =
+      visaFee + flightCost + securityDeposit + firstMonthRent + emergencyBuffer
+    const totalTarget = Math.round(livingCosts + oneTimeCosts)
+    const remainingNeeded = Math.max(0, totalTarget - currentSavings)
+    const monthlyTarget =
+      monthsUntilMove > 0
+        ? Math.round(remainingNeeded / monthsUntilMove)
+        : remainingNeeded
+
+    return {
+      currency: cost.currency || "USD",
+      totalSavingsTarget: totalTarget,
+      monthlySavingsTarget: monthlyTarget,
+      monthsUntilMove,
+      breakdown: [
+        { category: "Living Expenses", oneTime: livingCosts, notes: `${stayMonths.toFixed(1)} months at ${cost.city || destination} cost-of-living minimum` },
+        { category: "Visa & Immigration Fees", oneTime: visaFee, notes: `${purpose === "work" ? "Work permit" : purpose === "study" ? "Student visa" : "Residence permit"} application` },
+        { category: "Flight & Initial Travel", oneTime: flightCost, notes: "One-way + luggage" },
+        { category: "Security Deposit", oneTime: Math.round(securityDeposit), notes: "~2 months rent upfront" },
+        { category: "First Month Rent", oneTime: Math.round(firstMonthRent), notes: `${destination} average` },
+        { category: "Emergency Fund", oneTime: Math.round(emergencyBuffer), notes: "3 months buffer" },
+      ],
+      recommendations: [
+        `Start learning the local language — even basic level helps with daily life`,
+        "Open an international bank account before arrival for easier banking",
+        "Register at local authorities within first 2 weeks of arrival",
+      ],
+    }
+  }
+
+  // Fallback path: USD baseline + destination cost multiplier. Used when
+  // cost data hasn't loaded yet (research not run, or API failure).
+  const costMultiplier = destination.toLowerCase().includes("switzerland") ? 1.5
     : destination.toLowerCase().includes("portugal") ? 0.7
     : destination.toLowerCase().includes("japan") ? 1.2
     : destination.toLowerCase().includes("singapore") ? 1.4
     : destination.toLowerCase().includes("london") || destination.toLowerCase().includes("uk") ? 1.3
     : destination.toLowerCase().includes("dubai") || destination.toLowerCase().includes("uae") ? 1.1
     : 1
-  
-  // Calculate total savings target based on cost of living and move complexity
+
   const baseSavings = 15000 * costMultiplier
   const totalTarget = Math.round(baseSavings)
-  const monthlyTarget = monthsUntilMove > 0 ? Math.round(totalTarget / monthsUntilMove) : totalTarget
-  
-  // The numbers in this budget come from a USD-magnitude template (15000
-  // baseline, dollar-denominated category buckets) — labelling them as the
-  // destination's local currency mis-renders ($1500/mo becomes ₱1500/mo
-  // which is ~$26 in real money). Force USD so the magnitude matches the
-  // currency symbol. Same approach as the Cost-of-Living card. Real
-  // localised budgets land when the cost specialist's output gets wired
-  // into this card.
-  void destination
-  const destinationCurrency = "USD"
+  const remainingNeeded = Math.max(0, totalTarget - currentSavings)
+  const monthlyTarget =
+    monthsUntilMove > 0
+      ? Math.round(remainingNeeded / monthsUntilMove)
+      : remainingNeeded
 
   return {
-    currency: destinationCurrency,
+    currency: "USD",
     totalSavingsTarget: totalTarget,
     monthlySavingsTarget: monthlyTarget,
     monthsUntilMove,
@@ -530,6 +598,10 @@ export default function DashboardPage() {
   const [researchStatus, setResearchStatus] = useState<string | null>(null)
   const [showResearchModal, setShowResearchModal] = useState(false)
   const [showGuidedTour, setShowGuidedTour] = useState(false)
+  // Cost-of-living data — drives Budget Plan card's runway calculation.
+  // Fetched once when destination is known; the API converts amounts into
+  // the user's preferred currency before responding.
+  const [costData, setCostData] = useState<NumbeoData | null>(null)
   const [preMoveSummary, setPreMoveSummary] = useState<{
     completed: number
     total: number
@@ -674,6 +746,40 @@ export default function DashboardPage() {
     }
     fetchData()
   }, [])
+
+  // Fetch cost-of-living once we know destination + user's currency.
+  // Drives the Budget Plan card's runway calculation. The API converts
+  // amounts to user's preferred currency before responding.
+  useEffect(() => {
+    const destination = plan?.profile_data?.destination
+    const userCurrency = plan?.profile_data
+      ? resolveUserCurrency(plan.profile_data as Profile)
+      : null
+    if (!destination) return
+
+    let active = true
+    const params = new URLSearchParams({ country: destination })
+    if (plan?.profile_data?.target_city) {
+      params.set("city", String(plan.profile_data.target_city))
+    }
+    if (userCurrency) params.set("to", userCurrency)
+
+    fetch(`/api/cost-of-living?${params}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return
+        // The endpoint returns either a flat NumbeoData or a comparison
+        // wrapper { from, to, comparison }. Normalise to NumbeoData.
+        const normalised = data?.to ?? data
+        if (normalised?.estimatedMonthlyBudget) {
+          setCostData(normalised as NumbeoData)
+        }
+      })
+      .catch(() => null)
+    return () => {
+      active = false
+    }
+  }, [plan?.profile_data])
 
   useEffect(() => {
     let active = true
@@ -871,46 +977,50 @@ export default function DashboardPage() {
   const citizenship = profile.citizenship || "United States"
   const targetDate = profile.timeline || defaultMockData.targetDate
   
-  // Calculate months until move from timeline
+  // Calculate months until move from timeline. Handles three formats:
+  //   1. ISO date "2026-09-01" (wizard's primary output)
+  //   2. The literal "flexible" sentinel (wizard's "I'm flexible" toggle)
+  //   3. Free-form text from the legacy chat flow ("September 2026", "6 months", etc.)
   const calculateMonthsUntilMove = (timeline: string | null): number => {
-    if (!timeline) return 6 // default
-    
+    if (!timeline) return 6
+    if (timeline === "flexible") return 12 // assume ~1 yr for flexible plans
+
+    // Try ISO date first (wizard format).
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(timeline)
+    if (iso) {
+      const target = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+      const now = new Date()
+      const monthsDiff =
+        (target.getFullYear() - now.getFullYear()) * 12 +
+        (target.getMonth() - now.getMonth())
+      return Math.max(1, monthsDiff)
+    }
+
+    // Legacy chat-flow free-form parsing.
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth()
-    
-    // Parse various timeline formats
     const timelineLower = timeline.toLowerCase()
-    
-    // Check for specific month mentions
-    const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
-    const monthMatch = months.findIndex(m => timelineLower.includes(m))
-    
-    // Check for year
+    const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+    const monthMatch = monthNames.findIndex((m) => timelineLower.includes(m))
     const yearMatch = timeline.match(/20\d{2}/)
     const targetYear = yearMatch ? parseInt(yearMatch[0]) : currentYear
-    
+
     if (monthMatch >= 0) {
-      // Calculate months difference
       const targetDate = new Date(targetYear, monthMatch, 1)
-      const monthsDiff = (targetDate.getFullYear() - currentYear) * 12 + (targetDate.getMonth() - currentMonth)
+      const monthsDiff =
+        (targetDate.getFullYear() - currentYear) * 12 +
+        (targetDate.getMonth() - currentMonth)
       return Math.max(1, monthsDiff)
     }
-    
-    // Relative time parsing
     if (timelineLower.includes("asap") || timelineLower.includes("soon")) return 2
     if (timelineLower.includes("1 month") || timelineLower.includes("next month")) return 1
     if (timelineLower.includes("3 month")) return 3
     if (timelineLower.includes("6 month")) return 6
     if (timelineLower.includes("1 year") || timelineLower.includes("next year")) return 12
     if (timelineLower.includes("2 year")) return 24
-    
-    // Check for specific year
-    if (targetYear > currentYear) {
-      return (targetYear - currentYear) * 12
-    }
-    
-    return 6 // default fallback
+    if (targetYear > currentYear) return (targetYear - currentYear) * 12
+    return 6
   }
   
   const monthsUntilMove = calculateMonthsUntilMove(profile.timeline)
@@ -926,7 +1036,13 @@ export default function DashboardPage() {
     return `${years} year${years > 1 ? "s" : ""} ${remainingMonths} month${remainingMonths > 1 ? "s" : ""}`
   }
   
-  const budgetData = generateBudgetFromProfile(profile, monthsUntilMove)
+  const currentSavings = parseFloat(profile.savings_available || "0") || 0
+  const budgetData = generateBudgetFromProfile(
+    profile,
+    monthsUntilMove,
+    costData,
+    currentSavings,
+  )
   const visaData = generateVisaDataFromProfile(profile)
   const documentItems = generateDocumentItems(profile)
 
@@ -1749,6 +1865,7 @@ export default function DashboardPage() {
               citizenship={profile.citizenship || undefined}
               // TODO[v2]: derive from profile when family/dependents flow exists
               householdSize="single"
+              userCurrency={resolveUserCurrency(profile)}
             />
           </TierGate>
         </div>

@@ -320,9 +320,14 @@ export function ProfileDetailsCard({ profile, showAllCategories = true, onFieldC
   const requiredFields = getRequiredFields(profile)
   const requiredSet = new Set<string>(requiredFields)
 
-  // Group required fields by category
+  // Group required fields by category. We filter to fields that have a
+  // FIELD_DISPLAY entry — fields without one don't actually render, so
+  // they shouldn't inflate the X/Y count or cause unmapped fields to
+  // pile into the "special" fallback bucket. This keeps the visible
+  // row count and the badge ("4/4") in sync.
   const categoryFields: Record<string, AllFieldKey[]> = {}
   for (const field of requiredFields) {
+    if (!FIELD_DISPLAY[field]) continue
     const cat = FIELD_TO_CATEGORY[field] || "special"
     if (!categoryFields[cat]) categoryFields[cat] = []
     categoryFields[cat].push(field)

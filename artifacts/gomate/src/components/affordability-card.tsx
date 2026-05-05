@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AlertTriangle, TrendingUp, Wallet, Info } from "lucide-react"
+import { AlertTriangle, TrendingUp, Info } from "lucide-react"
 import {
   computeAffordability,
   TIER_LABELS,
@@ -58,6 +58,8 @@ export function AffordabilityCard({
       try {
         const params = new URLSearchParams({ country: destination })
         if (city) params.set("city", city)
+        // Pass user's currency so the API converts amounts before responding.
+        if (userCurrency) params.set("to", userCurrency)
         const res = await fetch(`/api/cost-of-living?${params}`)
         if (res.ok) {
           const json = await res.json()
@@ -71,31 +73,15 @@ export function AffordabilityCard({
       }
     }
     fetchCost()
-  }, [destination, city, numbeoData])
+  }, [destination, city, numbeoData, userCurrency])
 
   const budget = monthlyBudget || monthlyIncome
+  // No budget input → don't render the card. The old empty-state had a
+  // CTA pointing at /profile (404) and asked for a monthly_budget that
+  // we no longer collect. Until Batch E rebuilds affordability around
+  // computed cost-of-living × duration runway, hide it cleanly.
   if (!budget) {
-    return (
-      <Card className="relative overflow-hidden p-0 border-stone-200/80 dark:border-stone-800">
-        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500" />
-        <div className="p-6 md:p-7">
-          <p className="gm-eyebrow mb-2 text-emerald-700 dark:text-emerald-400">Affordability</p>
-          <h3 className="font-serif text-2xl md:text-[26px] leading-tight tracking-tight text-foreground mb-2">
-            See if {destination} fits your budget
-          </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-5 max-w-md">
-            Add your monthly budget or income — we'll compare it to real cost-of-living data for {destination} so you know exactly where you'd land.
-          </p>
-          <a
-            href="/profile"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium shadow-[0_4px_14px_-2px_rgba(16,185,129,0.4)] hover:shadow-[0_6px_20px_-2px_rgba(16,185,129,0.55)] transition-shadow"
-          >
-            <Wallet className="w-4 h-4" />
-            Add your budget
-          </a>
-        </div>
-      </Card>
-    )
+    return null
   }
 
   if (loading || rateLoading) {

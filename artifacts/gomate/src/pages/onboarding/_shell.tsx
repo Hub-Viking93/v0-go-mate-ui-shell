@@ -119,7 +119,11 @@ export function OnboardingShell({
         {children}
       </main>
 
-      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
+      {/* lg:left-60 stops the footer at the AppShell sidebar's right
+          edge so it doesn't cover the sidebar's "Sign out" / "Country
+          Guides" entries. On mobile/tablet the sidebar is hidden so we
+          fall back to full-width minus the bottom mobile-nav. */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-60 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
         <div className="px-5 sm:px-8 py-3 max-w-3xl mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             {onBack && (

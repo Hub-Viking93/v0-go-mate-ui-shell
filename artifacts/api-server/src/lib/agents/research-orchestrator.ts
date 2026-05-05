@@ -827,6 +827,53 @@ function pickRedispatchTargets(
 // Finalize — update relocation_plans with terminal status + stage.
 // ---------------------------------------------------------------------------
 
+/**
+ * Fetch ECB daily reference rates from Frankfurter using the user's
+ * preferred_currency as base. Returns a map of currency code → rate
+ * (multiplier). Falls back to USD-base if preferred_currency isn't
+ * ECB-supported. Returns null on total failure (no network, etc.) so
+ * the caller can persist `null` and let the dashboard fall through.
+ */
+async function fetchFxRatesForPlan(
+  profile: Profile,
+): Promise<{ base: string; rates: Record<string, number>; fetchedAt: string } | null> {
+  const candidates: string[] = [];
+  if (typeof profile.preferred_currency === "string" && profile.preferred_currency) {
+    candidates.push(profile.preferred_currency.toUpperCase());
+  }
+  candidates.push("USD"); // hard fallback
+
+  for (const base of candidates) {
+    try {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 8000);
+      const res = await fetch(
+        `https://api.frankfurter.app/latest?from=${encodeURIComponent(base)}`,
+        { signal: ctl.signal },
+      );
+      clearTimeout(t);
+      if (!res.ok) {
+        logger.warn(
+          { base, status: res.status },
+          "[research-orchestrator] FX fetch non-200, trying fallback",
+        );
+        continue;
+      }
+      const data = (await res.json()) as { base?: string; rates?: Record<string, number> };
+      if (!data?.rates || typeof data.rates !== "object") continue;
+      // Frankfurter never returns the base in `rates` — add it as 1.
+      const rates = { ...data.rates, [base]: 1 };
+      return { base, rates, fetchedAt: new Date().toISOString() };
+    } catch (err) {
+      logger.warn(
+        { base, err },
+        "[research-orchestrator] FX fetch errored, trying fallback",
+      );
+    }
+  }
+  return null;
+}
+
 async function finalize(args: {
   supabase: SupabaseClient;
   planId: string;
@@ -919,6 +966,13 @@ async function finalize(args: {
     };
   }
 
+  // Bake FX rates against the user's preferred_currency into the plan
+  // so the dashboard can convert any cost-of-living / budget number
+  // without round-tripping the live FX API. Single fetch from
+  // Frankfurter (ECB daily rates) — gracefully degrades to null if the
+  // call fails or the user's currency isn't ECB-supported.
+  const fxRates = await fetchFxRatesForPlan(args.profile);
+
   // Persist to relocation_plans. Only advance the stage on a fully clean
   // run — partial runs leave the user on the research stage so they can
   // re-trigger and fill in missing pieces (esp. visa).
@@ -931,7 +985,11 @@ async function finalize(args: {
     research_status: effectiveStatus === "failed" ? "failed" : effectiveStatus,
     research_completed_at: now,
     updated_at: now,
-    research_meta: { ...(priorPlan?.research_meta ?? {}), specialists: specialistsByName },
+    research_meta: {
+      ...(priorPlan?.research_meta ?? {}),
+      specialists: specialistsByName,
+      ...(fxRates ? { fx_rates: fxRates } : {}),
+    },
   };
   if (visaResearch) updates.visa_research = visaResearch;
   if (localRequirementsResearch) updates.local_requirements_research = localRequirementsResearch;

@@ -39,6 +39,8 @@ interface CostOfLivingCardProps {
   compareFromCountry?: string
   citizenship?: string
   householdSize?: "single" | "couple" | "family4"
+  /** ISO 4217 code — when set, API converts amounts to this currency. */
+  userCurrency?: string
   onDataLoaded?: (data: NumbeoData) => void
 }
 
@@ -57,6 +59,7 @@ export function CostOfLivingCard({
   compareFromCountry,
   citizenship,
   householdSize = "single",
+  userCurrency,
   onDataLoaded,
 }: CostOfLivingCardProps) {
   const [data, setData] = useState<NumbeoData | null>(null)
@@ -94,6 +97,7 @@ export function CostOfLivingCard({
       if (city) params.set("city", city)
       if (compareFromCity) params.set("compareFrom", compareFromCity)
       if (compareFromCountry) params.set("compareFromCountry", compareFromCountry)
+      if (userCurrency) params.set("to", userCurrency)
 
       const response = await fetch(`/api/cost-of-living?${params}`)
       
@@ -125,7 +129,8 @@ export function CostOfLivingCard({
     if (country) {
       fetchData()
     }
-  }, [country, city, compareFromCity, compareFromCountry])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [country, city, compareFromCity, compareFromCountry, userCurrency])
 
   if (loading) {
     return (
