@@ -10,8 +10,12 @@ interface OccupationInputProps {
   id?: string
 }
 
+const DROPDOWN_MAX_HEIGHT_PX = 240 // matches max-h-60 below
+const FOOTER_CLEARANCE_PX = 80 // sticky wizard footer height
+
 export function OccupationInput({ value, onChange, placeholder, id }: OccupationInputProps) {
   const [focused, setFocused] = React.useState(false)
+  const [flipUp, setFlipUp] = React.useState(false)
   const wrapperRef = React.useRef<HTMLDivElement>(null)
   const blurTimeoutRef = React.useRef<number | null>(null)
 
@@ -23,6 +27,29 @@ export function OccupationInput({ value, onChange, placeholder, id }: Occupation
 
   const isExactMatch = matches.some((m) => m.toLowerCase() === (value ?? "").toLowerCase())
   const showDropdown = focused && matches.length > 0 && !isExactMatch
+
+  // Decide whether the suggestion list should flip above the input. We do
+  // this when there isn't enough room below before the sticky wizard
+  // footer, but there is room above. Recomputed when the dropdown opens
+  // and on viewport resize.
+  React.useEffect(() => {
+    if (!showDropdown || !wrapperRef.current) return
+    const compute = () => {
+      const el = wrapperRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - FOOTER_CLEARANCE_PX
+      const spaceAbove = rect.top
+      setFlipUp(spaceBelow < DROPDOWN_MAX_HEIGHT_PX && spaceAbove > spaceBelow)
+    }
+    compute()
+    window.addEventListener("resize", compute)
+    window.addEventListener("scroll", compute, true)
+    return () => {
+      window.removeEventListener("resize", compute)
+      window.removeEventListener("scroll", compute, true)
+    }
+  }, [showDropdown])
 
   React.useEffect(() => {
     return () => {
@@ -47,7 +74,15 @@ export function OccupationInput({ value, onChange, placeholder, id }: Occupation
         autoComplete="off"
       />
       {showDropdown && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-stone-200 dark:border-stone-700 bg-popover shadow-md max-h-60 overflow-y-auto">
+        <div
+          className={cn(
+            "absolute w-full rounded-md border border-stone-200 dark:border-stone-700 bg-popover shadow-md max-h-60 overflow-y-auto",
+            // z-[60] keeps the suggestion list above the wizard's z-50
+            // sticky footer.
+            "z-[60]",
+            flipUp ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
           {matches.map((occ) => (
             <button
               key={occ}

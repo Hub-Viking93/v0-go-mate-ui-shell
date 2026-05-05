@@ -117,25 +117,27 @@ export default function OnboardingWelcomePage() {
         </div>
       </div>
 
-      <main className="flex-1 flex flex-col px-5 sm:px-8 pt-10 pb-8 max-w-5xl mx-auto w-full">
-        <ol className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+      <main className="flex-1 flex flex-col justify-center px-5 sm:px-8 py-10 max-w-6xl mx-auto w-full">
+        <ol className="grid grid-cols-1 sm:grid-cols-5 gap-4">
           {STEPS.map((step, i) => (
             <li
               key={step.title}
-              className="rounded-xl border border-stone-200 dark:border-stone-800 bg-card p-3.5 transition-shadow hover:shadow-sm"
+              className="flex flex-col rounded-2xl border border-stone-200 dark:border-stone-800 bg-card p-6 min-h-[180px] transition-all hover:shadow-md hover:border-stone-300 dark:hover:border-stone-700"
             >
-              <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground/70 block">
+              <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-emerald-700/80 dark:text-emerald-400/80 block">
                 Step {i + 1}
               </span>
-              <h3 className="text-[13px] font-semibold text-foreground mt-0.5">{step.title}</h3>
-              <p className="text-[12px] text-muted-foreground mt-1 leading-snug">
+              <h3 className="text-lg font-semibold text-foreground mt-1.5 font-serif">
+                {step.title}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed flex-1">
                 {step.body}
               </p>
             </li>
           ))}
         </ol>
 
-        <p className="mt-6 text-[12px] text-muted-foreground text-center">
+        <p className="mt-8 text-sm text-muted-foreground text-center max-w-2xl mx-auto">
           When you finish, we'll generate your visa pathway, budget, timeline, and document
           checklist — about 5 minutes, save and resume anytime.
         </p>
