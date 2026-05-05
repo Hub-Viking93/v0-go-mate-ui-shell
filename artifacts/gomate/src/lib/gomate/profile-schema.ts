@@ -8,7 +8,9 @@ export const ALL_FIELDS = [
   "other_citizenships", // dual/multiple passports - unlocks additional visa pathways
   "birth_year", // for age-restricted visas (Working Holiday, retirement)
   "current_location",
-  
+  "current_city", // optional city of current residence (wizard step 1)
+  "current_occupation", // wizard step 1 — what the user does for a living
+
   // Destination & purpose (always required)
   "destination",
   "target_city",
@@ -33,6 +35,10 @@ export const ALL_FIELDS = [
   "study_type", // university, language_school, vocational, exchange
   "study_field", // engineering, medicine, arts, etc.
   "study_funding", // self-funded, scholarship, loan
+  "institution_name", // wizard step 3/study — name of school/program
+  "study_admission_status", // accepted, applied, planning_to_apply, exploring
+  "study_language", // english, local, other
+  "work_while_studying", // yes_part_time, yes_breaks_only, no, not_sure — affects savings runway
   
   // Work-specific fields (ONLY if purpose=work AND visa_role=primary)
   "job_offer", // yes, no, in_progress
@@ -65,12 +71,14 @@ export const ALL_FIELDS = [
   
   // Background
   "language_skill",
+  "languages_spoken", // wizard — structured list of {language, level} (replaces language_skill in wizard flow)
   "education_level", // high_school, bachelors, masters, phd
   "years_experience", // work experience
   
   // Legal/visa history
   "prior_visa",
   "visa_rejections", // yes, no
+  "criminal_record", // yes, no — affects eligibility for many visa categories
   
   // Healthcare & special needs
   "healthcare_needs", // none, chronic_condition, disability
@@ -93,6 +101,11 @@ export const ALL_FIELDS = [
   "a1_certificate_status",
   "coc_status",
   "pwd_filed",
+  "pre_first_paycheck_support", // wizard work-grenens visa-finance — hur försörja sig innan första lönen
+  "settlement_support_source", // wizard settle-grenens visa-finance — hur försörja sig efter flytten
+  "keep_current_remote_work", // wizard DN-grenen — behåller man nuvarande klienter/arbetsgivare?
+  "foreign_income_only", // wizard DN-grenen — jobbar man bara mot kunder utanför destinationslandet?
+  "income_covers_living_costs", // wizard DN-grenens visa-finance — räcker inkomsten till living costs?
 
   // Prior immigration history (gates on prior_visa=yes)
   "prior_visa_country",
@@ -271,6 +284,24 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     required: true,
     category: "core",
   },
+  current_city: {
+    key: "current_city",
+    label: "Current City",
+    intent: "City of current residence — refines consulate / shipping origin",
+    examples: ["Which city are you in?", "What city do you currently live in?"],
+    extractionHints: ["live in", "from", "based in"],
+    required: false,
+    category: "core",
+  },
+  current_occupation: {
+    key: "current_occupation",
+    label: "Current Occupation",
+    intent: "What the user does for a living — used for visa pathway eligibility (highly skilled, regulated professions)",
+    examples: ["What do you do for work?", "What's your current job?"],
+    extractionHints: ["work as", "job", "career", "occupation", "I'm a"],
+    required: false,
+    category: "background",
+  },
 
   // DESTINATION - Always required
   destination: {
@@ -329,6 +360,46 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     examples: ["How are you planning to fund your studies?", "Do you have a scholarship, or will you self-fund?"],
     extractionHints: ["scholarship", "self-funded", "loan", "savings", "parents", "sponsor"],
     required: (p) => p.purpose === "study",
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["study"] },
+  },
+  institution_name: {
+    key: "institution_name",
+    label: "Institution",
+    intent: "Name of the school, university, or program",
+    examples: ["Which school or program are you considering?"],
+    extractionHints: ["university", "school", "college", "program"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["study"] },
+  },
+  study_admission_status: {
+    key: "study_admission_status",
+    label: "Admission Status",
+    intent: "Where the user is in the application process — drives visa timing",
+    examples: ["Have you been accepted? Applied? Still exploring?"],
+    extractionHints: ["accepted", "admitted", "applied", "applying", "exploring"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["study"] },
+  },
+  study_language: {
+    key: "study_language",
+    label: "Study Language",
+    intent: "Language of instruction — affects language test requirements",
+    examples: ["What language will your studies be in?"],
+    extractionHints: ["english", "local language", "in english", "in german"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["study"] },
+  },
+  work_while_studying: {
+    key: "work_while_studying",
+    label: "Work While Studying",
+    intent: "Whether the user plans to work alongside studies — affects savings runway and visa work-permission constraints",
+    examples: ["Do you expect to work while studying?"],
+    extractionHints: ["work part-time", "summer job", "side job", "while studying"],
+    required: false,
     category: "purpose_specific",
     dependsOn: { field: "purpose", values: ["study"] },
   },
@@ -464,7 +535,12 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Whether user is the primary visa applicant or joining someone else (dependent)",
     examples: ["Are you applying for the visa yourself, or joining someone who already has one?", "Will you be the main visa holder, or are you accompanying someone?"],
     extractionHints: ["joining", "accompanying", "my partner has", "my spouse works", "following", "dependent", "main applicant", "primary", "myself"],
-    required: true,
+    // required:false in v1 — the wizard treats every user as a primary
+    // applicant (auto-sets visa_role="primary" on /destination save), so
+    // we don't surface it as a question or a dashboard tile. The field
+    // still exists in the schema for chat-flow back-compat and for any
+    // future dependent-applicant flow.
+    required: false,
     category: "core",
   },
 
@@ -548,7 +624,11 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Whether relocating solo or with others",
     examples: ["Will you be moving alone or with others?", "Is anyone joining you on this move?"],
     extractionHints: ["alone", "by myself", "solo", "with", "family", "partner", "spouse"],
-    required: true,
+    // required:false in v1 — wizard hard-assumes solo applicant and
+    // auto-sets moving_alone="yes" on /destination save. spouse_joining/
+    // children_count/children_ages stay gated on moving_alone==="no" so
+    // they remain dormant. Family/dependents support is a v2 expansion.
+    required: false,
     category: "family",
   },
   spouse_joining: {
@@ -598,7 +678,11 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     intent: "Expected monthly spending",
     examples: ["What's your expected monthly budget once there?", "How much can you spend per month?"],
     extractionHints: ["per month", "monthly", "rent", "expenses", "cost", "afford"],
-    required: true,
+    // required:false — we no longer ask the user to guess a monthly
+    // budget. The system computes the required runway from
+    // cost-of-living × stay duration (see BudgetPlanCard). Kept in
+    // schema only for chat-flow back-compat.
+    required: false,
     category: "financial",
   },
   preferred_currency: {
@@ -628,6 +712,15 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     examples: ["How's your proficiency in the local language?", "Do you speak the language?"],
     extractionHints: ["fluent", "beginner", "intermediate", "native", "none", "basic", "A1", "B2"],
     required: false, // Optional - ask only if relevant to visa type or user mentions language
+    category: "background",
+  },
+  languages_spoken: {
+    key: "languages_spoken",
+    label: "Languages Spoken",
+    intent: "Structured list of languages and proficiency — affects visa eligibility (language tests) and integration plan",
+    examples: ["Which languages do you speak?", "What languages and at what level?"],
+    extractionHints: ["speak", "fluent", "native", "languages"],
+    required: false, // Wizard enforces ≥1 client-side; chat flow keeps writing to language_skill
     category: "background",
   },
   education_level: {
@@ -667,6 +760,15 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     examples: ["Have you ever had a visa rejected?", "Any previous visa issues we should know about?"],
     extractionHints: ["rejected", "denied", "refused", "overstay", "issues", "problems", "no"],
     required: false, // Only ask if user mentions visa issues or has prior_visa
+    category: "legal",
+  },
+  criminal_record: {
+    key: "criminal_record",
+    label: "Criminal Record",
+    intent: "Whether the user has a criminal record or ongoing legal issues — affects most visa categories",
+    examples: ["Do you have a criminal record or ongoing legal issues?"],
+    extractionHints: ["criminal", "record", "conviction", "legal issues", "background"],
+    required: false,
     category: "legal",
   },
 
@@ -782,6 +884,56 @@ export const FIELD_CONFIG: Record<AllFieldKey, FieldConfig> = {
     required: (p) => p.purpose === "work" && p.posting_or_secondment === "yes",
     category: "purpose_specific",
     dependsOn: { field: "posting_or_secondment", values: ["yes"] },
+  },
+  pre_first_paycheck_support: {
+    key: "pre_first_paycheck_support",
+    label: "Pre-first-paycheck Support",
+    intent: "How the user will cover living costs between arrival and first salary — used for runway calculations",
+    examples: ["How will you support yourself before your first paycheck?"],
+    extractionHints: ["savings", "family support", "relocation package", "employer pays", "relocation allowance"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["work"] },
+  },
+  settlement_support_source: {
+    key: "settlement_support_source",
+    label: "Settlement Support Source",
+    intent: "How the user will support themselves after moving — pension, investments, savings, etc.",
+    examples: ["How will you support yourself after the move?"],
+    extractionHints: ["pension", "retirement", "investments", "savings", "family", "remote", "passive income"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["settle"] },
+  },
+  keep_current_remote_work: {
+    key: "keep_current_remote_work",
+    label: "Keep Current Remote Work",
+    intent: "Whether the user keeps existing clients/employer after relocation — affects visa categorization",
+    examples: ["Will you keep your current clients/employer after the move?"],
+    extractionHints: ["keep clients", "stay with employer", "switch jobs", "new clients"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
+  foreign_income_only: {
+    key: "foreign_income_only",
+    label: "Foreign Income Only",
+    intent: "Whether income comes only from outside the destination country — required for most digital-nomad visas",
+    examples: ["Do you work only for clients/employers outside the destination?"],
+    extractionHints: ["foreign clients", "outside the country", "international clients", "no local clients"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
+  },
+  income_covers_living_costs: {
+    key: "income_covers_living_costs",
+    label: "Income Covers Living Costs",
+    intent: "User's own assessment of whether their remote income covers cost of living in destination",
+    examples: ["Will your current income cover your living costs there?"],
+    extractionHints: ["enough income", "cover cost of living", "afford it"],
+    required: false,
+    category: "purpose_specific",
+    dependsOn: { field: "purpose", values: ["digital_nomad"] },
   },
 
   // -------- Prior immigration history --------
@@ -1385,6 +1537,8 @@ export const ProfileSchema = z.object({
   other_citizenships: z.string().nullable(),
   birth_year: z.string().nullable(),
   current_location: z.string().nullable(),
+  current_city: z.string().nullable(),
+  current_occupation: z.string().nullable(),
   destination: z.string().nullable(),
   target_city: z.string().nullable(),
   purpose: z.enum(["study", "work", "settle", "digital_nomad", "other"]).nullable(),
@@ -1401,6 +1555,10 @@ export const ProfileSchema = z.object({
   study_type: z.string().nullable(),
   study_field: z.string().nullable(),
   study_funding: z.string().nullable(),
+  institution_name: z.string().nullable(),
+  study_admission_status: z.string().nullable(),
+  study_language: z.string().nullable(),
+  work_while_studying: z.string().nullable(),
   
   // Work-specific
   job_offer: z.string().nullable(),
@@ -1437,12 +1595,21 @@ export const ProfileSchema = z.object({
   
   // Background
   language_skill: z.string().nullable(),
+  languages_spoken: z
+    .array(
+      z.object({
+        language: z.string(),
+        level: z.enum(["beginner", "intermediate", "advanced", "fluent", "native"]),
+      }),
+    )
+    .nullable(),
   education_level: z.string().nullable(),
   years_experience: z.string().nullable(),
   
   // Legal
   prior_visa: z.string().nullable(),
   visa_rejections: z.string().nullable(),
+  criminal_record: z.string().nullable(),
   
   // Special
   healthcare_needs: z.string().nullable(),
@@ -1458,6 +1625,11 @@ export const ProfileSchema = z.object({
   a1_certificate_status: z.string().nullable(),
   coc_status: z.string().nullable(),
   pwd_filed: z.string().nullable(),
+  pre_first_paycheck_support: z.string().nullable(),
+  settlement_support_source: z.string().nullable(),
+  keep_current_remote_work: z.string().nullable(),
+  foreign_income_only: z.string().nullable(),
+  income_covers_living_costs: z.string().nullable(),
   // Prior immigration
   prior_visa_country: z.string().nullable(),
   prior_visa_type: z.string().nullable(),
@@ -1544,6 +1716,8 @@ export const EMPTY_PROFILE: Profile = {
   other_citizenships: null,
   birth_year: null,
   current_location: null,
+  current_city: null,
+  current_occupation: null,
   destination: null,
   target_city: null,
   purpose: null,
@@ -1556,6 +1730,10 @@ export const EMPTY_PROFILE: Profile = {
   study_type: null,
   study_field: null,
   study_funding: null,
+  institution_name: null,
+  study_admission_status: null,
+  study_language: null,
+  work_while_studying: null,
   job_offer: null,
   job_field: null,
   employer_sponsorship: null,
@@ -1578,10 +1756,12 @@ export const EMPTY_PROFILE: Profile = {
   preferred_currency: null,
   need_budget_help: null,
   language_skill: null,
+  languages_spoken: null,
   education_level: null,
   years_experience: null,
   prior_visa: null,
   visa_rejections: null,
+  criminal_record: null,
   healthcare_needs: null,
   pets: null,
   special_requirements: null,
@@ -1594,6 +1774,11 @@ export const EMPTY_PROFILE: Profile = {
   a1_certificate_status: null,
   coc_status: null,
   pwd_filed: null,
+  pre_first_paycheck_support: null,
+  settlement_support_source: null,
+  keep_current_remote_work: null,
+  foreign_income_only: null,
+  income_covers_living_costs: null,
   prior_visa_country: null,
   prior_visa_type: null,
   prior_residence_outside_origin: null,

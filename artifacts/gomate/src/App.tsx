@@ -25,6 +25,14 @@ import ProfileFieldChipPreviewPage from "@/pages/dev/profile-field-chip";
 import SpecialistCardsPreviewPage from "@/pages/dev/specialist-cards-preview";
 import AuditPopoverPreviewPage from "@/pages/dev/audit-popover";
 import OnboardingPage from "@/pages/onboarding";
+import OnboardingProfilePage from "@/pages/onboarding/profile";
+import OnboardingDestinationPage from "@/pages/onboarding/destination";
+import OnboardingStudyPage from "@/pages/onboarding/study";
+import OnboardingWorkPage from "@/pages/onboarding/work";
+import OnboardingSettlePage from "@/pages/onboarding/settle";
+import OnboardingDigitalNomadPage from "@/pages/onboarding/digital-nomad";
+import OnboardingVisaFinancePage from "@/pages/onboarding/visa-finance";
+import OnboardingReviewPage from "@/pages/onboarding/review";
 import ResearchPage from "@/pages/research";
 import GuidesPage from "@/pages/guides";
 import GuideDetailPage from "@/pages/guides/detail";
@@ -106,6 +114,18 @@ function Router() {
       <Route path="/dashboard"><ProtectedRoute><DashboardPage /></ProtectedRoute></Route>
       <Route path="/chat"><ProtectedRoute><RedirectToOnboardingIfCollecting><ChatPage /></RedirectToOnboardingIfCollecting></ProtectedRoute></Route>
       {/* /chat-v1 retired — see import comment. */}
+      {/* Wizard onboarding (new flow). The legacy chat-driven onboarding
+          still lives at /onboarding for now; once all 5 wizard steps land
+          we'll repoint /onboarding -> /onboarding/profile and retire the
+          chat extraction path. */}
+      <Route path="/onboarding/profile"><ProtectedRoute><OnboardingProfilePage /></ProtectedRoute></Route>
+      <Route path="/onboarding/destination"><ProtectedRoute><OnboardingDestinationPage /></ProtectedRoute></Route>
+      <Route path="/onboarding/study"><ProtectedRoute><OnboardingStudyPage /></ProtectedRoute></Route>
+      <Route path="/onboarding/work"><ProtectedRoute><OnboardingWorkPage /></ProtectedRoute></Route>
+      <Route path="/onboarding/settle"><ProtectedRoute><OnboardingSettlePage /></ProtectedRoute></Route>
+      <Route path="/onboarding/digital-nomad"><ProtectedRoute><OnboardingDigitalNomadPage /></ProtectedRoute></Route>
+      <Route path="/onboarding/visa-finance"><ProtectedRoute><OnboardingVisaFinancePage /></ProtectedRoute></Route>
+      <Route path="/onboarding/review"><ProtectedRoute><OnboardingReviewPage /></ProtectedRoute></Route>
       <Route path="/onboarding"><ProtectedRoute><OnboardingPage /></ProtectedRoute></Route>
       <Route path="/research"><ProtectedRoute><ResearchPage /></ProtectedRoute></Route>
       <Route path="/mascot-preview"><MascotPreviewPage /></Route>

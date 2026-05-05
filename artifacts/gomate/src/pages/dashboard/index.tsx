@@ -1747,11 +1747,8 @@ export default function DashboardPage() {
               compareFromCity={profile.current_location || undefined}
               compareFromCountry={profile.citizenship || undefined}
               citizenship={profile.citizenship || undefined}
-              householdSize={
-                profile.moving_alone === "yes" ? "single" :
-                profile.spouse_joining === "yes" && !profile.children_count ? "couple" :
-                profile.children_count ? "family4" : "single"
-              }
+              // TODO[v2]: derive from profile when family/dependents flow exists
+              householdSize="single"
             />
           </TierGate>
         </div>
@@ -1767,11 +1764,8 @@ export default function DashboardPage() {
               savingsAvailable={parseFloat(profile.savings_available || "") || null}
               destination={profile.destination || ""}
               city={profile.target_city || undefined}
-              householdSize={
-                profile.moving_alone === "yes" ? "single" :
-                profile.spouse_joining === "yes" && !profile.children_count ? "couple" :
-                profile.children_count ? "family4" : "single"
-              }
+              // TODO[v2]: derive from profile when family/dependents flow exists
+              householdSize="single"
               userCurrency={resolveUserCurrency(profile)}
             />
           </TierGate>
