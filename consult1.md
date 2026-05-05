@@ -28,6 +28,10 @@ En riktig relocationkonsult gör tre saker en B2C-app sällan gör:
 3. **Hanterar dokumentationen** — har dina papper, vet vad som krävs,
    ser till att du har rätt format/apostille/översättning
 
+4. **Utövar omdöme** — säger inte bara *vad* som finns, utan *vad du
+   bör göra först*, *vad som är realistiskt*, *vad som är riskabelt*
+   och *vad plan B är om spår A faller*
+
 GoMate idag är en **informationsmaskin**: plan, checklist, guides,
 AI som svarar på frågor. Det är en bra hälft. Den andra hälften — den
 som gör det till en *konsult* — saknas mestadels.
@@ -142,11 +146,134 @@ Sedan en parallell departure-checklist på dashboarden.
 
 **Skala:** ~1-2 dagars arbete om onboarding-mönstret återanvänds.
 
+### 6. Feasibility / readiness-lager
+
+**Varför:** En konsult säger inte bara "här är dina steg", utan också
+"du är 80% redo på dokument, 40% redo på ekonomi och 20% redo på
+timeline". Det här är skillnaden mellan en guide och rådgivning.
+
+**Buildbart nu:** En enkel readiness-model ovanpå befintlig profil:
+
+- `visa_readiness`
+- `money_readiness`
+- `document_readiness`
+- `move_readiness`
+
+Varje score drivs av redan insamlade fält + specialist-output. Exempel:
+ingen sponsor + låg savings runway = låg readiness. Accepterad till
+skola + savings + inga visa-flaggor = högre readiness.
+
+**UI-arbetet:** En "Are you ready?"-yta på dashboarden och i review-
+steget, med blockers, risks och recommended next action.
+
+### 7. Fallback paths / Plan B-motor
+
+**Varför:** En riktig konsult säger: "Om work permit ser svagt ut,
+titta på study, digital nomad eller ett annat land." Idag blir mycket
+lätt binärt: användaren väljer ett spår och allt antar att det spåret
+är korrekt.
+
+**Buildbart nu:** Om specialists eller profile-rules ser att
+huvudspåret är svagt, surfaca:
+
+- alternativ visa-väg i samma land
+- alternativ purpose
+- alternativ destination
+
+Exempel:
+
+- "Work i land X ser svårt utan sponsor — study kan vara mer realistiskt"
+- "Digital nomad i land Y kräver högre inkomst än du har idag"
+
+**Skala:** Regelmotor + copy-lager. Behöver inte vara perfekt AI; kan
+vara heuristiskt först.
+
+### 8. Proof-of-eligibility coach
+
+**Varför:** Många privatpersoner fastnar inte på att de "inte visste
+att ett visum finns", utan på att de inte förstår *hur de bevisar* att
+de kvalar in.
+
+**Buildbart nu:** Per pathway, visa tydligt:
+
+- vad myndigheten vill se
+- vilken typ av bevis som normalt accepteras
+- vad som ofta inte räcker
+- vilka luckor användaren fortfarande har
+
+Exempel:
+
+- proof of funds
+- sponsorbrev
+- admission letter
+- employment contract
+- address proof
+
+Detta är mer än checklista; det är "är mitt underlag faktiskt starkt
+nog?".
+
+### 9. Document preparation guidance
+
+**Varför:** Document vault räcker inte. Användaren behöver hjälp med
+hur dokumenten ska förberedas.
+
+**Buildbart nu:** Varje dokumenttyp får en prep-guide:
+
+- original eller kopia
+- översättning krävs eller ej
+- certifiering / notarization / apostille
+- giltighetstid
+- fotoformat
+- vanliga misstag
+
+Det här kan kopplas direkt till vaulten och till tasks. Då blir
+uppladdning inte bara lagring, utan kvalitetssäkring.
+
+### 10. First 72 hours / first 30 days playbooks
+
+**Varför:** En konsult hjälper dig inte bara *före* flytten, utan när
+du landat och är som mest överväldigad.
+
+**Buildbart nu:** Generera två extremt konkreta paket:
+
+- `First 72 hours`
+- `First 30 days`
+
+Med ordning, inte bara lista. Exempel:
+
+- hämta nycklar
+- registrera adress
+- skaffa SIM
+- fixa bankkonto
+- registrera vård
+- boka nästa myndighetsmöte
+
+Det här är konsultkänsla i koncentrat, särskilt för B2C.
+
+### 11. Denied / delayed-scenarier
+
+**Varför:** Nästan alla relocation-resor får friktion. Visum drar ut
+på tiden, antagningsbrev blir försenade, hyresvärd drar sig ur.
+Idag antar mycket produktlogik att användaren rör sig framåt.
+
+**Buildbart nu:** Lägg in explicita fallback states:
+
+- visa delayed
+- visa denied
+- employer sponsorship fell through
+- school admission delayed
+- move date changed
+
+Och för varje: vad ändras nu i planen, vad ska pausas, vad blir nästa
+bästa steg?
+
+Det här gör appen robust på ett sätt som känns konsultmässigt.
+
 ---
 
 ## Tier 2 — Viktigt och buildbart NU
 
-### 6. Family / dependents-grenen tillbaka
+### 12. Family / dependents-grenen tillbaka
 
 **Varför:** `consult.md` är väldigt tydlig att school search + partner
 support är en separat tjänstekategori hos nästan alla bolag. För
@@ -167,7 +294,7 @@ fält finns). Behöver:
 "thin slice" som åtminstone fångar familjedata och visar relevant
 school/partner-content statiskt.
 
-### 7. Banking + healthcare som aktiva flöden
+### 13. Banking + healthcare som aktiva flöden
 
 **Varför:** Banking-helper-specialisten finns redan; healthcare-
 navigatorn finns. Men de producerar text-blobs. För konsult-känsla
@@ -186,7 +313,7 @@ användaren via API. Vi pekar:
 **Skala:** Innehållsarbete + ny dashboard-yta. Specialisterna ger
 redan rätt typ av output, det är UI och strukturen som saknas.
 
-### 8. Housing-stöd, även lättviktigt
+### 14. Housing-stöd, även lättviktigt
 
 **Varför:** Bostad är en av de största delarna enligt `consult.md`.
 GoMate har cost-of-living-card men ingen yta som hanterar bostadssök
@@ -207,7 +334,7 @@ med:
 **Skala:** Innehåll + ny housing-vy på dashboarden. Inga
 integrationer. ~3-5 dagar.
 
-### 9. Driver's license conversion
+### 15. Driver's license conversion
 
 **Varför:** Underskattad men nästan alltid relevant. Schema har
 `driver_license_origin` redan. Många länder har 6-månaders fönster
@@ -220,7 +347,7 @@ kort byts ut inom 12 månader på Transportstyrelsen, formulär TSTRK1018."
 **Skala:** Innehållsarbete + ett task per användare där relevant.
 ~2-3 dagar.
 
-### 10. Cultural / "Day 1"-orientering
+### 16. Cultural / "Day 1"-orientering
 
 **Varför:** Inte språkkurs, men en kort *"Detta är hur Sverige funkar
 i vardagen"*: Swish, vintertider, jantelagen, hur man hyr förstahand,
@@ -240,7 +367,7 @@ guide-PDF.
 Saker som inte kräver externa partnerships, men där pipelinen är lite
 tyngre att sätta upp.
 
-### 11. Push-notiser / email-påminnelser
+### 17. Push-notiser / email-påminnelser
 
 **Varför:** "Visumansökan måste in om 14 dagar". Idag pingar systemet
 aldrig användaren. Det här är vad som gör en konsult till en
@@ -256,7 +383,7 @@ worker + permission-flow. Email räcker för v1.
 
 **Skala:** ~3-4 dagar inkl. email-template + cron + opt-in.
 
-### 12. Real-time visa-/skatteregels-monitoring
+### 18. Real-time visa-/skatteregels-monitoring
 
 **Varför:** En riktig konsult vet när Tyskland höjer Blue Card-
 tröskeln, när Portugal stänger Golden Visa, när Sverige ändrar
@@ -271,7 +398,7 @@ ongoing pipeline att underhålla.
 
 **Skala:** ~1-2 veckors initial bygge + ongoing monitoring/curation.
 
-### 13. Insurance walkthrough
+### 19. Insurance walkthrough
 
 **Varför:** Sjukvård, hemförsäkring, ansvarsförsäkring, internationell
 hälsa — alltid relevant.
@@ -285,7 +412,7 @@ guidar.
 **Skala:** Innehållsarbete per topp-10 destinationer + en insurance-
 sektion på Settling-tab eller dedikerad sida. ~3-5 dagar.
 
-### 14. Pet relocation-flöde
+### 20. Pet relocation-flöde
 
 **Varför:** Schema har `pets`-fält men ingen yta använder det.
 
@@ -298,7 +425,7 @@ sektion på Settling-tab eller dedikerad sida. ~3-5 dagar.
 
 **Skala:** Innehållsarbete + ny pet-checklist-sektion. ~2-3 dagar.
 
-### 15. Tax overview för enkla fall
+### 21. Tax overview för enkla fall
 
 **Varför:** Double-taxation 101, var jag deklarerar år 1, "byt
 skatteresidens"-checklist (inte räkna åt dig, bara peka på rätt
@@ -391,3 +518,27 @@ Bygg det när första task som behöver det landar.
 
 Allt däröver kan göras parallellt eller i den ordning som känns rätt
 beroende på vad användarna ber om.
+
+---
+
+## Meta-observation
+
+Det viktigaste som lagts till ovan är ett nytt lager ovanpå tasks:
+
+- inte bara **task support**
+- utan också **judgment support**
+
+Det betyder att GoMate inte bara ska säga:
+
+- här är din checklist
+
+utan också:
+
+- är det här realistiskt för dig?
+- vad är största risken just nu?
+- vad bör du göra först?
+- vad bör du inte lägga tid på ännu?
+- vad är plan B om detta spår faller?
+
+Det är det lagret som gör att appen faktiskt börjar kännas som en
+"pocket consultant" och inte bara en välsorterad informationsprodukt.
