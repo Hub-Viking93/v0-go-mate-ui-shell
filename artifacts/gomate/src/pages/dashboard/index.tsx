@@ -1208,12 +1208,14 @@ export default function DashboardPage() {
             {profile.name ? `${profile.name}'s move` : "Your move"}
           </h1>
           <div className="flex items-center gap-2 mt-1.5 text-[12px] text-[#7E9088]">
-            <span>{dashboardState.profileProgressLabel} confirmed</span>
-            {targetCountry && (
+            {targetCountry ? (
               <>
+                <span>Planning</span>
                 <span>·</span>
-                <span>{targetCountry}</span>
+                <span className="text-[#1F2A24] font-medium">{targetCountry}</span>
               </>
+            ) : (
+              <span>Set destination to begin planning</span>
             )}
           </div>
         </div>
@@ -1394,7 +1396,7 @@ export default function DashboardPage() {
               <VisaStatusBadge citizenship={citizenship} destination={targetCountry} />
             </div>
           )}
-          <div className="gm-surface grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#E2E8E1]">
+          <div className="gm-surface grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#E2E8E1]">
             <div className="px-4 py-3.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <MapPin className="w-3 h-3" strokeWidth={1.7} />
@@ -1419,16 +1421,6 @@ export default function DashboardPage() {
               {profile.visa_role && (
                 <div className="text-[11px] text-[#7E9088] mt-0.5">{formatEnumLabel(profile.visa_role)}</div>
               )}
-            </div>
-            <div className="px-4 py-3.5">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
-                <TrendingUp className="w-3 h-3" strokeWidth={1.7} />
-                Profile
-              </div>
-              <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24]">
-                {dashboardState.profileProgressLabel}
-              </div>
-              <div className="text-[11px] text-[#7E9088] mt-0.5">complete</div>
             </div>
             <div className="px-4 py-3.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">

@@ -43,12 +43,6 @@ function mapModelForOpenRouter(model: string): string {
 // callLLM. Calling callLLM for such an agent throws a programming-error
 // exception so the bug surfaces immediately.
 export const AGENT_MODEL_ROUTING = {
-  // foundation
-  extractor: "claude-haiku-4-5",
-  validator: null,
-  profile_writer: null,
-  question_director: "claude-sonnet-4-6",
-
   // coordinators — switched off Opus per cost-budget directive (2026-05-03).
   // Coordinator's job is dispatch logic over a small profile JSON;
   // Sonnet 4.6 handles it with no quality regression.

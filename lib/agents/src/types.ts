@@ -14,6 +14,8 @@ export type ConfidenceLevel =
   | "fallback";
 
 export type AgentPhase =
+  // "extraction" / "validation" retained on legacy agent_run_log rows;
+  // no live writers since the chat-driven onboarding was retired.
   | "extraction"
   | "validation"
   | "research"
@@ -27,11 +29,6 @@ export type AgentPhase =
 // here AND to AGENT_MODEL_ROUTING in router.ts (the `satisfies` constraint
 // in router.ts will fail typecheck otherwise).
 export type AgentName =
-  // ---- foundation (extraction / validation / chat router) ----
-  | "extractor"
-  | "validator"
-  | "profile_writer"
-  | "question_director"
   // ---- coordinators ----
   | "coordinator"
   | "settling_in_coordinator"

@@ -1,39 +1,21 @@
 // =============================================================
-// POST /api/chat — Wave 2.3 Multi-Agent Onboarding Orchestration
+// POST /api/chat — plan-state-aware advisory chat
 // =============================================================
-// Replaces the Wave 2.2 503 placeholder. Routes by the canonical
-// stage of the user's current relocation plan:
+// The wizard at /onboarding is the only intake path now. /chat
+// is always advisory: it routes by the canonical stage of the
+// user's current relocation plan and seeds the system prompt
+// with profile + (post-arrival) settling-in tasks.
 //
-//   • arrived            → settling-in coach (post-arrival prompt
-//                          + OpenAI streaming)
-//   • collecting         → multi-agent intake chain
-//                          (Extractor → Validator → ProfileWriter →
-//                          QuestionDirector). When the chain
-//                          reports isOnboardingComplete=true we
-//                          atomically lock the plan
-//                          (locked=true, stage='complete'). The
-//                          `user_triggered_research_at` timestamp
-//                          is intentionally untouched — that's the
-//                          user's own button (POST
-//                          /api/plans/trigger-research).
-//   • locked / generating /
-//     ready_for_pre_departure /
-//     pre_departure       → legacy free-form chat (OpenAI) seeded
-//                          with the profile so the assistant has
-//                          context. The user has graduated past
-//                          intake; we never re-run the intake
-//                          chain on these stages.
+//   • arrived  → settling-in coach (post-arrival prompt +
+//                OpenAI streaming, baked-in tasks)
+//   • else     → free-form advisory chat seeded with profile +
+//                stage hint, never an intake re-entry
 //
-// SSE contract — backwards-compatible with the existing chat
-// page consumer (artifacts/gomate/src/pages/chat/index.tsx):
+// SSE contract — backwards-compatible with the chat page
+// consumer (artifacts/gomate/src/pages/chat/index.tsx):
 //
 //   data: {"type":"text-delta","delta":"<chunk>"}
 //   ...repeated...
-//   data: {"type":"mascot","kind":"thinking_start"}
-//   data: {"type":"mascot","kind":"extraction_complete",...}
-//   data: {"type":"mascot","kind":"validation_complete",...}
-//   data: {"type":"mascot","kind":"profile_updated",...}
-//   data: {"type":"mascot","kind":"question_ready","animationCue":"..."}
 //   data: {"type":"message-end","metadata":{...}}
 //   data: [DONE]
 //
@@ -43,22 +25,11 @@
 
 import { Router, type IRouter } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import {
-  AGENTS_PACKAGE_VERSION,
-  createSupabaseLogWriter,
-  createSupabaseProfileStore,
-  type LogWriter,
-  type QuestionDirectorMessage,
-} from "@workspace/agents";
+import { AGENTS_PACKAGE_VERSION } from "@workspace/agents";
 
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
 import { deriveCanonicalStageServer } from "../lib/gomate/core-state";
-import {
-  orchestrateCollecting,
-  type OrchestrateCollectingResult,
-  type MascotEvent,
-} from "../lib/gomate/orchestrate-collecting";
 import {
   buildPostArrivalSystemPrompt,
   type SettlingTask,
@@ -135,15 +106,6 @@ router.post("/chat", async (req, res) => {
     }
   }
 
-  // Read the canonical conversation history from chat_messages
-  // (cap last 50 turns) instead of trusting the request body. This
-  // closes the gap where chat_history was always 0 even though
-  // onboarding had advanced for many turns.
-  const conversationHistory = await loadConversationHistory(
-    ctx.supabase,
-    plan.id,
-  );
-
   const profile: Profile =
     plan.profile_data && typeof plan.profile_data === "object"
       ? (plan.profile_data as Profile)
@@ -176,7 +138,6 @@ router.post("/chat", async (req, res) => {
     // aware free-form chat. The wizard onboarding lives at /onboarding;
     // /chat is always advisory chat now, never an intake re-entry.
     void lastUserMessage; // (no longer drives field-extraction here)
-    void conversationHistory;
     void lastAssistantMessage;
     await handlePostIntakeFreeForm(
       ctx.supabase,
@@ -211,19 +172,6 @@ router.post("/chat", async (req, res) => {
 // Stage handlers
 // ---------------------------------------------------------------
 
-interface HandleCollectingArgs {
-  supabase: import("@supabase/supabase-js").SupabaseClient;
-  userId: string;
-  planId: string;
-  profile: Profile;
-  hintedPendingField: string | null;
-  userMessage: string;
-  conversationHistory: QuestionDirectorMessage[];
-  lastAssistantMessage: string | null;
-  currentStage: string;
-  res: import("express").Response;
-}
-
 async function persistAssistantMessage(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   planId: string,
@@ -244,182 +192,6 @@ async function persistAssistantMessage(
       "chat: failed to persist assistant message (non-fatal)",
     );
   }
-}
-
-async function loadConversationHistory(
-  supabase: import("@supabase/supabase-js").SupabaseClient,
-  planId: string,
-): Promise<QuestionDirectorMessage[]> {
-  try {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("role, content")
-      .eq("plan_id", planId)
-      .order("created_at", { ascending: true })
-      .limit(50);
-    if (error) {
-      logger.warn({ err: error, planId }, "chat: load history failed (non-fatal)");
-      return [];
-    }
-    const out: QuestionDirectorMessage[] = [];
-    for (const row of (data ?? []) as Array<{ role: string; content: string }>) {
-      if (row.role !== "user" && row.role !== "assistant" && row.role !== "system") continue;
-      if (typeof row.content !== "string" || row.content.trim().length === 0) continue;
-      out.push({
-        role: row.role as QuestionDirectorMessage["role"],
-        content: row.content,
-      });
-    }
-    return out;
-  } catch (err) {
-    logger.warn({ err, planId }, "chat: load history threw (non-fatal)");
-    return [];
-  }
-}
-
-async function handleCollectingStage(args: HandleCollectingArgs): Promise<void> {
-  const store = createSupabaseProfileStore(args.supabase);
-  // Wrap the log writer so audit/run-log insert failures NEVER bubble
-  // up and 500 the user — by the time we're writing audit rows we may
-  // already have committed a profile_data merge and cannot roll it
-  // back. Errors are logged to stderr for ops visibility.
-  const writer = wrapWriterSafe(createSupabaseLogWriter(args.supabase));
-
-  const result = await orchestrateCollecting({
-    profileId: args.planId,
-    profile: args.profile,
-    hintedPendingField: args.hintedPendingField as Parameters<
-      typeof orchestrateCollecting
-    >[0]["hintedPendingField"],
-    userMessage: args.userMessage,
-    conversationHistory: args.conversationHistory,
-    lastAssistantMessage: args.lastAssistantMessage,
-    store,
-    writer,
-  });
-
-  // 2. Mark onboarding complete when all required fields land. We
-  // DO NOT lock the plan here — locking is the user's explicit
-  // action via the Generate-my-plan button (handled by
-  // POST /api/plans/trigger-research). Locking here meant the
-  // client jumped straight into the post-onboarding free-chat the
-  // moment the last field was extracted, hiding the Generate CTA.
-  //
-  // Recovery property: if the UPDATE fails we report
-  // onboardingCompleted=false, which keeps the client's view
-  // consistent with the DB. The client will send another turn (or
-  // refresh), at which point getRequiredFields() still returns []
-  // (the profile didn't change), so isOnboardingComplete fires
-  // again and the update is re-attempted.
-  let planLocked = false;
-  let onboardingCompleted = false;
-  let lockError: string | undefined;
-  if (result.isOnboardingComplete) {
-    const now = new Date().toISOString();
-    const { error: updErr } = await args.supabase
-      .from("relocation_plans")
-      .update({
-        stage: "complete",
-        onboarding_completed: true,
-        updated_at: now,
-      })
-      .eq("id", args.planId)
-      .eq("user_id", args.userId);
-    if (updErr) {
-      lockError = updErr.message;
-      logger.error({ err: updErr, planId: args.planId }, "chat: failed to mark onboarding complete");
-      // Non-fatal — see recovery property comment above.
-    } else {
-      onboardingCompleted = true;
-      // planLocked stays false. The trigger-research route is what
-      // actually flips locked=true.
-    }
-  }
-
-  // 3. Pre-stream headers (legacy compat).
-  const interviewState: "interview" | "complete" = result.isOnboardingComplete
-    ? "complete"
-    : "interview";
-
-  setGoMateHeaders(args.res, {
-    profile: result.profileAfter,
-    state: interviewState,
-    pendingField: result.nextPendingField,
-    filledFields: result.filledFields,
-  });
-  prepareSseHeaders(args.res);
-
-  // 4. Stream mascot events FIRST so the UI can sequence its
-  // animations while the question text is rendering.
-  for (const ev of result.mascotEvents) {
-    writeSse(args.res, { type: "mascot", ...stripUndef(ev as unknown as Record<string, unknown>) });
-  }
-
-  // 5. Stream the question text in word-sized chunks.
-  await streamTextDeltas(args.res, result.questionText);
-
-  // 5b. Persist the assistant question to chat_messages so future
-  // turns can read the canonical history straight from the DB
-  // (loadConversationHistory above) instead of trusting the client.
-  await persistAssistantMessage(
-    args.supabase,
-    args.planId,
-    args.userId,
-    result.questionText,
-  );
-
-  // 6. Final message-end with metadata.
-  writeSse(args.res, {
-    type: "message-end",
-    metadata: {
-      profile: result.profileAfter,
-      state: interviewState,
-      pendingField: result.nextPendingField,
-      filledFields: result.filledFields,
-      requiredFields: result.requiredFields,
-      planLocked,
-      onboardingCompleted,
-      animationCue: result.animationCue,
-      ...(result.retryHint ? { retryHint: result.retryHint } : {}),
-      ...(lockError ? { lockError } : {}),
-      stage: args.currentStage,
-      agentsVersion: AGENTS_PACKAGE_VERSION,
-    },
-  });
-  args.res.write("data: [DONE]\n\n");
-  args.res.end();
-}
-
-/**
- * Wrap a LogWriter so insert failures are logged but never thrown.
- * Audit/run-log inserts are best-effort observability — they MUST NOT
- * cascade as a 500 after a profile_data merge has already committed
- * (cannot be rolled back from this layer). Failure visibility is
- * preserved through `logger.warn`.
- */
-function wrapWriterSafe(inner: LogWriter): LogWriter {
-  return {
-    async insertRunLog(row) {
-      try {
-        await inner.insertRunLog(row);
-      } catch (err) {
-        logger.warn(
-          { err, agent: row.agent_name, profile_id: row.profile_id },
-          "chat: agent_run_log insert failed (non-fatal)",
-        );
-      }
-    },
-    async insertAudit(row) {
-      try {
-        await inner.insertAudit(row);
-      } catch (err) {
-        logger.warn(
-          { err, agent: row.agent_name, profile_id: row.profile_id },
-          "chat: agent_audit insert failed (non-fatal)",
-        );
-      }
-    },
-  };
 }
 
 async function handleArrivedStage(
@@ -609,30 +381,6 @@ function prepareSseHeaders(res: import("express").Response): void {
   res.flushHeaders?.();
 }
 
-interface GoMateHeaderState {
-  profile: Profile;
-  state: "interview" | "complete";
-  pendingField: string | null;
-  filledFields: string[];
-}
-
-function setGoMateHeaders(
-  res: import("express").Response,
-  s: GoMateHeaderState,
-): void {
-  if (res.headersSent) return;
-  try {
-    res.setHeader("X-GoMate-Profile", JSON.stringify(s.profile));
-  } catch {
-    // ignore
-  }
-  res.setHeader("X-GoMate-State", s.state);
-  if (s.pendingField) {
-    res.setHeader("X-GoMate-Pending-Field", s.pendingField);
-  }
-  res.setHeader("X-GoMate-Filled-Fields", JSON.stringify(s.filledFields));
-}
-
 function writeSse(res: import("express").Response, payload: unknown): void {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
@@ -708,16 +456,5 @@ function findLastAssistantText(messages: IncomingMessage[]): string | null {
   }
   return null;
 }
-
-function stripUndef<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
-  }
-  return out;
-}
-
-// Surface the result type so unit tests can import the shape.
-export type { OrchestrateCollectingResult, MascotEvent };
 
 export default router;

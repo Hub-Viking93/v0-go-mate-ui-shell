@@ -61,48 +61,17 @@ export {
   type FieldConfig,
 } from "./intake-fields.js";
 
-// Wave 2.0 — Extractor agent
-export {
-  extractField,
-  type ExtractionResult,
-  type ExtractionConfidence,
-  type ExtractFieldOptions,
-} from "./extractor.js";
-
 // Wave 2.1 — country/city normalizer (snapshot of country-name-normalizer.ts)
 export {
   normalizeCountryName,
   normalizeCityName,
 } from "./country-normalizer.js";
 
-// Wave 2.1 — Validator agent (pure code, no LLM)
-export { validate, type ValidationResult } from "./validator.js";
-export {
-  getValidationRule,
-  type ValidationRule,
-} from "./validation-rules.js";
-
-// Wave 2.1 — Profile Writer agent (pure code, no LLM)
-export {
-  writeProfileField,
-  type WriteProfileFieldOptions,
-  type WriteProfileFieldResult,
-} from "./profile-writer.js";
-export {
-  createSupabaseProfileStore,
-  singleFieldPatch,
-  type ProfileStore,
-} from "./profile-store.js";
-
-// Wave 2.2 — Question Director agent (Sonnet 4.6, warm conversational)
-export {
-  askNext,
-  type AskNextOptions,
-  type QuestionDirectorOutput,
-  type AnimationCue,
-  type Profile as QuestionDirectorProfile,
-  type Message as QuestionDirectorMessage,
-} from "./question-director.js";
+// Wave 2.0–2.2 chat-onboarding agents (extractor / validator /
+// profile-writer / profile-store / question-director) were retired
+// when the wizard at /onboarding/* replaced the chat-driven intake.
+// Their files are removed from the package; downstream callers go
+// through POST /api/profile + the research orchestrator instead.
 
 // Wave 2.x — 6 always-run specialists (visa, tax, cost, housing,
 // cultural, documents) + Wave 2.y 13 conditional specialists +

@@ -99,11 +99,12 @@ async function generateAndPersistSettlingInTasks(args: {
     const depUuids = t.dependsOn.map((k) => keyToUuid.get(k)).filter((u): u is string => !!u);
     const cleanDocs = t.documentsNeeded;
     patches.push(
-      args.supabase
-        .from("settling_in_tasks")
-        .update({ depends_on: depUuids, documents_needed: cleanDocs })
-        .eq("id", id)
-        .then((r) => r),
+      Promise.resolve(
+        args.supabase
+          .from("settling_in_tasks")
+          .update({ depends_on: depUuids, documents_needed: cleanDocs })
+          .eq("id", id),
+      ),
     );
   }
   await Promise.all(patches);
