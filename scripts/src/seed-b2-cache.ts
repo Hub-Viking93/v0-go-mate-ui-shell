@@ -1,21 +1,22 @@
 // =============================================================
 // Pre-warm research_meta.researchedSpecialists for the test plan.
 // =============================================================
-// Runs documentsSpecialistV2 + housingSpecialistV2 once for the
-// TEST_EMAIL plan and writes the ResearchedSteps payloads under
-// relocation_plans.research_meta.researchedSpecialists. Lets the
+// Runs documentsSpecialistV2 + housingSpecialistV2 + bankingSpecialistV2
+// once for the TEST_EMAIL plan and writes the ResearchedSteps payloads
+// under relocation_plans.research_meta.researchedSpecialists. Lets the
 // Playwright A2 spec hit /pre-departure/generate without paying the
 // 60–90s LLM + Firecrawl bill on every run.
 //
 // Idempotent: re-running with --force re-runs the specialists and
-// overwrites the cache; without --force it skips when both domains
-// are already cached.
+// overwrites the cache; without --force it skips when all three
+// domains are already cached.
 // =============================================================
 
 import { createClient } from "@supabase/supabase-js";
 import {
   documentsSpecialistV2,
   housingSpecialistV2,
+  bankingSpecialistV2,
   createSupabaseLogWriter,
   type ResearchedOutput,
 } from "@workspace/agents";
@@ -62,9 +63,10 @@ async function main(): Promise<void> {
   const cache = plan.research_meta?.researchedSpecialists ?? {};
   const haveDocs = !!(cache as Record<string, unknown>).documents;
   const haveHousing = !!(cache as Record<string, unknown>).housing;
-  if (haveDocs && haveHousing && !FORCE) {
+  const haveBanking = !!(cache as Record<string, unknown>).banking;
+  if (haveDocs && haveHousing && haveBanking && !FORCE) {
     console.log(
-      `[seed-b2-cache] cache already present (documents+housing) for plan ${plan.id}; pass --force to overwrite.`,
+      `[seed-b2-cache] cache already present (documents+housing+banking) for plan ${plan.id}; pass --force to overwrite.`,
     );
     return;
   }
@@ -89,14 +91,15 @@ async function main(): Promise<void> {
   } as const;
 
   const t0 = Date.now();
-  const [docs, housing] = await Promise.all([
+  const [docs, housing, banking] = await Promise.all([
     documentsSpecialistV2(sharedInput),
     housingSpecialistV2(sharedInput),
+    bankingSpecialistV2(sharedInput),
   ]);
   const ms = Date.now() - t0;
 
   console.log(
-    `[seed-b2-cache] done in ${ms}ms — docs=${describe(docs)} housing=${describe(housing)}`,
+    `[seed-b2-cache] done in ${ms}ms — docs=${describe(docs)} housing=${describe(housing)} banking=${describe(banking)}`,
   );
 
   const newMeta = {
@@ -105,6 +108,7 @@ async function main(): Promise<void> {
       ...((plan.research_meta as { researchedSpecialists?: Record<string, unknown> })?.researchedSpecialists ?? {}),
       documents: docs,
       housing,
+      banking,
     },
     // Drop any stale preDeparture payload so the next /generate call
     // reads from the fresh cache and rebuilds the timeline.

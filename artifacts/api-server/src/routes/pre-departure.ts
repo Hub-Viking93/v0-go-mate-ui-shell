@@ -31,6 +31,7 @@ import {
   adaptLocalRequirementsToSteps,
   documentsSpecialistV2,
   housingSpecialistV2,
+  bankingSpecialistV2,
   createSupabaseLogWriter,
   type PreDepartureProfile,
   type VisaPathwayLite,
@@ -148,7 +149,7 @@ async function runResearchedSpecialistsForPreDeparture(args: {
     budgetMs: RESEARCHED_BUDGET_MS,
   } as const;
 
-  const [docs, housing] = await Promise.all([
+  const [docs, housing, banking] = await Promise.all([
     documentsSpecialistV2(sharedInput).catch((err) => {
       logger.warn({ err: err instanceof Error ? err.message : err }, "documents_v2 threw");
       return null;
@@ -157,11 +158,16 @@ async function runResearchedSpecialistsForPreDeparture(args: {
       logger.warn({ err: err instanceof Error ? err.message : err }, "housing_v2 threw");
       return null;
     }),
+    bankingSpecialistV2(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "banking_v2 threw");
+      return null;
+    }),
   ]);
 
   const out: ResearchedSpecialistsCache = {};
   if (docs && docs.kind === "steps") out.documents = docs;
   if (housing && housing.kind === "steps") out.housing = housing;
+  if (banking && banking.kind === "steps") out.banking = banking;
   return out;
 }
 
@@ -348,7 +354,10 @@ router.post("/pre-departure/generate", async (req, res) => {
     // research_meta wholesale, dropping the cache).
     const meta = (plan.research_meta ?? {}) as ResearchMetaWithSpecialists;
     let researchedSpecialistsCache: ResearchedSpecialistsCache = meta.researchedSpecialists ?? {};
-    const cacheMissing = !researchedSpecialistsCache.documents || !researchedSpecialistsCache.housing;
+    const cacheMissing =
+      !researchedSpecialistsCache.documents ||
+      !researchedSpecialistsCache.housing ||
+      !researchedSpecialistsCache.banking;
     if (cacheMissing) {
       logger.info({ planId: plan.id }, "pre-departure: researched-specialists cache miss; running B2 specialists");
       const fresh = await runResearchedSpecialistsForPreDeparture({
