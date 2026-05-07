@@ -37,6 +37,7 @@ import {
   ResearchProvenanceBadge,
   type ResearchProvenance,
 } from "@/components/research-provenance-badge"
+import { ResearchSuggestionsBanner } from "@/components/research-suggestions-banner"
 import {
   SettlingInTaskCard,
   type SettlingInTask,
@@ -290,6 +291,12 @@ export default function SettlingInPage() {
 
   return (
     <div className="space-y-4">
+      {/* Phase E3-B — profile-diff suggestions banner. Renders nothing
+          when there are no suggestions; appears with chips + a one-click
+          refresh action when the user has changed profile fields that
+          affect any cached domain. */}
+      <ResearchSuggestionsBanner surface="post_move" onAfterRefresh={fetchTasks} />
+
       {/* Compact toolbar: day counter + view-mode toggle. The page-level
           title lives in PostMovePage's PageShell — no hero needed. */}
       {generated && tasks.length > 0 && arrivalDate && (

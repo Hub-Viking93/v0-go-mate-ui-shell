@@ -34,6 +34,7 @@ import {
   ResearchProvenanceBadge,
   type ResearchProvenance,
 } from "@/components/research-provenance-badge";
+import { ResearchSuggestionsBanner } from "@/components/research-suggestions-banner";
 
 type ActionStatus = "not_started" | "in_progress" | "complete" | "blocked" | "skipped";
 type Urgency = "overdue" | "urgent" | "approaching" | "normal";
@@ -341,6 +342,11 @@ export function PreDepartureTimeline() {
 
   return (
     <div className="space-y-6">
+      {/* Phase E3-B — profile-diff suggestions banner. Renders nothing
+          when there are no suggestions, so it's safe to mount
+          unconditionally above the rest of the page. */}
+      <ResearchSuggestionsBanner surface="pre_move" onAfterRefresh={load} />
+
       {/* Header — countdown + stats grid */}
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3 flex-wrap">
