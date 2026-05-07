@@ -54,6 +54,10 @@ export type AgentName =
   | "property_purchase_specialist"
   | "trailing_spouse_career_specialist"
   | "pension_continuity_specialist"
+  // Phase B post-arrival specialists (researched contract — see
+  // lib/agents/src/specialists/_contracts.ts)
+  | "registration_specialist"
+  | "transport_id_specialist"
   // ---- composition ----
   | "synthesizer"
   | "critic"

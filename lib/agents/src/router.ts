@@ -75,6 +75,10 @@ export const AGENT_MODEL_ROUTING = {
   trailing_spouse_career_specialist: "claude-sonnet-4-6",
   pension_continuity_specialist: "claude-sonnet-4-6",
 
+  // Phase B post-arrival researched specialists
+  registration_specialist: "claude-sonnet-4-5",
+  transport_id_specialist: "claude-sonnet-4-5",
+
   // composition
   synthesizer: "claude-sonnet-4-5",
   critic: "claude-sonnet-4-5",

@@ -732,6 +732,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.105.1
         version: 2.105.1
+      '@workspace/agents':
+        specifier: workspace:*
+        version: link:../lib/agents
     devDependencies:
       '@playwright/test':
         specifier: ^1.59.1

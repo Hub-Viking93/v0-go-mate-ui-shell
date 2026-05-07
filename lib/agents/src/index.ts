@@ -99,6 +99,11 @@ export {
   propertyPurchaseSpecialist,
   trailingSpouseCareerSpecialist,
   pensionContinuitySpecialist,
+  // Phase B1 — researched-contract specialists
+  registrationSpecialist,
+  writeRegistrationAudit,
+  bankingSpecialistV2,
+  writeBankingV2Audit,
   // Infra
   runSpecialist,
   SPECIALIST_BUDGET_MS,

@@ -43,6 +43,18 @@ export { propertyPurchaseSpecialist } from "./property_purchase.js";
 export { trailingSpouseCareerSpecialist } from "./trailing_spouse_career.js";
 export { pensionContinuitySpecialist } from "./pension_continuity.js";
 
+// Phase B1 — researched-contract specialists. Return ResearchedSteps
+// under _contracts.ts (not legacy SpecialistOutput). Not wired into
+// the orchestrator dispatch yet — Phase A/C.
+export {
+  registrationSpecialist,
+  writeRegistrationAudit,
+} from "./registration.js";
+export {
+  bankingSpecialistV2,
+  writeBankingV2Audit,
+} from "./banking_v2.js";
+
 export {
   scrapeOfficialSource,
   searchAndScrape,
