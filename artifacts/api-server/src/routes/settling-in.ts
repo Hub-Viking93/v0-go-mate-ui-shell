@@ -12,6 +12,8 @@ import {
   bankingSpecialistV2,
   healthcareSpecialistV2,
   createSupabaseLogWriter,
+  isResearchStale,
+  daysSinceRetrieved,
   type SettlingInProfile,
   type SettlingTask,
   type ResearchedSteps,
@@ -256,6 +258,14 @@ interface CategoryProvenanceResearched {
   quality: "full" | "partial" | "fallback";
   fallbackReason?: string;
   retrievedAt: string;
+  /** Phase E1b — true when retrievedAt is older than the 14-day
+   *  staleness threshold. UI uses this to flag "consider refreshing". */
+  stale: boolean;
+  /** Whole-days-old, floored. Helps UI render copy without a
+   *  second pass through the timestamp. Null only if retrievedAt
+   *  is unparseable (which is treated as not-stale per the
+   *  isResearchStale conservative rule). */
+  daysOld: number | null;
   sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
 }
 interface CategoryProvenanceGeneric {
@@ -309,6 +319,8 @@ function buildProvenanceMap(
         quality: bundle.quality,
         ...(bundle.fallbackReason ? { fallbackReason: bundle.fallbackReason } : {}),
         retrievedAt: bundle.retrievedAt,
+        stale: isResearchStale(bundle.retrievedAt),
+        daysOld: daysSinceRetrieved(bundle.retrievedAt),
         sources: bundle.sources.map((s) => ({
           url: s.url,
           domain: s.domain,

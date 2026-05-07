@@ -134,11 +134,18 @@ export {
 // mapping + diff helper. Pure data; used by the refresh endpoint and
 // (later) any UI / automation that needs to figure out which domains
 // to re-run when something about the user's situation changes.
+//
+// Phase E1b — stale-flag helper + 14-day threshold for the GET
+// surface routes' provenance maps.
 export {
   PROFILE_FIELD_TO_DOMAINS,
   IMPLEMENTED_RESEARCHED_DOMAINS,
+  RESEARCH_STALE_AFTER_DAYS,
+  RESEARCH_STALE_AFTER_MS,
   diffProfileForDomains,
   filterToImplementedDomains,
+  isResearchStale,
+  daysSinceRetrieved,
 } from "./research-triggers.js";
 export {
   // legacy

@@ -26,6 +26,10 @@ export type ResearchProvenance =
       quality: "full" | "partial" | "fallback"
       fallbackReason?: string
       retrievedAt: string
+      // Phase E1b — server-computed staleness signals. UI only
+      // reads these; thresholds + day math live on the backend.
+      stale?: boolean
+      daysOld?: number | null
       sources: ReadonlyArray<{
         url: string
         domain: string
@@ -41,6 +45,8 @@ export type ResearchProvenance =
       // migrates to the new contract.
       kind: "legacy_research"
       retrievedAt: string
+      stale?: boolean
+      daysOld?: number | null
       sources: ReadonlyArray<{
         url: string
         domain: string
@@ -128,6 +134,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
 
   if (provenance.kind === "legacy_research") {
     const legacyLabel = compact ? "Researched · legacy" : "Researched · legacy"
+    const isStale = provenance.stale === true
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -135,6 +142,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
             type="button"
             data-testid="provenance-badge"
             data-provenance-kind="legacy_research"
+            data-stale={isStale ? "true" : "false"}
             onClick={(e) => e.stopPropagation()}
             className={cn(
               "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
@@ -144,10 +152,11 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
               LEGACY_CLASS.text,
               LEGACY_CLASS.border,
             )}
-            aria-label={`${legacyLabel} — click for sources`}
+            aria-label={`${legacyLabel} — click for sources${isStale ? " (older than 14 days)" : ""}`}
           >
             <Archive className="w-3 h-3" strokeWidth={2} />
             {legacyLabel}
+            {isStale && <span data-testid="provenance-stale-dot" className="ml-0.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />}
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-3 text-[12px]">
@@ -159,6 +168,14 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
               </span>
               <span className="text-[11px] text-muted-foreground">{formatRelative(provenance.retrievedAt)}</span>
             </div>
+            {isStale && (
+              <p
+                data-testid="provenance-stale-line"
+                className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug"
+              >
+                Last refreshed {provenance.daysOld ?? "?"} day{provenance.daysOld === 1 ? "" : "s"} ago — consider refreshing.
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground leading-snug">
               This section came from the older research pipeline. It was researched per destination, but isn't yet
               upgraded to the current validation standard (strict source-URL integrity, predicate validation, quality
@@ -200,6 +217,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
   const q = qualityClass(provenance.quality)
   const quickLabel = compact ? "Researched" : `Researched · ${q.label}`
   const isLowConfidence = provenance.quality === "fallback"
+  const isStale = provenance.stale === true
   const Icon = isLowConfidence ? AlertTriangle : FlaskConical
 
   return (
@@ -210,6 +228,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
           data-testid="provenance-badge"
           data-provenance-kind="researched"
           data-provenance-quality={provenance.quality}
+          data-stale={isStale ? "true" : "false"}
           // The badge often sits inside a parent click target (the
           // category-collapse button on /post-move/checklist). Stop
           // bubbling so opening the popover doesn't also toggle the
@@ -223,10 +242,11 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
             q.text,
             q.border,
           )}
-          aria-label={`${quickLabel} — click for sources`}
+          aria-label={`${quickLabel} — click for sources${isStale ? " (older than 14 days)" : ""}`}
         >
           <Icon className="w-3 h-3" strokeWidth={2} />
           {quickLabel}
+          {isStale && <span data-testid="provenance-stale-dot" className="ml-0.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-3 text-[12px]">
@@ -238,6 +258,14 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
             </span>
             <span className="text-[11px] text-muted-foreground">{formatRelative(provenance.retrievedAt)}</span>
           </div>
+          {isStale && (
+            <p
+              data-testid="provenance-stale-line"
+              className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug"
+            >
+              Last refreshed {provenance.daysOld ?? "?"} day{provenance.daysOld === 1 ? "" : "s"} ago — consider refreshing.
+            </p>
+          )}
           {provenance.quality === "partial" && (
             <p className="text-[11px] text-muted-foreground leading-snug">
               Some items in this section were dropped during validation (drift in source URLs, deadlines, or

@@ -204,3 +204,52 @@ export const IMPLEMENTED_RESEARCHED_DOMAINS: ReadonlySet<SpecialistDomain> =
     "housing",
     "healthcare",
   ]);
+
+// ---- Staleness — Phase E1b -----------------------------------------
+//
+// First heuristic: a researched bundle is considered stale when its
+// retrievedAt is older than 14 days. The threshold is a single
+// constant; raising it is safe (older data flagged less often), and
+// the value will be revisited once we have real refresh-pattern data.
+// E1 explicitly does NOT include profile-change-driven invalidation
+// here — that's separately resolved via diffProfileForDomains() at
+// the caller level.
+
+export const RESEARCH_STALE_AFTER_DAYS = 14;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+export const RESEARCH_STALE_AFTER_MS = RESEARCH_STALE_AFTER_DAYS * ONE_DAY_MS;
+
+/**
+ * True when a bundle's retrievedAt is older than the staleness
+ * threshold relative to `now`. Bad / unparseable timestamps return
+ * `false` (conservative — we don't want to drown the UI in
+ * staleness alerts because a malformed ISO slipped in).
+ *
+ * `now` is injectable so tests can pin time; callers normally
+ * omit it and pick up the wall clock.
+ */
+export function isResearchStale(
+  retrievedAtIso: string,
+  now: Date = new Date(),
+): boolean {
+  const retrievedMs = new Date(retrievedAtIso).getTime();
+  if (!Number.isFinite(retrievedMs)) return false;
+  return now.getTime() - retrievedMs > RESEARCH_STALE_AFTER_MS;
+}
+
+/**
+ * Whole-days delta between retrievedAt and `now`, floored. Returns
+ * null for unparseable timestamps. Used by the UI to render
+ * "Last refreshed N days ago" copy without re-implementing the
+ * arithmetic per surface.
+ */
+export function daysSinceRetrieved(
+  retrievedAtIso: string,
+  now: Date = new Date(),
+): number | null {
+  const retrievedMs = new Date(retrievedAtIso).getTime();
+  if (!Number.isFinite(retrievedMs)) return null;
+  const diff = now.getTime() - retrievedMs;
+  if (diff < 0) return 0;
+  return Math.floor(diff / ONE_DAY_MS);
+}

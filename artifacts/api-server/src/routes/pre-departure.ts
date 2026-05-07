@@ -33,6 +33,8 @@ import {
   housingSpecialistV2,
   bankingSpecialistV2,
   createSupabaseLogWriter,
+  isResearchStale,
+  daysSinceRetrieved,
   type PreDepartureProfile,
   type VisaPathwayLite,
   type ActionStatus,
@@ -108,11 +110,17 @@ type TimelineDomainProvenance =
       quality: "full" | "partial" | "fallback";
       fallbackReason?: string;
       retrievedAt: string;
+      // Phase E1b — stale flag + daysOld; same semantics as the
+      // settling-in CategoryProvenance.
+      stale: boolean;
+      daysOld: number | null;
       sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
     }
   | {
       kind: "legacy_research";
       retrievedAt: string;
+      stale: boolean;
+      daysOld: number | null;
       sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
     }
   | { kind: "generic" };
@@ -235,11 +243,19 @@ const PRE_DEPARTURE_DOMAINS: ReadonlyArray<string> = [
  * "usable" mirrors mergeResearchedByDomain's gate: quality !==
  * "fallback" OR ≥1 step. A pure-fallback bundle that the merge
  * skipped also doesn't count as "researched" here.
+ *
+ * For legacy_research, the retrievedAt comes from the producing
+ * column's `researchedAt` field (visa_research.researchedAt or
+ * local_requirements_research.researchedAt). Earlier commits set
+ * this to "now()" at provenance build time, which made the legacy
+ * research never look stale — wrong; the actual research can be
+ * months old. Phase E1b fixes that.
  */
 function provenanceForDomain(args: {
   domain: string;
   cache: ResearchedSpecialistsCache;
   legacyByDomain: Record<string, ResearchedStepsLite>;
+  legacyRetrievedAt: { visa: string | null; localRequirements: string | null };
 }): TimelineDomainProvenance {
   const cached = args.cache[args.domain];
   if (
@@ -252,6 +268,8 @@ function provenanceForDomain(args: {
       quality: cached.quality,
       ...(cached.fallbackReason ? { fallbackReason: cached.fallbackReason } : {}),
       retrievedAt: cached.retrievedAt,
+      stale: isResearchStale(cached.retrievedAt),
+      daysOld: daysSinceRetrieved(cached.retrievedAt),
       sources: cached.sources.map((s) => ({
         url: s.url,
         domain: s.domain,
@@ -262,9 +280,19 @@ function provenanceForDomain(args: {
   }
   const legacy = args.legacyByDomain[args.domain];
   if (legacy && Array.isArray(legacy.steps) && legacy.steps.length > 0) {
+    // Pull the source column's actual researchedAt rather than
+    // pretending the bundle was just produced. Visa flows through
+    // visa_research; everything else (documents/housing/banking/
+    // healthcare on legacy) flows through local_requirements_research.
+    const retrievedAt =
+      args.domain === "visa"
+        ? args.legacyRetrievedAt.visa ?? new Date().toISOString()
+        : args.legacyRetrievedAt.localRequirements ?? new Date().toISOString();
     return {
       kind: "legacy_research",
-      retrievedAt: new Date().toISOString(),
+      retrievedAt,
+      stale: isResearchStale(retrievedAt),
+      daysOld: daysSinceRetrieved(retrievedAt),
       sources: (legacy.sources ?? []).map((s) => ({
         url: s.url,
         domain: s.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""),
@@ -279,6 +307,7 @@ function provenanceForDomain(args: {
 function buildPreDepartureProvenance(args: {
   cache: ResearchedSpecialistsCache;
   legacyByDomain: Record<string, ResearchedStepsLite>;
+  legacyRetrievedAt: { visa: string | null; localRequirements: string | null };
 }): Record<string, TimelineDomainProvenance> {
   const out: Record<string, TimelineDomainProvenance> = {};
   for (const domain of PRE_DEPARTURE_DOMAINS) {
@@ -286,6 +315,7 @@ function buildPreDepartureProvenance(args: {
       domain,
       cache: args.cache,
       legacyByDomain: args.legacyByDomain,
+      legacyRetrievedAt: args.legacyRetrievedAt,
     });
   }
   return out;
@@ -530,9 +560,24 @@ router.post("/pre-departure/generate", async (req, res) => {
     // Phase D-B — snapshot per-domain provenance at generation time so
     // GET /api/pre-departure can answer "where did each section come
     // from?" without re-scanning visa_research / local_requirements.
+    // Phase E1b — pull legacy `researchedAt` from the source columns
+    // so legacy_research provenance carries the actual research age
+    // (used for the stale flag).
+    const visaResearchedAt =
+      typeof (plan.visa_research as { researchedAt?: unknown } | null)?.researchedAt === "string"
+        ? ((plan.visa_research as { researchedAt: string }).researchedAt)
+        : null;
+    const localRequirementsResearchedAt =
+      typeof (plan.local_requirements_research as { researchedAt?: unknown } | null)?.researchedAt === "string"
+        ? ((plan.local_requirements_research as { researchedAt: string }).researchedAt)
+        : null;
     const provenance = buildPreDepartureProvenance({
       cache: researchedSpecialistsCache,
       legacyByDomain,
+      legacyRetrievedAt: {
+        visa: visaResearchedAt,
+        localRequirements: localRequirementsResearchedAt,
+      },
     });
 
     const stored: StoredPreDeparture = {
