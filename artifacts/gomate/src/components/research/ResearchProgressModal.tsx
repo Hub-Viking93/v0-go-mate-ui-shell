@@ -278,9 +278,7 @@ export function ResearchProgressModal({
   // text the moment a specialist starts (per task spec).
   const [busyLineIndex, setBusyLineIndex] = useState(0);
   const currentSpecialistName = inFlight[tickIndex % Math.max(inFlight.length, 1)]?.name;
-  const specialistStartedAtRef = useRef<number>(Date.now());
   useEffect(() => {
-    specialistStartedAtRef.current = Date.now();
     setBusyLineIndex(0);
   }, [currentSpecialistName]);
   const busyLines = useMemo(
