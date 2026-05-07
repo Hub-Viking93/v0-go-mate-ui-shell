@@ -36,6 +36,7 @@ import petRelocationRouter from "./pet-relocation";
 import notificationsRouter from "./notifications";
 import taxOverviewRouter from "./tax-overview";
 import ruleChangesRouter from "./rule-changes";
+import researchRefreshRouter from "./research-refresh";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,7 @@ router.use(petRelocationRouter);
 router.use(notificationsRouter);
 router.use(taxOverviewRouter);
 router.use(ruleChangesRouter);
+// Phase E1a — selective re-research orchestration.
+router.use(researchRefreshRouter);
 
 export default router;

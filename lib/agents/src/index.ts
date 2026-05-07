@@ -129,6 +129,17 @@ export {
   adaptVisaResearchToSteps,
   adaptLocalRequirementsToSteps,
 } from "./specialists/_legacy-adapter.js";
+
+// Phase E1a — research triggers. Profile-field → SpecialistDomain[]
+// mapping + diff helper. Pure data; used by the refresh endpoint and
+// (later) any UI / automation that needs to figure out which domains
+// to re-run when something about the user's situation changes.
+export {
+  PROFILE_FIELD_TO_DOMAINS,
+  IMPLEMENTED_RESEARCHED_DOMAINS,
+  diffProfileForDomains,
+  filterToImplementedDomains,
+} from "./research-triggers.js";
 export {
   // legacy
   scrapeOfficialSource,
