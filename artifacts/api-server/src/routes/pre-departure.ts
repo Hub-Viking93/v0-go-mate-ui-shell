@@ -378,7 +378,16 @@ router.get("/pre-departure", async (req, res) => {
     }
     const stored = plan?.research_meta?.preDeparture;
     if (!stored || !stored.actions || stored.actions.length === 0) {
-      res.status(404).json({ error: "Pre-departure timeline not generated yet" });
+      // Return 200 with an empty payload instead of 404 — "no timeline
+      // yet" is a normal initial state, not an error. Returning 404 was
+      // historically correct REST-wise but produced red error rows in the
+      // browser DevTools console (the browser logs every fetch 404), which
+      // worried users on the production app. All five frontend callsites
+      // already render the empty `actions: []` state as "show the Generate
+      // button", so this is purely a console-noise fix with no client
+      // behaviour change. The `generated: false` flag lets future clients
+      // distinguish "empty by design" from "empty after generation".
+      res.json({ generated: false, actions: [] });
       return;
     }
 

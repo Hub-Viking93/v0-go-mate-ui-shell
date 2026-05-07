@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, Clock, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,109 @@ const SPECIALIST_LABEL: Record<string, { verb: string; subject: string; emoji: s
   pension_continuity_specialist: { verb: "Verifying", subject: "pension continuity", emoji: "👴" },
 };
 
+// Generic descriptors for the "currently doing" rotation. Strings are
+// abstract verb-phrases — never fabricate specific URLs, agency names, or
+// claims about exact source freshness. NO MOCK DATA: these describe the
+// *kind* of work the specialist does, not specific facts they've found.
+const SPECIALIST_BUSY_LINES: Record<string, string[]> = {
+  visa_specialist: [
+    "Reading the official immigration site",
+    "Comparing eligible visa pathways for your profile",
+    "Checking processing times and document requirements",
+    "Validating fees and recent rule changes",
+  ],
+  tax_strategist: [
+    "Mapping double-tax-treaty coverage",
+    "Estimating residency-based tax exposure",
+    "Reviewing income-bracket rules in destination",
+  ],
+  cost_specialist: [
+    "Pricing housing, groceries, and transit",
+    "Cross-referencing recent cost indices",
+    "Compiling a monthly-budget breakdown",
+  ],
+  housing_specialist: [
+    "Sampling rental listings in your target city",
+    "Checking deposit and lease conventions",
+    "Noting newcomer-friendly neighborhoods",
+  ],
+  cultural_adapter: [
+    "Summarizing local customs and norms",
+    "Capturing language-friction notes for your origin",
+    "Pulling community/expat-network signals",
+  ],
+  documents_specialist: [
+    "Listing every document the visa demands",
+    "Flagging which originals need apostille or translation",
+    "Sequencing the order paperwork should be obtained",
+  ],
+  healthcare_navigator: [
+    "Mapping how public healthcare enrollment works",
+    "Checking private insurance options for newcomers",
+    "Noting any pre-arrival coverage gaps",
+  ],
+  banking_helper: [
+    "Comparing banks that accept newcomer customers",
+    "Checking which ID and proofs each bank requires",
+    "Noting digital-bank alternatives if useful",
+  ],
+  schools_specialist: [
+    "Reviewing public, private, and international school routes",
+    "Checking enrollment windows and language tracks",
+  ],
+  pet_specialist: [
+    "Checking microchip and rabies-titre requirements",
+    "Reviewing quarantine rules for your destination",
+    "Noting airline pet-cargo constraints",
+  ],
+  posted_worker_specialist: [
+    "Verifying posted-worker A1 / equivalent rules",
+    "Checking employer notification requirements",
+  ],
+  digital_nomad_compliance: [
+    "Checking nomad-visa eligibility thresholds",
+    "Reviewing income/proof-of-funds rules",
+  ],
+  job_compliance_specialist: [
+    "Verifying right-to-work documentation",
+    "Checking sponsorship and quota rules",
+  ],
+  family_reunion_specialist: [
+    "Researching family-reunion routes",
+    "Checking dependent-visa eligibility rules",
+  ],
+  departure_tax_specialist: [
+    "Reviewing exit-tax exposure in your origin",
+    "Noting capital-gains realization rules",
+  ],
+  vehicle_import_specialist: [
+    "Checking import duty and homologation rules",
+    "Reviewing temporary-import allowances",
+  ],
+  property_purchase_specialist: [
+    "Checking foreigner property-purchase rights",
+    "Noting notary, tax, and registration steps",
+  ],
+  trailing_spouse_career_specialist: [
+    "Researching spouse work-permit options",
+    "Noting career-portability constraints",
+  ],
+  pension_continuity_specialist: [
+    "Verifying pension portability and bilateral agreements",
+    "Checking continued-contribution rules",
+  ],
+  study_program_specialist: [
+    "Researching study programs in your field",
+    "Checking scholarship and tuition options",
+  ],
+};
+
+const FALLBACK_BUSY_LINES = [
+  "Consulting official sources",
+  "Cross-referencing your profile",
+  "Compiling findings",
+];
+
 function labelFor(name: string): { verb: string; subject: string; emoji: string } {
   return (
     SPECIALIST_LABEL[name] ?? {
@@ -58,6 +161,16 @@ function labelFor(name: string): { verb: string; subject: string; emoji: string 
       emoji: "🤖",
     }
   );
+}
+
+function busyLinesFor(name: string): string[] {
+  return SPECIALIST_BUSY_LINES[name] ?? FALLBACK_BUSY_LINES;
+}
+
+function formatElapsed(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 const TERMINAL_RUN: ReadonlySet<string> = new Set([
@@ -114,6 +227,69 @@ export function ResearchProgressModal({
     return () => clearInterval(t);
   }, [inFlight.length]);
 
+  // Elapsed-time counter — a tickable proof to the user that the app
+  // hasn't frozen even when the progress count sits still for 30+ seconds
+  // (the visa specialist alone runs ~175s for some personas). Resets
+  // whenever the modal reopens for a fresh run.
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!open || allDone) return;
+    startedAtRef.current = Date.now();
+    setElapsedSec(0);
+    const t = setInterval(() => {
+      if (startedAtRef.current == null) return;
+      setElapsedSec(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    }, 1_000);
+    return () => clearInterval(t);
+  }, [open, allDone]);
+
+  // Stagnation detector: track when `done` last changed. If it hasn't
+  // ticked in >5s we consider the progress bar stagnant and switch on
+  // the shimmer overlay so the user sees motion even while waiting on
+  // a slow specialist.
+  const lastDoneRef = useRef<number>(0);
+  const lastDoneChangeAtRef = useRef<number>(Date.now());
+  const [isStagnant, setIsStagnant] = useState(false);
+  useEffect(() => {
+    if (done !== lastDoneRef.current) {
+      lastDoneRef.current = done;
+      lastDoneChangeAtRef.current = Date.now();
+      setIsStagnant(false);
+      return;
+    }
+    if (allDone) {
+      setIsStagnant(false);
+      return;
+    }
+    const t = setInterval(() => {
+      const stagnant = Date.now() - lastDoneChangeAtRef.current > 5_000;
+      setIsStagnant((prev) => (prev !== stagnant ? stagnant : prev));
+    }, 1_000);
+    return () => clearInterval(t);
+  }, [done, allDone]);
+
+  // Rotating "currently doing" microcopy. The headline tells you WHAT
+  // specialist is running; this tells you WHAT THEY'RE DOING right now —
+  // so even when the headline pauses, this line keeps moving.
+  const [busyLineIndex, setBusyLineIndex] = useState(0);
+  const currentSpecialistName = inFlight[tickIndex % Math.max(inFlight.length, 1)]?.name;
+  const busyLines = useMemo(
+    () => (currentSpecialistName ? busyLinesFor(currentSpecialistName) : FALLBACK_BUSY_LINES),
+    [currentSpecialistName],
+  );
+  useEffect(() => {
+    setBusyLineIndex(0);
+  }, [currentSpecialistName]);
+  useEffect(() => {
+    if (allDone || busyLines.length <= 1) return;
+    const t = setInterval(
+      () => setBusyLineIndex((i) => (i + 1) % busyLines.length),
+      4_500,
+    );
+    return () => clearInterval(t);
+  }, [busyLines.length, allDone]);
+
   const headline = useMemo(() => {
     if (allDone) return { verb: "All set", subject: "your dashboard is ready", emoji: "✨" };
     if (isFinishing)
@@ -139,6 +315,7 @@ export function ResearchProgressModal({
   }, [agents]);
 
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const currentBusyLine = busyLines[busyLineIndex] ?? busyLines[0];
 
   return (
     <Dialog open={open}>
@@ -166,9 +343,19 @@ export function ResearchProgressModal({
                 <motion.div
                   key={headline.emoji}
                   initial={{ scale: 0.4, opacity: 0, rotate: -15 }}
-                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                    rotate: 0,
+                    // Subtle sway during long stagnant waits — cheap visual
+                    // proof that the modal itself is alive.
+                    y: isStagnant && !allDone ? [0, -3, 0, 3, 0] : 0,
+                  }}
                   exit={{ scale: 0.4, opacity: 0, rotate: 15 }}
-                  transition={{ duration: 0.35 }}
+                  transition={{
+                    duration: 0.35,
+                    y: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+                  }}
                   className="text-4xl"
                 >
                   {headline.emoji}
@@ -210,6 +397,27 @@ export function ResearchProgressModal({
                   ? "Hydrating your dashboard cards…"
                   : "A team of specialists is consulting official sources."}
             </p>
+
+            {/* Rotating busy-line — describes WHAT the active specialist is
+                doing right now. Generic verb-phrases only (no fabricated
+                URLs / agency names per the NO MOCK DATA rule). Rotates
+                every 4.5s so the user always sees something change. */}
+            {!allDone && !isFinishing && currentSpecialistName && (
+              <div className="mt-1 h-4 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={`${currentSpecialistName}-${busyLineIndex}`}
+                    initial={{ y: 8, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -8, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-[11px] text-muted-foreground/80 italic"
+                  >
+                    {currentBusyLine}…
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
           {total > 0 && (
@@ -220,15 +428,63 @@ export function ResearchProgressModal({
                   {done}/{total} specialists
                 </span>
               </div>
-              <Progress value={progressPct} className="h-1.5" />
+              <div className="relative">
+                <Progress value={progressPct} className="h-1.5" />
+                {/* Indeterminate shimmer overlay — switches on whenever the
+                    progress count has been static for >5s. A moving linear
+                    gradient sweeps left-to-right so the bar feels alive
+                    even when no specialist completes for a while. */}
+                {isStagnant && !allDone && (
+                  <motion.div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-full overflow-hidden"
+                  >
+                    <motion.div
+                      className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/50 to-transparent dark:via-white/20"
+                      initial={{ x: "-100%" }}
+                      animate={{ x: "300%" }}
+                      transition={{
+                        duration: 1.6,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </div>
+              {/* Elapsed-time + reassurance. The clock proves the app is
+                  alive. The amber line tells anonymous users not to close
+                  the window — losing it mid-research means the run keeps
+                  going server-side but they have no way back to the
+                  result. */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 text-[10.5px] tabular-nums text-muted-foreground/80">
+                  <Clock className="h-3 w-3" />
+                  Elapsed {formatElapsed(elapsedSec)}
+                </span>
+                {!allDone && (
+                  <span className="inline-flex items-center gap-1 text-[10.5px] text-amber-600 dark:text-amber-400">
+                    <Info className="h-3 w-3" />
+                    Keep this window open
+                  </span>
+                )}
+              </div>
             </div>
+          )}
+
+          {!allDone && (
+            <p className="mt-3 text-[11px] text-amber-700 dark:text-amber-400 max-w-xs leading-relaxed">
+              Hold tight — research can take a few minutes. We'll redirect you to
+              the dashboard automatically when your plan is ready.
+            </p>
           )}
 
           {recent.length > 0 && !allDone && (
             <div className="mt-5 w-full text-left space-y-1.5">
               <AnimatePresence initial={false}>
-                {recent.map((a) => {
+                {recent.map((a, idx) => {
                   const lbl = labelFor(a.name);
+                  const isNewest = idx === 0;
                   return (
                     <motion.div
                       key={a.name}
@@ -239,7 +495,18 @@ export function ResearchProgressModal({
                       transition={{ duration: 0.25 }}
                       className="flex items-center gap-2 text-xs text-muted-foreground"
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span className="relative shrink-0">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        {isNewest && (
+                          <motion.span
+                            aria-hidden
+                            className="absolute inset-0 rounded-full ring-2 ring-emerald-400/50"
+                            initial={{ scale: 1, opacity: 0.8 }}
+                            animate={{ scale: 1.8, opacity: 0 }}
+                            transition={{ duration: 1.4, ease: "easeOut" }}
+                          />
+                        )}
+                      </span>
                       <span className="truncate">
                         <span aria-hidden className="mr-1.5">
                           {lbl.emoji}
