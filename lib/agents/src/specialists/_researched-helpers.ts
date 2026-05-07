@@ -29,7 +29,14 @@ import {
   type RegisteredSource,
 } from "./_sources.js";
 import type {
+  DeadlinePhase,
+  DocumentApostilleNeed,
+  DocumentCategory,
+  DocumentRequirement,
+  DocumentTranslationNeed,
+  ProfilePredicate,
   ResearchedSource,
+  ResearchedStep,
   SpecialistDomain,
   SpecialistFallbackReason,
   SpecialistQuality,
@@ -198,6 +205,292 @@ export function parseResearchedJsonResponse<T>(raw: string): T | null {
     return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)) as T;
   } catch {
     return null;
+  }
+}
+
+// ---- Strict enum + predicate validation -------------------------------
+//
+// LLM output is JSON-shaped but enum values can drift. These whitelists
+// + the recursive predicate validator drop offending items rather than
+// pretending the contract held. Drops downgrade quality.
+
+const VALID_DEADLINE_PHASES: ReadonlySet<DeadlinePhase> = new Set([
+  "before_move",
+  "move_day",
+  "first_72h",
+  "first_30d",
+  "first_90d",
+  "first_year_end",
+  "ongoing",
+]);
+
+const VALID_DOC_CATEGORIES: ReadonlySet<DocumentCategory> = new Set([
+  "civil_status",
+  "education",
+  "professional",
+  "criminal",
+  "medical",
+  "financial",
+  "identity",
+  "housing",
+  "other",
+]);
+
+const VALID_APOSTILLE: ReadonlySet<DocumentApostilleNeed> = new Set([
+  "needed",
+  "not_needed",
+  "varies",
+]);
+
+const VALID_TRANSLATION: ReadonlySet<DocumentTranslationNeed> = new Set([
+  "needed",
+  "not_needed",
+  "destination_language_only",
+  "varies",
+]);
+
+/**
+ * Recursive structural validator for ProfilePredicate. Accepts the
+ * exact shapes the contract enumerates; rejects unknown operators,
+ * missing fields, and wrong-type values. Predicates that fail
+ * validation are replaced with `{always: true}` and the step is
+ * counted as a drift in the validation result.
+ */
+export function isValidProfilePredicate(p: unknown): p is ProfilePredicate {
+  if (typeof p !== "object" || p === null) return false;
+  const r = p as Record<string, unknown>;
+  if (r.always === true && Object.keys(r).length === 1) return true;
+  if (r.eq && typeof r.eq === "object" && r.eq !== null) {
+    const e = r.eq as Record<string, unknown>;
+    return (
+      typeof e.field === "string" &&
+      (typeof e.value === "string" ||
+        typeof e.value === "number" ||
+        typeof e.value === "boolean")
+    );
+  }
+  if (r.in && typeof r.in === "object" && r.in !== null) {
+    const i = r.in as Record<string, unknown>;
+    return (
+      typeof i.field === "string" &&
+      Array.isArray(i.values) &&
+      i.values.every((v) => typeof v === "string" || typeof v === "number")
+    );
+  }
+  if (r.set && typeof r.set === "object" && r.set !== null) {
+    return typeof (r.set as Record<string, unknown>).field === "string";
+  }
+  if (r.unset && typeof r.unset === "object" && r.unset !== null) {
+    return typeof (r.unset as Record<string, unknown>).field === "string";
+  }
+  if (Array.isArray(r.all)) return r.all.every(isValidProfilePredicate);
+  if (Array.isArray(r.any)) return r.any.every(isValidProfilePredicate);
+  if (r.not !== undefined) return isValidProfilePredicate(r.not);
+  return false;
+}
+
+export interface ValidatedSteps {
+  steps: ResearchedStep[];
+  /** Steps the LLM returned but we dropped because of contract drift. */
+  dropped: number;
+  /** Steps where appliesWhen drifted; we reset to {always: true}. */
+  predicatesReset: number;
+}
+
+/**
+ * Strict step validator. Returns only steps that conform to the
+ * contract; drops everything else (with a count). Steps with
+ * structurally-invalid `appliesWhen` keep their other fields but
+ * have the predicate reset to `{always: true}` (rather than dropping
+ * the whole step over a faulty gate).
+ */
+export function validateAndNormaliseSteps(
+  raw: unknown,
+  domain: SpecialistDomain,
+): ValidatedSteps {
+  if (!Array.isArray(raw)) return { steps: [], dropped: 0, predicatesReset: 0 };
+  const steps: ResearchedStep[] = [];
+  let dropped = 0;
+  let predicatesReset = 0;
+  const prefix = `${domain}:`;
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      dropped += 1;
+      continue;
+    }
+    const r = item as Record<string, unknown>;
+    if (typeof r.id !== "string" || !r.id.startsWith(prefix)) {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.title !== "string" || typeof r.description !== "string") {
+      dropped += 1;
+      continue;
+    }
+    const dw = r.deadlineWindow as Record<string, unknown> | undefined;
+    if (!dw || typeof dw.phase !== "string" || !VALID_DEADLINE_PHASES.has(dw.phase as DeadlinePhase)) {
+      dropped += 1;
+      continue;
+    }
+    let appliesWhen: ProfilePredicate;
+    if (isValidProfilePredicate(r.appliesWhen)) {
+      appliesWhen = r.appliesWhen;
+    } else {
+      appliesWhen = { always: true };
+      predicatesReset += 1;
+    }
+    steps.push({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      deadlineWindow: {
+        phase: dw.phase as DeadlinePhase,
+        ...(typeof dw.weeksBeforeMove === "number" ? { weeksBeforeMove: dw.weeksBeforeMove } : {}),
+        ...(typeof dw.daysAfterArrival === "number" ? { daysAfterArrival: dw.daysAfterArrival } : {}),
+        ...(typeof dw.legalDeadlineDays === "number" ? { legalDeadlineDays: dw.legalDeadlineDays } : {}),
+      },
+      appliesWhen,
+      prerequisites: Array.isArray(r.prerequisites)
+        ? (r.prerequisites as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      documentIds: Array.isArray(r.documentIds)
+        ? (r.documentIds as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      ...(Array.isArray(r.walkthrough)
+        ? { walkthrough: (r.walkthrough as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 5) }
+        : {}),
+      ...(typeof r.bottleneck === "string" ? { bottleneck: r.bottleneck } : {}),
+      sources: Array.isArray(r.sources)
+        ? (r.sources as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+    });
+  }
+  return { steps, dropped, predicatesReset };
+}
+
+export interface ValidatedDocuments {
+  documents: DocumentRequirement[];
+  dropped: number;
+}
+
+export function validateAndNormaliseDocuments(
+  raw: unknown,
+  domain: SpecialistDomain,
+): ValidatedDocuments {
+  if (!Array.isArray(raw)) return { documents: [], dropped: 0 };
+  const documents: DocumentRequirement[] = [];
+  let dropped = 0;
+  const prefix = `${domain}:`;
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      dropped += 1;
+      continue;
+    }
+    const r = item as Record<string, unknown>;
+    if (typeof r.id !== "string" || !r.id.startsWith(prefix)) {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.label !== "string") {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.category !== "string" || !VALID_DOC_CATEGORIES.has(r.category as DocumentCategory)) {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.apostille !== "string" || !VALID_APOSTILLE.has(r.apostille as DocumentApostilleNeed)) {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.translation !== "string" || !VALID_TRANSLATION.has(r.translation as DocumentTranslationNeed)) {
+      dropped += 1;
+      continue;
+    }
+    if (typeof r.leadTimeDays !== "number" || !Number.isFinite(r.leadTimeDays) || r.leadTimeDays < 0) {
+      dropped += 1;
+      continue;
+    }
+    documents.push({
+      id: r.id,
+      label: r.label,
+      category: r.category as DocumentCategory,
+      apostille: r.apostille as DocumentApostilleNeed,
+      translation: r.translation as DocumentTranslationNeed,
+      leadTimeDays: r.leadTimeDays,
+      sources: Array.isArray(r.sources)
+        ? (r.sources as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+    });
+  }
+  return { documents, dropped };
+}
+
+// ---- Quality + fallback computation -----------------------------------
+
+/**
+ * Compose quality + fallbackReason from (a) source-fetch quality,
+ * (b) LLM parse success, (c) post-validation drift counts.
+ *
+ * Precedence (worst wins):
+ *   no LLM parse                → fallback / llm_parse_failed
+ *   ≥1 step / doc dropped       → downgrade to partial (or keep
+ *                                 fallback if already there)
+ *   else                        → keep fetch quality
+ */
+export function composeQuality(args: {
+  fetchQuality: SpecialistQuality;
+  fetchFallbackReason?: SpecialistFallbackReason;
+  parseFailed: boolean;
+  droppedSteps: number;
+  droppedDocs: number;
+}): { quality: SpecialistQuality; fallbackReason?: SpecialistFallbackReason } {
+  if (args.parseFailed) {
+    return { quality: "fallback", fallbackReason: "llm_parse_failed" };
+  }
+  const drift = args.droppedSteps + args.droppedDocs > 0;
+  if (args.fetchQuality === "fallback") {
+    return {
+      quality: "fallback",
+      ...(args.fetchFallbackReason ? { fallbackReason: args.fetchFallbackReason } : {}),
+    };
+  }
+  if (drift && args.fetchQuality === "full") {
+    return { quality: "partial" };
+  }
+  return {
+    quality: args.fetchQuality,
+    ...(args.fetchFallbackReason ? { fallbackReason: args.fetchFallbackReason } : {}),
+  };
+}
+
+// ---- Budget enforcement -----------------------------------------------
+
+/**
+ * Wrap a specialist body in a hard budget. When budgetMs elapses
+ * before the body resolves, returns the caller-supplied fallback
+ * output (typically quality:"fallback" + fallbackReason:"timeout").
+ *
+ * Note: callLLM does not currently accept an AbortSignal, so the
+ * underlying LLM request continues to run after timeout (its tokens
+ * are still billed). The race only stops US from waiting. When
+ * router.ts grows signal support we can thread it through and
+ * actually cancel.
+ */
+export async function withBudget<T>(args: {
+  budgetMs: number;
+  work: () => Promise<T>;
+  onTimeout: () => T;
+}): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(args.onTimeout()), args.budgetMs);
+  });
+  try {
+    const result = await Promise.race([args.work(), timeoutPromise]);
+    return result;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

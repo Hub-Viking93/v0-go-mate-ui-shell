@@ -50,6 +50,7 @@
 //
 // =============================================================
 
+import type { LogWriter } from "../types.js";
 import type { SpecialistProfile } from "./types.js";
 
 // ---- Sources + quality ------------------------------------------------
@@ -290,9 +291,19 @@ export type SpecialistDomain =
 export interface ResearchedSpecialistInput {
   /** Same shape every legacy specialist receives today. */
   profile: SpecialistProfile;
-  /** Wall-clock cap. Specialist must respect this and degrade
-   *  gracefully (return partial + quality:"partial"). */
+  /** Wall-clock cap. Specialist enforces this end-to-end (scrape +
+   *  LLM synthesis + parsing) via Promise.race; on timeout it
+   *  returns ResearchedSteps with quality:"fallback" and
+   *  fallbackReason:"timeout". */
   budgetMs: number;
+  /**
+   * Audit logging. When BOTH profileId and logWriter are provided,
+   * the specialist writes an `agent_audit` row at synthesis end via
+   * writeResearchedAudit. When either is missing the audit is
+   * silently skipped — used by the dry-run harness.
+   */
+  profileId?: string;
+  logWriter?: LogWriter;
   /**
    * Optional prior run's output for this domain.
    *
