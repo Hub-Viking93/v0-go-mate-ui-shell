@@ -43,6 +43,7 @@ import { VisaStatusTile, ChecklistStatusTile, VaultStatusTile } from "@/componen
 // Phase 3-6 components can find their original homes.
 import { NotificationBell } from "@/components/notification-bell"
 import { WorkspaceTiles } from "@/components/dashboard/workspace-tiles"
+import { RefinementBanner } from "@/components/refinement/refinement-banner"
 import { normalizeDocumentStatus } from "@/lib/gomate/types/document-status"
 import { ComplianceAlerts } from "@/components/compliance-alerts"
 import { useTier } from "@/hooks/use-tier"
@@ -55,6 +56,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Wallet,
   BookOpen,
   ExternalLink,
   MessageSquare,
@@ -1312,6 +1314,23 @@ export default function DashboardPage() {
           Visa & Legal merged into the Immigration workspace; Settling
           merged into Post-move. Dashboard is now overview-only. */}
 
+      {/* Post-research profile refinement — surfaces conditional fields
+          the wizard didn't ask for. Banner is self-suppressing once the
+          profile no longer satisfies any prompt's applicableWhen. */}
+      {plan && (
+        <RefinementBanner
+          profile={profile}
+          planId={plan.id}
+          planVersion={plan.plan_version}
+          area="dashboard"
+          onCompleted={() => {
+            // Hard-reload so banner re-derives, budget cell appears,
+            // and downstream cards (BudgetCard etc.) re-fetch.
+            window.location.reload()
+          }}
+        />
+      )}
+
       {/* Compliance Alerts (post-arrival) */}
       <ComplianceAlerts planStage={plan?.stage} className="gm-animate-in gm-delay-1" />
 
@@ -1396,7 +1415,12 @@ export default function DashboardPage() {
               <VisaStatusBadge citizenship={citizenship} destination={targetCountry} />
             </div>
           )}
-          <div className="gm-surface grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#E2E8E1]">
+          <div
+            className={cn(
+              "gm-surface grid grid-cols-1 sm:divide-y-0 sm:divide-x divide-y divide-[#E2E8E1]",
+              profile.monthly_budget ? "sm:grid-cols-4" : "sm:grid-cols-3",
+            )}
+          >
             <div className="px-4 py-3.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <MapPin className="w-3 h-3" strokeWidth={1.7} />
@@ -1434,6 +1458,18 @@ export default function DashboardPage() {
                 <div className="text-[11px] text-[#7E9088] mt-0.5">≈ {formatTimeUntilMove(monthsUntilMove)}</div>
               )}
             </div>
+            {profile.monthly_budget && (
+              <div className="px-4 py-3.5">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
+                  <Wallet className="w-3 h-3" strokeWidth={1.7} />
+                  Budget
+                </div>
+                <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24] tabular-nums">
+                  {profile.monthly_budget}
+                </div>
+                <div className="text-[11px] text-[#7E9088] mt-0.5">per month</div>
+              </div>
+            )}
           </div>
         </div>
       )}
