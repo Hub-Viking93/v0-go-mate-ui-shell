@@ -1,0 +1,99 @@
+The current onboarding / guided tour is outdated and needs a substantial redesign.
+
+  I inspected the current implementation and it is clearly still based on the old dashboard-tab mental model:
+  - `artifacts/gomate/src/components/dashboard/dashboard-guided-tour.tsx`
+  - `artifacts/gomate/src/pages/dashboard/index.tsx`
+
+  The existing tour still talks about:
+  - “tabs at the top”
+  - old dashboard sections like overview / profile / visa / money / settling
+  - and uses an old dashboard-internal structure that no longer matches the current IA
+
+  There is even a comment in the dashboard code saying the tabs were retired and the guided tour now gets a no-op
+  callback for backward compatibility.
+
+  So I want you to redesign this properly for the current product.
+
+  ## Goal
+
+  Create a **new-user getting-started tour** that matches the actual current workspace model and helps a first-time user
+  understand:
+
+  1. what to do first
+  2. where each major task lives
+  3. what the main surfaces are for
+  4. what the expected sequence is
+  5. how research-backed planning actually works in the product
+
+  ## The tour should teach the real current flow
+
+  It should orient the user around the current navigation / workspaces, not the old tab model:
+
+  - `Dashboard`
+  - `Immigration`
+  - `Pre-move`
+  - `Post-move`
+  - `Documents`
+  - `Plan & Guidance`
+  - `Settings` only if needed
+
+  And it should explain the actual “start here” logic, for example:
+  - start in `Immigration` to review / choose your visa pathway
+  - then use `Pre-move` to generate and work through the move checklist
+  - use `Documents` to collect proof and required paperwork
+  - use `Post-move` after arrival for registration / banking / healthcare / admin
+  - use `Plan & Guidance` for broader explanations, not as the first action surface
+
+  ## Important product requirements
+
+  This should not be a generic “here are some menu items” tour.
+
+  I want the new tour to feel intentional and product-aware:
+  - guide the user through the recommended order of operations
+  - explain what each workspace is for in one sentence
+  - reduce uncertainty about “what should I do first?”
+  - avoid stale references to old IA/tabs
+  - avoid overlong copy
+
+  ## What I want you to do
+
+  1. inspect the current guided tour and all current main workspace entry points
+  2. identify what is outdated in the current tour
+  3. redesign the tour structure and copy for the new IA
+  4. implement it
+  5. make sure it works for a first-time user after onboarding / research completion
+  6. keep a “restart tour” affordance if that still makes sense
+
+  ## I want the new tour to answer these user questions explicitly
+
+  - “What do I start with?”
+  - “Where do I pick my visa path?”
+  - “Where do I find the actual checklist?”
+  - “Where do I upload documents?”
+  - “What unlocks after I arrive?”
+  - “What is the difference between refreshing research and regenerating my plan?”
+
+  ## UX direction
+
+  Prefer a short, high-signal tour:
+  - 4 to 6 steps
+  - concise copy
+  - no old tab metaphors
+  - no fake feature descriptions
+  - grounded in the actual current UI
+
+  If the current dashboard-modal tour is the wrong container, say so and propose the right one.
+  For example:
+  - a global first-run workspace tour
+  - a dashboard “start here” walkthrough
+  - or a hybrid where the first step is on dashboard and the rest points to sidebar destinations
+
+  ## Deliverables
+
+  I want back:
+  1. root assessment of what is outdated in the current tour
+  2. proposed new tour structure
+  3. exact files changed
+  4. screenshot proof
+  5. any open UX tradeoffs
+

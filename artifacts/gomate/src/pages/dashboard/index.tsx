@@ -2,7 +2,7 @@
 
 import { Link, useLocation } from "wouter"
 import { useRouter } from "@/lib/router-compat"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { TrustBadge, type TrustSource } from "@/components/trust-badge"
@@ -611,6 +611,14 @@ export default function DashboardPage() {
   const [researchStatus, setResearchStatus] = useState<string | null>(null)
   const [showResearchModal, setShowResearchModal] = useState(false)
   const [showGuidedTour, setShowGuidedTour] = useState(false)
+  // Once the research-progress modal has completed its handoff for this
+  // mount, it must NEVER reopen. Without this guard, a polling tick
+  // that flips researchStatus → "completed" right around the same time
+  // the modal closes can re-fire the open-effect below, see a still-
+  // present `?research=triggered` URL param, and reopen the modal —
+  // user sees the dashboard freeze behind a re-mounted progress modal
+  // until they hard-refresh.
+  const researchModalCompletedRef = useRef(false)
   // Cost-of-living data — drives Budget Plan card's runway calculation.
   // Fetched once when destination is known; the API converts amounts into
   // the user's preferred currency before responding.
@@ -653,6 +661,13 @@ export default function DashboardPage() {
   // already says research_status=in_progress (e.g. user reloaded mid-run).
   useEffect(() => {
     if (loading) return
+    // Once the modal has completed its handoff for this dashboard
+    // mount, never reopen it. Without this guard, a polling tick that
+    // flips researchStatus → "completed" can race the URL cleanup in
+    // handleResearchModalComplete and re-fire this effect while
+    // ?research=triggered is still in the URL — reopening the modal
+    // and producing the production-only "freeze until refresh" symptom.
+    if (researchModalCompletedRef.current) return
     const fromOnboarding =
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("research") === "triggered"
@@ -1094,13 +1109,20 @@ export default function DashboardPage() {
   const researchDataReady = researchTerminalStatus || hasResearchData
 
   const handleResearchModalComplete = () => {
-    setShowResearchModal(false)
+    // Order matters here. Set the completed-ref + clean the URL FIRST,
+    // BEFORE flipping showResearchModal to false. That way, if a polling
+    // tick re-fires the open-effect during the same render cycle, the
+    // ref blocks reopen and the URL no longer carries ?research=triggered.
+    researchModalCompletedRef.current = true
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
       if (url.searchParams.has("research")) {
         url.searchParams.delete("research")
         window.history.replaceState({}, "", url.toString())
       }
+    }
+    setShowResearchModal(false)
+    if (typeof window !== "undefined") {
       const tourSeen = window.localStorage.getItem("gomate.guidedTourCompleted.v1")
       if (!tourSeen) {
         // Defer slightly so the modal close-animation doesn't collide

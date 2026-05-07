@@ -69,18 +69,10 @@ export function CommonlyForgottenSection({
   }, [planId, destination])
 
   useEffect(() => {
-    if (!planId) return
-    setLoading(true)
-    fetch("/api/plan-checks")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed")
-        return res.json()
-      })
-      .then((data) => {
-        setItems(data.forgottenItems || [])
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false))
+    // /api/plan-checks is not implemented on the server. Skip the fetch
+    // (which always 404s in production) and render the empty state.
+    setItems([])
+    setLoading(false)
   }, [planId])
 
   useEffect(() => {

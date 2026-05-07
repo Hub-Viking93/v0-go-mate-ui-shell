@@ -68,19 +68,14 @@ export function PlanConsistencyAlerts({ planId }: PlanConsistencyAlertsProps) {
   }, [])
 
   useEffect(() => {
-    if (!planId) return
-    setLoading(true)
-    fetch("/api/plan-checks")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch")
-        return res.json()
-      })
-      .then((data) => {
-        setWarnings(data.warnings || [])
-        setError(false)
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+    // /api/plan-checks is not implemented on the server. Until a real
+    // consistency-check endpoint exists, render nothing rather than
+    // firing a permanent 404 on every dashboard mount. The component
+    // returns null when there are no warnings (see early return below),
+    // so degrading silently is the correct behaviour.
+    setWarnings([])
+    setError(false)
+    setLoading(false)
   }, [planId])
 
   function dismiss(code: string) {

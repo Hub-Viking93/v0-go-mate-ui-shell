@@ -1,0 +1,72 @@
+We have a real production-only blocker on the hosted app and I want you to investigate and fix it directly in the
+  deployed/runtime environment.
+
+  App:
+  - `https://app.gomaterelocate.com`
+
+  User type:
+  - guest user
+
+  Observed behavior:
+  - after finishing onboarding / plan generation, the app freezes on the final “All set” handoff
+  - refreshing the browser immediately makes the app load correctly afterward
+  - this does NOT reliably reproduce in localhost preview
+
+  Console noise seen in production:
+  - `/api/plan-checks` → 404
+  - `/api/pre-departure` → 404
+
+  Important:
+  - do NOT assume those 404s are the main root cause
+  - they may be secondary noise
+  - the real blocker is that the hosted app gets stuck until manual refresh
+
+  I want you to investigate this in the actual production/runtime environment, not just by reading code.
+
+  ## What I want you to do
+
+  1. Reproduce it yourself in the hosted app
+  - open `https://app.gomaterelocate.com`
+  - go through the guest onboarding flow yourself
+  - hit the final “All set” step
+  - reproduce the freeze if possible
+
+  2. Inspect the real runtime behavior
+  - browser console
+  - network requests
+  - auth/session behavior
+  - redirect behavior
+  - any polling / SSE / hydration timing around research completion
+
+  3. Determine root cause
+  I want you to figure out exactly which of these is failing:
+  - onboarding completion → research completion handoff
+  - guest auth/session state in production
+  - SSE / polling terminal-status sync
+  - modal close / redirect conditions
+  - dashboard hydration / readiness flags
+  - deployed build missing a local fix
+  - production env timing / config difference
+
+  4. Assess the 404s precisely
+  - `/api/plan-checks`
+    - is this a dead frontend call to a removed route?
+    - harmless console noise or involved in the freeze?
+  - `/api/pre-departure`
+    - is 404 expected for users with no generated pre-move timeline?
+    - if expected, is the hosted UI handling it safely?
+
+  ## Expected output
+
+  I do NOT want a vague answer.
+
+  I want:
+  1. root cause
+  2. whether this is the same known race in a hosted-only variant or a different bug
+  3. whether the 404s are blocker vs secondary noise
+  4. exact files / code paths involved
+  5. fix
+  6. how you verified the hosted guest flow no longer requires manual refresh
+
+  ## Standard
+  Treat this as a production blocker, not a cleanup task.
