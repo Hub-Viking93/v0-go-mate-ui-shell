@@ -259,6 +259,30 @@ export {
 // dry-run harnesses + future settling-in route integration.
 export { mapResearchedToSettlingTasks } from "./_settling-in-adapter.js";
 
+// Phase C1.1 — settling-in completion bridge. Carries user state from
+// pre-migration legacy task_keys (reg-population, bank-open-account,
+// …) to post-migration researched ids (registration:population-register,
+// banking:open-local-account, …) by same-category title similarity.
+// Conservative — false positives are explicitly worse than false
+// negatives; the bridge prefers leaving legacy state as an orphan over
+// wrongly marking an unrelated task complete.
+export {
+  bridgeCompletionsBySimilarTitle,
+  normaliseTitle,
+  distinctiveTokens,
+  similarity,
+  BRIDGE_MIN_SCORE,
+  BRIDGE_MIN_SHARED_TOKENS,
+  BRIDGE_MIN_SEPARATION,
+  type BridgeSnapshot,
+  type BridgeNewTask,
+  type BridgeMatch,
+  type BridgeDecision,
+  type BridgeLogEntry,
+  type BridgeResult,
+  type SimilarityResult,
+} from "./_settling-in-completion-bridge.js";
+
 // Phase 1B — task walkthrough shape (used by both pre-departure + settling-in).
 // Phase 1C — structured action-link model (TaskActionLink) lives in the same
 // module since it's authored alongside walkthroughs.

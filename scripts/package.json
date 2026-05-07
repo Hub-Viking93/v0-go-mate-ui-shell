@@ -10,6 +10,7 @@
     "dry-run-b3": "tsx ./src/dry-run-b3-specialists.ts",
     "dry-run-a1": "tsx ./src/dry-run-a1-composer.ts",
     "dry-run-c1": "tsx ./src/dry-run-c1-settling-in.ts",
+    "dry-run-c11": "tsx ./src/dry-run-c11-bridge.ts",
     "dry-run-e1a": "tsx ./src/dry-run-e1a-triggers.ts",
     "dry-run-e1b": "tsx ./src/dry-run-e1b-stale.ts",
     "dry-run-f1": "tsx ./src/dry-run-f1-concurrent.ts",

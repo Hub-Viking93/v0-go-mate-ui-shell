@@ -15,11 +15,13 @@ import {
   createSupabaseLogWriter,
   isResearchStale,
   daysSinceRetrieved,
+  bridgeCompletionsBySimilarTitle,
   type SettlingInProfile,
   type SettlingTask,
   type ResearchedSteps,
   type DeadlineType,
   type Urgency,
+  type BridgeSnapshot,
 } from "@workspace/agents";
 
 const router: IRouter = Router();
@@ -147,6 +149,54 @@ async function generateAndPersistSettlingInTasks(args: {
     },
   });
 
+  // ----- C1.1 — snapshot prior rows before wipe so the bridge can
+  // carry user state (status / completed_at / user_notes) onto
+  // semantically-equivalent new tasks. The bridge itself runs after
+  // the inserts complete; this just preserves the source data.
+  // settling_in_tasks doesn't have a user_notes column today (only
+  // pre-departure stored actions do). The BridgeSnapshot type carries
+  // userNotes for surface symmetry; we just feed it null here so the
+  // bridge ignores it. If a future migration adds notes to settling
+  // tasks, swap this back to read the column.
+  interface PriorTaskRow {
+    id: string;
+    task_key: string | null;
+    title: string | null;
+    category: string | null;
+    status: string | null;
+    completed_at: string | null;
+    deadline_at: string | null;
+    documents_needed: string[] | null;
+    walkthrough: unknown;
+    description: string | null;
+    deadline_days: number | null;
+    is_legal_requirement: boolean | null;
+    deadline_type: string | null;
+    steps: unknown;
+    official_link: string | null;
+    estimated_time: string | null;
+    cost: string | null;
+    sort_order: number | null;
+  }
+  const { data: priorRows } = await args.supabase
+    .from("settling_in_tasks")
+    .select(
+      "id, task_key, title, category, status, completed_at, deadline_at, documents_needed, walkthrough, description, deadline_days, is_legal_requirement, deadline_type, steps, official_link, estimated_time, cost, sort_order",
+    )
+    .eq("plan_id", args.planId)
+    .eq("user_id", args.userId)
+    .returns<PriorTaskRow[]>();
+  const snapshot: BridgeSnapshot[] = (priorRows ?? [])
+    .filter((r) => typeof r.task_key === "string" && typeof r.title === "string" && typeof r.category === "string")
+    .map((r) => ({
+      taskKey: r.task_key as string,
+      title: r.title as string,
+      category: r.category as string,
+      status: r.status ?? "available",
+      completedAt: r.completed_at,
+      userNotes: null,
+    }));
+
   // Wipe any prior tasks for this plan (regen path).
   await args.supabase
     .from("settling_in_tasks")
@@ -156,6 +206,29 @@ async function generateAndPersistSettlingInTasks(args: {
 
   if (dag.tasks.length === 0) {
     return { count: 0, legalCount: 0, urgentCount: 0 };
+  }
+
+  // ----- C1.1 — compute the bridge BEFORE building insertRows so
+  // the bridged status/completed_at/user_notes can land on the
+  // initial INSERT (no second update round-trip).
+  const bridge = bridgeCompletionsBySimilarTitle(
+    dag.tasks.map((t) => ({
+      taskKey: t.taskKey,
+      title: t.title,
+      category: t.category,
+    })),
+    snapshot,
+  );
+  if (bridge.matches.size > 0 || bridge.orphans.length > 0) {
+    logger.info(
+      {
+        planId: args.planId,
+        bridged: bridge.matches.size,
+        orphans: bridge.orphans.length,
+        decisions: bridge.log.map((e) => ({ legacyKey: e.legacyKey, decision: e.decision })),
+      },
+      "settling-in: completion bridge ran",
+    );
   }
 
   const arrivalMs = args.arrivalDate.getTime();
@@ -169,6 +242,10 @@ async function generateAndPersistSettlingInTasks(args: {
   // before sending data back to the UI.
   const insertRows = dag.tasks.map((t: SettlingTask) => {
     const deadlineDate = new Date(arrivalMs + t.deadlineDays * 24 * 60 * 60 * 1000);
+    // C1.1 — apply bridged state if this new task inherited from a
+    // legacy row. Where no bridge match exists, fall back to the
+    // task's default ("available", no completion).
+    const carried = bridge.matches.get(t.taskKey);
     return {
       user_id: args.userId,
       plan_id: args.planId,
@@ -187,7 +264,8 @@ async function generateAndPersistSettlingInTasks(args: {
       official_link: t.officialLink,
       estimated_time: t.estimatedTime,
       cost: t.cost,
-      status: t.status,
+      status: carried?.status ?? t.status,
+      completed_at: carried?.completedAt ?? null,
       sort_order: t.sortOrder,
     };
   });
@@ -224,6 +302,60 @@ async function generateAndPersistSettlingInTasks(args: {
     );
   }
   await Promise.all(patches);
+
+  // ----- C1.1 — re-insert orphans (legacy rows that didn't earn
+  // a confident bridge match). These keep their old task_key + state
+  // so the user doesn't lose their progress; UI work later will
+  // surface a disambiguation prompt ("is this the same as <new
+  // task>?"). For now, an orphan visually appears as an additional
+  // task in its category. False-positive avoidance was the priority,
+  // not zero duplicates.
+  if (bridge.orphans.length > 0) {
+    const orphanIdsToReinsert = bridge.orphans
+      .map((o) =>
+        (priorRows ?? []).find((r) => r.task_key === o.taskKey),
+      )
+      .filter((r): r is PriorTaskRow => r !== undefined);
+    if (orphanIdsToReinsert.length > 0) {
+      const orphanRows = orphanIdsToReinsert.map((r) => ({
+        user_id: args.userId,
+        plan_id: args.planId,
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        depends_on: [],
+        deadline_days: r.deadline_days,
+        deadline_at: r.deadline_at,
+        is_legal_requirement: r.is_legal_requirement,
+        deadline_type: r.deadline_type,
+        walkthrough: r.walkthrough,
+        task_key: r.task_key,
+        steps: r.steps,
+        // Strip any sentinels from documents_needed; orphans were
+        // already cleaned via the original pass-2 update before
+        // they got snapshotted, but be defensive.
+        documents_needed: Array.isArray(r.documents_needed)
+          ? r.documents_needed.filter((d) => !d.startsWith("__key:"))
+          : [],
+        official_link: r.official_link,
+        estimated_time: r.estimated_time,
+        cost: r.cost,
+        status: r.status,
+        completed_at: r.completed_at,
+        sort_order: r.sort_order,
+      }));
+      const { error: orphanErr } = await args.supabase
+        .from("settling_in_tasks")
+        .insert(orphanRows);
+      if (orphanErr) {
+        logger.error(
+          { err: orphanErr, planId: args.planId, count: orphanRows.length },
+          "settling-in: failed to re-insert bridge orphans (state may be lost)",
+        );
+      }
+    }
+  }
+
   // Mark plan as generated.
   await args.supabase
     .from("relocation_plans")
