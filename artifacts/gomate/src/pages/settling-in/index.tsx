@@ -655,6 +655,8 @@ export default function SettlingInPage() {
                     <ResearchProvenanceBadge
                       provenance={provenance[group.key] ?? { kind: "generic" }}
                       compact
+                      domain={group.key}
+                      onRefreshed={() => { void fetchTasks() }}
                     />
                     {hasLegal && (
                       <Badge variant="outline" className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5 gap-0.5 px-1.5">

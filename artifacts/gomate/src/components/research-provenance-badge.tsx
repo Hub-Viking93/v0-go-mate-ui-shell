@@ -16,8 +16,18 @@
 // because users would over-trust the generic fallback content.
 // =============================================================
 
+import { useState } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ExternalLink, FlaskConical, Sparkles, AlertTriangle, Archive } from "lucide-react"
+import {
+  ExternalLink,
+  FlaskConical,
+  Sparkles,
+  AlertTriangle,
+  Archive,
+  RefreshCw,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type ResearchProvenance =
@@ -63,6 +73,171 @@ interface Props {
   provenance: ResearchProvenance
   /** Compact: chip-only (small contexts). Default false → full label. */
   compact?: boolean
+  /** SpecialistDomain this badge represents. Required for the refresh
+   *  affordance — the popover hides the button when domain is omitted. */
+  domain?: string
+  /** Called after a successful refresh so the parent surface can re-
+   *  fetch its provenance map (the popover's own state would otherwise
+   *  show stale numbers — e.g. daysOld stays at the pre-refresh value
+   *  until the parent re-fetches). */
+  onRefreshed?: () => void
+}
+
+// =============================================================
+// useRefresh — Phase E2
+// =============================================================
+// Local hook for the refresh button. Calls POST /api/research/refresh
+// with a single domain, surfaces idle / pending / success / skipped /
+// error states in the popover. The success copy explicitly mentions
+// Regenerate so users understand the cache→checklist boundary.
+type RefreshState =
+  | { tag: "idle" }
+  | { tag: "pending" }
+  | { tag: "success"; refreshedAt: string; sourcesCount: number; stepsCount: number }
+  | { tag: "skipped"; reason: string }
+  | { tag: "error"; message: string }
+
+function useRefresh(domain: string | undefined, onRefreshed?: () => void) {
+  const [state, setState] = useState<RefreshState>({ tag: "idle" })
+  async function trigger(): Promise<void> {
+    if (!domain) return
+    setState({ tag: "pending" })
+    try {
+      const r = await fetch("/api/research/refresh", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains: [domain] }),
+      })
+      if (!r.ok) {
+        const body = await r.json().catch(() => null)
+        setState({ tag: "error", message: body?.error ?? `HTTP ${r.status}` })
+        return
+      }
+      const body = (await r.json()) as {
+        refreshed: Array<{ domain: string; retrievedAt: string; sourcesCount: number; stepsCount: number }>
+        skipped: Array<{ domain: string; reason: string }>
+      }
+      const refreshed = body.refreshed.find((x) => x.domain === domain)
+      const skipped = body.skipped.find((x) => x.domain === domain)
+      if (refreshed) {
+        setState({
+          tag: "success",
+          refreshedAt: refreshed.retrievedAt,
+          sourcesCount: refreshed.sourcesCount,
+          stepsCount: refreshed.stepsCount,
+        })
+        onRefreshed?.()
+      } else if (skipped) {
+        setState({ tag: "skipped", reason: skipped.reason })
+      } else {
+        setState({ tag: "error", message: "No result for this domain" })
+      }
+    } catch (err) {
+      setState({
+        tag: "error",
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+  return { state, trigger }
+}
+
+// Small inner component so the hook lives at the right scope (each
+// popover instance has its own state — opening another popover doesn't
+// reset this one's). Used by both researched + legacy_research arms.
+function RefreshControls({
+  domain,
+  isLegacy,
+  onRefreshed,
+}: {
+  domain: string | undefined
+  isLegacy: boolean
+  onRefreshed?: () => void
+}) {
+  const { state, trigger } = useRefresh(domain, onRefreshed)
+
+  // Legacy_research isn't refreshable via the new pipe — visa hasn't
+  // migrated yet. Be honest about that rather than hiding the button.
+  if (isLegacy) {
+    return (
+      <div
+        data-testid="provenance-refresh-disabled"
+        className="text-[11px] text-muted-foreground leading-snug border-t pt-2 mt-1"
+      >
+        Manual refresh isn't available yet — this domain hasn't been migrated to the current research pipeline.
+      </div>
+    )
+  }
+  if (!domain) return null
+
+  if (state.tag === "success") {
+    return (
+      <div
+        data-testid="provenance-refresh-success"
+        className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-snug border-t pt-2 mt-1 space-y-1"
+      >
+        <div className="inline-flex items-center gap-1 font-medium">
+          <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
+          Refreshed just now ({state.stepsCount} steps · {state.sourcesCount} sources)
+        </div>
+        <p className="text-muted-foreground">
+          The research cache is updated. Click <strong>Regenerate</strong> on the page above to apply it to your
+          checklist.
+        </p>
+      </div>
+    )
+  }
+  if (state.tag === "skipped") {
+    return (
+      <div
+        data-testid="provenance-refresh-skipped"
+        className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug border-t pt-2 mt-1"
+      >
+        Skipped: {state.reason.replaceAll("_", " ")}
+      </div>
+    )
+  }
+  if (state.tag === "error") {
+    return (
+      <div
+        data-testid="provenance-refresh-error"
+        className="text-[11px] text-rose-700 dark:text-rose-400 leading-snug border-t pt-2 mt-1"
+      >
+        Refresh failed: {state.message}
+      </div>
+    )
+  }
+  return (
+    <div className="border-t pt-2 mt-1">
+      <button
+        type="button"
+        data-testid="provenance-refresh-trigger"
+        onClick={(e) => {
+          e.stopPropagation()
+          void trigger()
+        }}
+        disabled={state.tag === "pending"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium",
+          "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400",
+          "hover:brightness-95 transition-colors",
+          state.tag === "pending" && "opacity-60 cursor-not-allowed",
+        )}
+      >
+        {state.tag === "pending" ? (
+          <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2} />
+        ) : (
+          <RefreshCw className="w-3 h-3" strokeWidth={2} />
+        )}
+        {state.tag === "pending" ? "Refreshing…" : "Refresh research"}
+      </button>
+      <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
+        Refresh fetches new research for this section. To apply the result to your checklist, click Regenerate
+        afterwards.
+      </p>
+    </div>
+  )
 }
 
 function formatRelative(iso: string): string {
@@ -114,7 +289,12 @@ const LEGACY_CLASS = {
   border: "border-slate-500/30",
 } as const
 
-export function ResearchProvenanceBadge({ provenance, compact = false }: Props) {
+export function ResearchProvenanceBadge({
+  provenance,
+  compact = false,
+  domain,
+  onRefreshed,
+}: Props) {
   if (provenance.kind === "generic") {
     return (
       <span
@@ -208,6 +388,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
             ) : (
               <p className="text-[11px] text-muted-foreground">No source URLs persisted from the legacy run.</p>
             )}
+            <RefreshControls domain={domain} isLegacy={true} onRefreshed={onRefreshed} />
           </div>
         </PopoverContent>
       </Popover>
@@ -306,6 +487,7 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
           ) : (
             <p className="text-[11px] text-muted-foreground">No sources fetched this run.</p>
           )}
+          <RefreshControls domain={domain} isLegacy={false} onRefreshed={onRefreshed} />
         </div>
       </PopoverContent>
     </Popover>

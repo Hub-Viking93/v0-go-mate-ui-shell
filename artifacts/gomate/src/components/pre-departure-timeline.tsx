@@ -374,7 +374,10 @@ export function PreDepartureTimeline() {
             is the cleanest spot for the user to see which domains
             are research-backed at a glance. Click any chip for the
             source list. */}
-        <TimelineProvenanceSummary provenance={timeline.provenance ?? null} />
+        <TimelineProvenanceSummary
+          provenance={timeline.provenance ?? null}
+          onRefreshed={() => { void load() }}
+        />
       </section>
 
       {/* Overdue / urgent strip */}
@@ -538,8 +541,10 @@ const PRE_DEPARTURE_DOMAIN_LABELS: ReadonlyArray<{ key: string; label: string }>
 
 function TimelineProvenanceSummary({
   provenance,
+  onRefreshed,
 }: {
   provenance: Record<string, ResearchProvenance> | null;
+  onRefreshed?: () => void;
 }) {
   // Safety net for old persisted timelines that lack provenance.
   // Renders the chip row as all-generic so the section is never
@@ -564,7 +569,12 @@ function TimelineProvenanceSummary({
             data-domain={key}
           >
             <span className="text-[11px] text-[#1F2A24]">{label}</span>
-            <ResearchProvenanceBadge provenance={p} compact />
+            <ResearchProvenanceBadge
+              provenance={p}
+              compact
+              domain={key}
+              onRefreshed={onRefreshed}
+            />
           </span>
         );
       })}
