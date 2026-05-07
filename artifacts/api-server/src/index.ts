@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startNotificationsScheduler } from "./lib/notifications-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  // Phase 6A — start the proactive notifications scheduler. Fires a
+  // tick immediately + every NOTIFICATIONS_SCHEDULER_INTERVAL_MS (default
+  // 30 min). Set the env to 0 to disable (e.g. in some test runs).
+  startNotificationsScheduler();
 });

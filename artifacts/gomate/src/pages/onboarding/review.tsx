@@ -556,24 +556,24 @@ function ReviewBlock({ title, editRoute, rows }: ReviewBlockProps) {
   if (rows.length === 0) return null
   return (
     <OnboardingSection title={title}>
-      <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-card overflow-hidden">
-        <div className="flex items-center justify-end px-3 pt-2 pb-0.5">
+      <div className="gm-surface-sub overflow-hidden">
+        <div className="flex items-center justify-end px-3.5 pt-2 pb-0.5">
           <Link
             href={editRoute}
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="inline-flex items-center gap-1 text-[11.5px] font-medium text-[#3F6B53] hover:text-[#2D3E36] transition-colors"
           >
-            <Pencil className="w-3 h-3" />
+            <Pencil className="w-3 h-3" strokeWidth={1.7} />
             Edit
           </Link>
         </div>
-        <dl className="divide-y divide-stone-100 dark:divide-stone-800">
+        <dl className="divide-y divide-[#ECF1EC]">
           {rows.map((r) => (
             <div
               key={r.label}
-              className="flex items-baseline justify-between gap-4 px-3 py-2"
+              className="flex items-baseline justify-between gap-4 px-3.5 py-2"
             >
-              <dt className="text-[12px] text-muted-foreground shrink-0">{r.label}</dt>
-              <dd className="text-[13px] text-foreground text-right break-words min-w-0">
+              <dt className="text-[11.5px] text-[#7E9088] shrink-0">{r.label}</dt>
+              <dd className="text-[12.5px] text-[#1F2A24] text-right break-words min-w-0 font-medium">
                 {r.value}
               </dd>
             </div>

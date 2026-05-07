@@ -1,19 +1,20 @@
 // =============================================================
-// OnboardingShell — visual wrapper for the multi-step wizard.
+// OnboardingShell — wizard chrome (sage stationery)
 // =============================================================
-// Mirrors the editorial forest-gradient hero used on /chat and
-// /dashboard, but trades the "Next question" hint for a 1-of-5
-// step indicator. Pages compose their fields inside <main>; the
-// shell provides header, sticky footer, and primary/secondary
-// CTA wiring. Each wizard page is responsible for its own data
-// fetching, validation, and PATCH /api/profile call — the shell
-// is purely presentational.
+// Page bg #EEF3EE. The wizard sits on top as a single elevated
+// card (gm-surface). Section dividers are eyebrow + 1px sage rule
+// — no zone-style colour bands. Footer stays sticky and clearly
+// separated from the form via a soft top shadow.
+//
+// Pages compose their fields inside <main>; the shell handles
+// header, progress, footer + primary/secondary CTAs. Each wizard
+// page owns its data fetching, validation, and PATCH /api/profile
+// call — the shell is purely presentational.
 // =============================================================
 
 import * as React from "react"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 interface OnboardingShellProps {
   step: number
@@ -53,86 +54,81 @@ export function OnboardingShell({
   onBack,
   errorBanner,
 }: OnboardingShellProps) {
+  const pct = Math.round((step / totalSteps) * 100)
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-2rem)] bg-gradient-to-b from-background to-emerald-50/30 dark:to-emerald-950/10">
-      <div
-        className="flex-shrink-0 relative overflow-hidden text-white"
-        style={{
-          background:
-            "linear-gradient(135deg, #14302A 0%, #1B3A2D 38%, #234D3A 72%, #2D6A4F 100%)",
-          boxShadow:
-            "0 2px 8px rgba(20,48,42,0.18), 0 12px 32px rgba(20,48,42,0.20)",
-        }}
-      >
+    <div className="min-h-screen gm-canvas flex flex-col">
+      {/* Thin top progress — single signal, replaces dot row + 1/5 counter */}
+      <div className="sticky top-0 z-30 h-[3px] bg-[#DCE7DF]">
         <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 80% at 100% 0%, rgba(94,232,156,0.18) 0%, transparent 60%)",
-          }}
+          className="h-full bg-[#3F6B53] transition-[width] duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+          aria-hidden
         />
-        <div className="relative px-5 sm:px-8 py-4 max-w-3xl mx-auto w-full">
-          <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-emerald-200/80">
-            {eyebrow}
-          </p>
-          <h1
-            className="font-serif tracking-tight text-white mt-0.5"
-            style={{ fontSize: "18px", fontWeight: 600, lineHeight: 1.2 }}
-          >
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-[11px] text-emerald-100/75 mt-0.5">{subtitle}</p>
-          )}
-
-          {/* Dot-style step indicator */}
-          <div className="flex items-center gap-1.5 mt-3" aria-label={`Step ${step} of ${totalSteps}`}>
-            {Array.from({ length: totalSteps }, (_, i) => {
-              const idx = i + 1
-              const state =
-                idx < step ? "done" : idx === step ? "current" : "future"
-              return (
-                <span
-                  key={idx}
-                  className={cn(
-                    "h-1 rounded-full transition-all",
-                    state === "current" ? "w-7 bg-emerald-300" : "w-3",
-                    state === "done" && "bg-emerald-400/80",
-                    state === "future" && "bg-white/15",
-                  )}
-                />
-              )
-            })}
-            <span className="text-[10px] text-emerald-100/60 ml-2 font-medium">
-              {step} / {totalSteps}
-            </span>
-          </div>
-        </div>
       </div>
 
-      <main className="flex-1 px-5 sm:px-8 py-5 sm:py-6 max-w-3xl mx-auto w-full pb-32 lg:pb-24">
-        {errorBanner && (
-          <div className="mb-4 rounded-lg border border-rose-200 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
-            {errorBanner}
+      {/* Centered wizard card on the canvas */}
+      <main className="flex-1 px-4 sm:px-6 py-6 sm:py-10 pb-32 lg:pb-28">
+        <div className="max-w-2xl mx-auto w-full">
+          <div
+            className="gm-surface px-6 sm:px-8 py-6 sm:py-7"
+            data-testid="onboarding-card"
+          >
+            <header className="flex items-baseline justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <span className="gm-eyebrow">{eyebrow}</span>
+                <h1
+                  className="font-sans tracking-tight text-[#1F2A24] mt-2"
+                  style={{ fontSize: "22px", fontWeight: 600, lineHeight: 1.15 }}
+                >
+                  {title}
+                </h1>
+                {subtitle && (
+                  <p className="text-[12.5px] text-[#7E9088] mt-1.5 leading-relaxed">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+              <span
+                className="text-[11px] tabular-nums text-[#7E9088] font-medium shrink-0"
+                aria-label={`Step ${step} of ${totalSteps}`}
+              >
+                {step} / {totalSteps}
+              </span>
+            </header>
+
+            <div className="my-5 h-px bg-[#ECF1EC]" aria-hidden />
+
+            {errorBanner && (
+              <div
+                className="mb-5 rounded-md px-3.5 py-2.5 text-[12.5px] text-[#8B2F38]"
+                style={{ background: "#F5DDDF66", border: "1px solid #E8B8BD" }}
+              >
+                {errorBanner}
+              </div>
+            )}
+
+            <div className="space-y-7">{children}</div>
           </div>
-        )}
-        {children}
+        </div>
       </main>
 
-      {/* lg:left-60 stops the footer at the AppShell sidebar's right
-          edge so it doesn't cover the sidebar's "Sign out" / "Country
-          Guides" entries. On mobile/tablet the sidebar is hidden so we
-          fall back to full-width minus the bottom mobile-nav. */}
-      <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-60 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
-        <div className="px-5 sm:px-8 py-3 max-w-3xl mx-auto w-full flex items-center justify-between gap-3">
+      {/* Sticky footer — solid white, soft shadow upwards */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white"
+        style={{
+          borderTop: "1px solid #DCE7DF",
+          boxShadow: "0 -4px 12px -8px rgba(31, 42, 36, 0.08)",
+        }}
+      >
+        <div className="px-4 sm:px-6 py-3 max-w-2xl mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+                className="text-[12.5px] text-[#7E9088] hover:text-[#1F2A24] transition-colors inline-flex items-center gap-1.5"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.7} />
                 Back
               </button>
             )}
@@ -140,7 +136,7 @@ export function OnboardingShell({
               <button
                 type="button"
                 onClick={onSecondary}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-[12.5px] text-[#7E9088] hover:text-[#1F2A24] transition-colors"
               >
                 {secondaryLabel}
               </button>
@@ -151,7 +147,7 @@ export function OnboardingShell({
             type="button"
             onClick={onPrimary}
             disabled={primaryDisabled || primaryLoading}
-            className="gap-2 rounded-full bg-gradient-to-r from-[#1B3A2D] to-[#2D6A4F] text-white hover:opacity-95 shadow-md disabled:opacity-50 disabled:bg-stone-200 disabled:from-stone-200 disabled:to-stone-200 disabled:text-stone-400 px-6"
+            className="gap-2 rounded-md h-9 px-5 bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm disabled:opacity-50 disabled:bg-[#DCE7DF] disabled:text-[#7E9088]"
           >
             {primaryLoading ? (
               <>
@@ -176,10 +172,8 @@ interface OnboardingSectionProps {
 export function OnboardingSection({ title, children }: OnboardingSectionProps) {
   return (
     <section className="space-y-3">
-      <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/80">
-        {title}
-      </h2>
-      <div className="space-y-3">{children}</div>
+      <span className="gm-eyebrow">{title}</span>
+      <div className="space-y-4">{children}</div>
     </section>
   )
 }
@@ -200,18 +194,18 @@ export function OnboardingField({
   children,
 }: OnboardingFieldProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="text-[13px] font-medium text-foreground block"
+        className="text-[12.5px] font-semibold text-[#1F2A24] block"
       >
         {label}
       </label>
       {children}
       {error ? (
-        <p className="text-[11px] text-rose-600 dark:text-rose-400">{error}</p>
+        <p className="text-[11.5px] text-[#B5414C]">{error}</p>
       ) : helper ? (
-        <p className="text-[11px] text-muted-foreground">{helper}</p>
+        <p className="text-[11.5px] text-[#7E9088] leading-relaxed">{helper}</p>
       ) : null}
     </div>
   )

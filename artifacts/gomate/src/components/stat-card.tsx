@@ -24,12 +24,12 @@ interface StatCardProps {
 const variantStyles = {
   // Forest / brand-primary — used for Destination
   default: {
-    accent: "#234D3A",
+    accent: "#1E293B",
     tint: "#F4F1EA",
     sweep: "rgba(35,77,58,0.10)",
   },
   primary: {
-    accent: "#1B3A2D",
+    accent: "#0F172A",
     tint: "#EEF3EC",
     sweep: "rgba(27,58,45,0.10)",
   },
@@ -69,10 +69,10 @@ export function StatCard({
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border p-5 pt-6 backdrop-blur-sm",
-        "shadow-[0_1px_2px_rgba(120,90,60,0.04),0_4px_16px_rgba(120,90,60,0.05)]",
+        "group relative overflow-hidden rounded-xl border p-4 pt-5 backdrop-blur-sm",
+        "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_12px_rgba(15,23,42,0.03)]",
         "transition-shadow duration-300",
-        "hover:shadow-[0_4px_8px_rgba(120,90,60,0.06),0_18px_36px_rgba(120,90,60,0.10)]",
+        "hover:shadow-[0_4px_8px_rgba(15,23,42,0.05),0_12px_24px_rgba(15,23,42,0.04)]",
         className,
       )}
       style={{
@@ -92,7 +92,7 @@ export function StatCard({
           className="absolute right-4 top-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg]"
           style={{ color: styles.accent, opacity: 0.85 }}
         >
-          <div className="[&>svg]:w-7 [&>svg]:h-7 [&>svg]:stroke-[1.5]">{icon}</div>
+          <div className="[&>svg]:w-5 [&>svg]:h-5 [&>svg]:stroke-[1.5]">{icon}</div>
         </div>
       )}
 
@@ -104,7 +104,7 @@ export function StatCard({
           {title}
         </span>
         <div
-          className="mt-3 font-serif text-[28px] leading-[1.05] tracking-tight text-foreground"
+          className="mt-2 font-sans text-[22px] leading-[1.05] tracking-tight text-foreground"
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {value}

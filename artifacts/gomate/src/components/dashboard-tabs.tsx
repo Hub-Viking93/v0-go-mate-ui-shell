@@ -69,9 +69,9 @@ export function DashboardTabs({ active, onChange }: DashboardTabsProps) {
                 className={cn(
                   "relative flex items-center gap-2 px-4 py-3.5 text-sm font-medium",
                   "transition-colors duration-200 whitespace-nowrap",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EE89C]/40 rounded-t-lg",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 rounded-t-lg",
                   isActive
-                    ? "text-[#1B3A2D]"
+                    ? "text-[#0F172A]"
                     : "text-foreground/55 hover:text-foreground/85",
                 )}
               >
@@ -89,7 +89,7 @@ export function DashboardTabs({ active, onChange }: DashboardTabsProps) {
                     className="absolute inset-x-2 -bottom-px h-[2px] rounded-full"
                     style={{
                       background:
-                        "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 50%, #5EE89C 100%)",
+                        "linear-gradient(90deg, #0F172A 0%, #334155 50%, #0D9488 100%)",
                     }}
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />

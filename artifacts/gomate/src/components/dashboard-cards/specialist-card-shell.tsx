@@ -22,7 +22,7 @@ export interface SpecialistCardShellProps {
 }
 
 const QUALITY_BADGE: Record<ShellQuality, { label: string; className: string }> = {
-  full: { label: "Live research", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  full: { label: "Live research", className: "bg-[#F1F5F9] text-[#0F172A] border-[#E2E8F0]" },
   partial: { label: "Partial sources", className: "bg-amber-100 text-amber-800 border-amber-200" },
   fallback: { label: "AI knowledge only", className: "bg-zinc-100 text-zinc-700 border-zinc-200" },
   pending: { label: "Coming soon", className: "bg-zinc-100 text-zinc-600 border-zinc-200" },
@@ -61,29 +61,29 @@ export function SpecialistCardShell({
 
   return (
     <Card
-      className="p-5 md:p-6 flex flex-col gap-4"
+      className="p-3 flex flex-col gap-2"
       data-card-state={hasContent ? "ready" : "empty"}
       data-specialist-card={title}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className="flex items-center justify-center h-10 w-10 rounded-xl shrink-0"
+            className="flex items-center justify-center h-7 w-7 rounded-lg shrink-0"
             style={{
-              background: "rgba(34, 197, 94, 0.12)",
-              color: "var(--gm-forest, #1B3A2D)",
+              background: "rgba(15, 23, 42, 0.08)",
+              color: "var(--gm-forest, #0F172A)",
             }}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-base font-semibold leading-tight truncate">{title}</h3>
+            <h3 className="text-sm font-semibold leading-tight truncate">{title}</h3>
             {reason && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{reason}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{reason}</p>
             )}
           </div>
         </div>
-        <Badge variant="outline" className={`text-[11px] shrink-0 ${badge.className}`}>
+        <Badge variant="outline" className={`text-[10px] h-5 shrink-0 ${badge.className}`}>
           {badge.label}
         </Badge>
       </div>
@@ -108,16 +108,16 @@ export function SpecialistCardShell({
         const shortened = preview.length > 360 ? preview.slice(0, 357) + "…" : preview
         const hasParagraphs = (contentParagraphs?.length ?? 0) > 0
         return (
-          <div className="space-y-2 text-sm leading-relaxed text-foreground/90">
+          <div className="space-y-2 text-xs leading-relaxed text-foreground/90">
             {hasParagraphs && <p>{shortened}</p>}
             <details className="group">
-              <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-1 mt-1">
+              <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:underline inline-flex items-center gap-1 mt-1">
                 Read full briefing
                 <span className="transition-transform group-open:rotate-180">▾</span>
               </summary>
               <div className="mt-3 space-y-3 text-foreground/85">
                 {hasParagraphs && (
-                  <div className="space-y-2.5 border-l-2 border-emerald-500/30 pl-3">
+                  <div className="space-y-2.5 border-l-2 border-[#0F172A]/20 pl-3">
                     {contentParagraphs!.map((p, i) => (
                       <p key={i}>
                         {p}
@@ -136,7 +136,7 @@ export function SpecialistCardShell({
       })()}
 
       {fallbackReason && (
-        <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+        <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">
           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span>{fallbackReason}</span>
         </div>
@@ -150,7 +150,7 @@ export function SpecialistCardShell({
           <ul className="mt-2 space-y-2">
             {citations.map((c, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-emerald-700 font-medium shrink-0">[{i + 1}]</span>
+                <span className="text-[#0F172A] font-medium shrink-0">[{i + 1}]</span>
                 <div className="min-w-0 flex-1">
                   <a
                     href={c.url}
@@ -236,7 +236,7 @@ export function StatusPill({
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-        ok ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+        ok ? "bg-[#F1F5F9] text-[#0F172A]" : "bg-amber-100 text-amber-800"
       }`}
     >
       <span className="font-bold">{ok ? "✓" : "!"}</span>

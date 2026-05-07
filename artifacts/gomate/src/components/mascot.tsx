@@ -86,7 +86,7 @@ function MascotSvg({ state }: { state: AnimationState }) {
 
   const SAGE = "#8DB78A"
   const SAGE_DEEP = "#6B9870"
-  const INK = "#1B3A2D"
+  const INK = "#0F172A"
 
   return (
     <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -333,7 +333,7 @@ function Airplane({ state, sage }: { state: AnimationState; sage: string }) {
       <path
         d="M 60 138 L 154 56 L 144 84 L 116 96 L 96 132 L 84 132 L 92 116 L 76 122 Z"
         fill={sage}
-        stroke="#1B3A2D"
+        stroke="#0F172A"
         strokeWidth="1.5"
         strokeLinejoin="round"
         opacity="0.95"
@@ -407,7 +407,7 @@ function ThinkingDots() {
           cx={84 + i * 16}
           cy={26}
           r={4}
-          fill="#1B3A2D"
+          fill="#0F172A"
           initial={{ opacity: 0.2 }}
           animate={{ opacity: [0.2, 1, 0.2] }}
           transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
@@ -419,12 +419,12 @@ function ThinkingDots() {
 
 function Confetti() {
   const pieces = [
-    { x: 40, y: 40, color: "#5EE89C", rot: 12 },
+    { x: 40, y: 40, color: "#0D9488", rot: 12 },
     { x: 160, y: 50, color: "#F59E0B", rot: -18 },
     { x: 30, y: 120, color: "#E85D3C", rot: 8 },
     { x: 170, y: 130, color: "#22C55E", rot: -10 },
     { x: 100, y: 22, color: "#FBBF24", rot: 24 },
-    { x: 60, y: 168, color: "#5EE89C", rot: -22 },
+    { x: 60, y: 168, color: "#0D9488", rot: -22 },
     { x: 140, y: 168, color: "#E85D3C", rot: 14 },
   ]
   return (

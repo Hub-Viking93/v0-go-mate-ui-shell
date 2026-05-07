@@ -56,14 +56,14 @@ export function ArrivalBanner({ stage, tier, destination, onArrived }: ArrivalBa
   }
 
   return (
-    <div className="gm-card-static overflow-hidden gm-animate-in gm-delay-2 mb-8">
-      <div className="relative p-6">
+    <div className="gm-card-static overflow-hidden gm-animate-in gm-delay-2 mb-6">
+      <div className="relative p-4">
         {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none" />
 
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Plane className="w-6 h-6 text-primary" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Plane className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-foreground">
@@ -138,13 +138,13 @@ export function SettlingInDashboardCard({ summary }: SettlingInDashboardCardProp
   const available = summary?.available ?? 0
 
   return (
-    <div className="gm-card p-6 gm-animate-in gm-delay-2 mb-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <ListChecks className="w-5 h-5 text-primary" />
+    <div className="gm-card p-4 gm-animate-in gm-delay-2 mb-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <ListChecks className="w-4 h-4 text-primary" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div>
               <h3 className="text-sm font-medium text-foreground">{headline}</h3>
               <p className="text-xs text-muted-foreground">{detail}</p>

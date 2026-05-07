@@ -235,7 +235,7 @@ export default function VisaTrackerPage() {
             <div className="space-y-4">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-700 dark:text-emerald-400">Step 1</p>
-                <h2 className="text-xl font-serif font-semibold text-foreground mt-0.5">Select your visa pathway</h2>
+                <h2 className="text-xl font-sans font-semibold text-foreground mt-0.5">Select your visa pathway</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   Our specialists ranked these options against your profile. Pick the one you want to pursue — you can switch later.
                 </p>
@@ -265,7 +265,7 @@ export default function VisaTrackerPage() {
                       <div className="p-5 space-y-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-serif text-lg font-semibold text-foreground leading-tight">
+                            <h3 className="font-sans text-lg font-semibold text-foreground leading-tight">
                               {visa.name}
                             </h3>
                             {(() => {
@@ -418,7 +418,7 @@ export default function VisaTrackerPage() {
                 <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-400 via-blue-500 to-sky-500" />
                 <div className="p-5 md:p-6">
                   <p className="gm-eyebrow text-sky-700 dark:text-sky-400">Where you are</p>
-                  <h2 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5 mb-5">
+                  <h2 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5 mb-5">
                     Application Status
                   </h2>
                   <VisaStatusStepper
@@ -442,7 +442,7 @@ export default function VisaTrackerPage() {
                 <div className="p-5 md:p-6 space-y-5">
                   <div>
                     <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Track key dates</p>
-                    <h2 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5">
+                    <h2 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground mt-0.5">
                       Application Details
                     </h2>
                   </div>

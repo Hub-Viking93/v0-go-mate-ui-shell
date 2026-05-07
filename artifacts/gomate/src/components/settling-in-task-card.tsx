@@ -6,21 +6,20 @@ import {
   Circle,
   Lock,
   ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Clock,
-  DollarSign,
-  AlertTriangle,
-  FileText,
   Loader2,
-  Sparkles,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import {
+  TaskDetailSheet,
+  type TaskDetailViewModel,
+  type TaskWalkthroughView,
+  type VaultDocRefView,
+} from "@/components/task-detail-sheet"
 
 export interface SettlingInTask {
   id: string
+  task_key?: string | null
   title: string
   description: string
   category: string
@@ -29,6 +28,7 @@ export interface SettlingInTask {
   is_legal_requirement: boolean
   why_it_matters: string | null
   steps: string[]
+  walkthrough?: TaskWalkthroughView | null
   documents_needed: string[]
   official_link: string | null
   estimated_time: string | null
@@ -36,6 +36,7 @@ export interface SettlingInTask {
   deadline_at: string | null
   days_until_deadline: number | null
   urgency: "overdue" | "urgent" | "approaching" | "normal"
+  deadline_type?: "legal" | "practical" | "recommended"
   compliance_scope?: "required" | "recommended"
   compliance_status?: "none" | "completed" | "overdue" | "urgent" | "upcoming"
   block_reason?: string
@@ -50,6 +51,12 @@ interface SettlingInTaskCardProps {
   arrivalDate: string | null
   onStatusChange: (taskId: string, status: string) => Promise<void>
   allTasks: SettlingInTask[]
+  /** Phase 2B — user's vault contents, surfaced inside the detail sheet. */
+  vaultDocs?: VaultDocRefView[]
+  /** Phase 2B — current plan id used for vault upload context. */
+  planId?: string | null
+  /** Phase 2B — refresh vault list after any link/upload/unlink. */
+  onVaultChange?: () => void
 }
 
 export function SettlingInTaskCard({
@@ -57,17 +64,16 @@ export function SettlingInTaskCard({
   arrivalDate,
   onStatusChange,
   allTasks,
+  vaultDocs,
+  planId,
+  onVaultChange,
 }: SettlingInTaskCardProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [whyText, setWhyText] = useState<string | null>(task.why_it_matters)
-  const [whyLoading, setWhyLoading] = useState(false)
 
   const isLocked = task.status === "locked"
   const isCompleted = task.status === "completed"
-  const isSkipped = task.status === "skipped"
   const isOverdueStatus = task.status === "overdue"
-  const isActionable = task.status === "available" || task.status === "in_progress" || isOverdueStatus
 
   // Use server-computed urgency
   const isOverdue = task.urgency === "overdue" || isOverdueStatus
@@ -131,13 +137,13 @@ export function SettlingInTaskCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <button
-              onClick={() => !isLocked && setExpanded(!expanded)}
+              onClick={() => !isLocked && setSheetOpen(true)}
               disabled={isLocked}
-              className="text-left w-full"
+              className="text-left w-full group"
             >
               <h4
                 className={cn(
-                  "text-sm font-medium leading-snug",
+                  "text-sm font-medium leading-snug group-hover:text-primary transition-colors",
                   isCompleted && "line-through text-muted-foreground",
                   isLocked && "text-muted-foreground"
                 )}
@@ -146,24 +152,39 @@ export function SettlingInTaskCard({
               </h4>
             </button>
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-              {task.is_legal_requirement && (
+              {(task.deadline_type === "legal" || (task.is_legal_requirement && !task.deadline_type)) && (
                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                   Legal
                 </Badge>
               )}
+              {task.deadline_type === "recommended" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-stone-400/50 text-stone-700 dark:text-stone-300">
+                  Recommended
+                </Badge>
+              )}
               {isOverdue && (
                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                  Overdue
+                  {task.days_until_deadline != null && task.days_until_deadline < 0
+                    ? `Overdue by ${Math.abs(task.days_until_deadline)}d`
+                    : "Overdue"}
                 </Badge>
               )}
               {isUrgent && !isOverdue && (
                 <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white">
-                  Due tomorrow
+                  {task.days_until_deadline == null || task.days_until_deadline <= 0
+                    ? "Due today"
+                    : task.days_until_deadline === 1
+                    ? "Due tomorrow"
+                    : `Due in ${task.days_until_deadline}d`}
                 </Badge>
               )}
               {isApproaching && !isOverdue && !isUrgent && (
                 <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">
-                  {task.days_until_deadline != null ? `${task.days_until_deadline}d left` : "Due soon"}
+                  {task.days_until_deadline != null && task.days_until_deadline <= 7
+                    ? "Due this week"
+                    : task.days_until_deadline != null
+                    ? `Due in ${task.days_until_deadline}d`
+                    : "Due soon"}
                 </Badge>
               )}
               {deadlineDate && !isCompleted && !isOverdue && !isUrgent && !isApproaching && (
@@ -185,151 +206,56 @@ export function SettlingInTaskCard({
           </div>
           {!isLocked && (
             <button
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => setSheetOpen(true)}
               className="shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={expanded ? "Collapse" : "Expand"}
+              aria-label="Open task walkthrough"
             >
-              {expanded ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
+              <ChevronDown className="w-4 h-4 -rotate-90" />
             </button>
           )}
         </div>
 
-        {/* Expanded details */}
-        {expanded && !isLocked && (
-          <div className="mt-3 space-y-3 text-sm">
-            {task.description && (
-              <p className="text-muted-foreground leading-relaxed">
-                {task.description}
-              </p>
-            )}
-
-            {/* Meta row */}
-            <div className="flex flex-wrap gap-3">
-              {task.estimated_time && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5" />
-                  {task.estimated_time}
-                </span>
-              )}
-              {task.cost && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  {task.cost}
-                </span>
-              )}
-              {task.official_link && (
-                <a
-                  href={task.official_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Official link
-                </a>
-              )}
-            </div>
-
-            {/* Steps */}
-            {task.steps && task.steps.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-foreground mb-1.5">Steps:</p>
-                <ol className="space-y-1 ml-4 list-decimal text-xs text-muted-foreground">
-                  {task.steps.map((step, i) => (
-                    <li key={i} className="leading-relaxed">{step}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {/* Documents needed */}
-            {task.documents_needed && task.documents_needed.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-foreground mb-1.5">Documents needed:</p>
-                <ul className="space-y-0.5 ml-4 list-disc text-xs text-muted-foreground">
-                  {task.documents_needed.map((doc, i) => (
-                    <li key={i}>{doc}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Why it matters - lazy loaded AI enrichment */}
-            {whyText ? (
-              <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
-                <p className="text-xs font-medium text-primary mb-1">Why it matters</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {whyText}
-                </p>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-primary h-7 px-2"
-                disabled={whyLoading}
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  setWhyLoading(true)
-                  try {
-                    const res = await fetch(`/api/settling-in/${task.id}/why-it-matters`, {
-                      method: "POST",
-                    })
-                    if (res.ok) {
-                      const data = await res.json()
-                      setWhyText(data.whyItMatters)
-                    }
-                  } finally {
-                    setWhyLoading(false)
-                  }
-                }}
-              >
-                {whyLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                ) : (
-                  <Sparkles className="w-3 h-3 mr-1" />
-                )}
-                Why does this matter?
-              </Button>
-            )}
-
-            {/* Action buttons */}
-            {isActionable && (
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleToggle} disabled={loading}>
-                  {loading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
-                  ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                  )}
-                  Mark complete
-                </Button>
-                {task.status === "available" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      setLoading(true)
-                      try {
-                        await onStatusChange(task.id, "skipped")
-                      } finally {
-                        setLoading(false)
-                      }
-                    }}
-                    disabled={loading}
-                  >
-                    Skip
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Phase 1B detail sheet (+ Phase 2B doc section) */}
+      <TaskDetailSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        task={toViewModel(task, depNames, planId ?? null)}
+        vaultDocs={vaultDocs}
+        onVaultChange={onVaultChange}
+        onStatusChange={async (next) => {
+          await onStatusChange(task.id, next)
+        }}
+      />
     </div>
   )
+}
+
+function toViewModel(
+  task: SettlingInTask,
+  depNames: (string | undefined)[],
+  planId: string | null,
+): TaskDetailViewModel {
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    urgency: task.urgency,
+    deadlineType: task.deadline_type,
+    deadlineAt: task.deadline_at,
+    daysUntilDeadline: task.days_until_deadline,
+    isLegalRequirement: task.is_legal_requirement,
+    estimatedTime: task.estimated_time,
+    cost: task.cost,
+    officialLink: task.official_link,
+    documentsNeeded: task.documents_needed,
+    legacySteps: task.steps,
+    walkthrough: task.walkthrough ?? null,
+    status: task.status,
+    blockedBy: depNames.filter((n): n is string => Boolean(n)),
+    taskRefKey: task.task_key ? `settling-in:${task.task_key}` : undefined,
+    planId,
+  }
 }

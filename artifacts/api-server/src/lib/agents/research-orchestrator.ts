@@ -91,7 +91,8 @@ import {
 } from "./research-persistence";
 import type { Profile } from "../gomate/profile-schema-snapshot";
 import { logger } from "../logger";
-import { composeAndPersistGuide } from "../gomate/guide-pipeline";
+// Guide composition retired — the live workspaces replace the PDF-style guide.
+// import { composeAndPersistGuide } from "../gomate/guide-pipeline";
 
 // ---------------------------------------------------------------------------
 // Specialist registry
@@ -1018,33 +1019,10 @@ async function finalize(args: {
     // can be reconciled by a re-trigger or a background job.
   }
 
-  // Wave 6 — kick off guide composition once research has anything to feed it.
-  // Best-effort: failures DO NOT bubble back into the research run status.
-  if (effectiveStatus !== "failed" && planRow?.user_id) {
-    try {
-      const destination =
-        typeof args.profile.destination === "string" ? args.profile.destination : "";
-      const destinationCity =
-        typeof args.profile.target_city === "string" ? args.profile.target_city : null;
-      const purpose = typeof args.profile.purpose === "string" ? args.profile.purpose : "settle";
-      const guideId = await composeAndPersistGuide({
-        supabase: args.supabase,
-        userId: planRow.user_id as string,
-        planId: args.planId,
-        profile: args.profile as unknown as Record<string, unknown>,
-        destination,
-        destinationCity,
-        purpose,
-        specialistOutputs: args.outputs as unknown as Parameters<typeof composeAndPersistGuide>[0]["specialistOutputs"],
-      });
-      if (guideId) {
-        logger.info({ guideId, planId: args.planId }, "[research-orchestrator] composed guide persisted");
-      }
-    } catch (err) {
-      logger.error(
-        { err, planId: args.planId },
-        "[research-orchestrator] guide composition threw (non-fatal)",
-      );
-    }
-  }
+  // Guide composition retired — the live state-driven workspaces
+  // (Immigration / Pre-move / Post-move / Documents / Plan & Guidance)
+  // replace the generated-PDF-style guide. Specialist outputs still
+  // populate research_meta.specialists.* for those sections to consume.
+  void planRow;
+  void effectiveStatus;
 }

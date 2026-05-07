@@ -17,7 +17,9 @@ import { type DocumentItem, type DocumentStatus } from "@/components/document-pr
 import { CountryFlag } from "@/components/country-flag"
 import { VisaStatusBadge } from "@/components/visa-status-badge"
 import { ProfileDetailsCard } from "@/components/profile-details-card"
-import { DashboardTabs, DashboardPanel, type DashboardTabId } from "@/components/dashboard-tabs"
+// DashboardTabs/DashboardPanel retired during the IA refresh —
+// dashboard is now overview-only. Profile/Visa/Money/Settling tab data
+// lives at /settings, /immigration and /post-move respectively.
 import { computeInterviewProgress } from "@/lib/gomate/progress"
 import { DashboardAuditProvider } from "@/lib/audit-context"
 import { CostOfLivingCard } from "@/components/cost-of-living-card"
@@ -31,7 +33,16 @@ import { PlanChangeSummary, type PlanChangeSummaryData } from "@/components/plan
 import { PlanSwitcher } from "@/components/plan-switcher"
 import { TierGate } from "@/components/tier-gate"
 import { ArrivalBanner } from "@/components/arrival-banner"
-import { VisaStatusTile, ChecklistStatusTile } from "@/components/dashboard-status-tiles"
+import { VisaStatusTile, ChecklistStatusTile, VaultStatusTile } from "@/components/dashboard-status-tiles"
+// Phase IA — section components are no longer rendered on the
+// dashboard. They've been moved to their dedicated workspaces:
+//   • Readiness / Risks / Pathways → /immigration
+//   • Playbook / Setup / Licence / Orientation → /post-move
+//   • Housing / Departure / Pets / Tax / Rule changes → /guidance
+// Imports kept commented for traceability so a refactor of the
+// Phase 3-6 components can find their original homes.
+import { NotificationBell } from "@/components/notification-bell"
+import { WorkspaceTiles } from "@/components/dashboard/workspace-tiles"
 import { normalizeDocumentStatus } from "@/lib/gomate/types/document-status"
 import { ComplianceAlerts } from "@/components/compliance-alerts"
 import { useTier } from "@/hooks/use-tier"
@@ -588,7 +599,7 @@ export default function DashboardPage() {
   const { tier } = useTier()
   const goToUpgrade = () => router.push("/settings")
   const [plan, setPlan] = useState<RelocationPlan | null>(null)
-  const [userGuide, setUserGuide] = useState<UserGuide | null>(null)
+  // userGuide retired — guides feature removed in IA refresh.
   const [documentStatuses, setDocumentStatuses] = useState<Record<string, DocumentStatus>>({})
   const [loading, setLoading] = useState(true)
   const [lockLoading, setLockLoading] = useState(false)
@@ -685,19 +696,47 @@ export default function DashboardPage() {
   >(null)
   const [settlingSummary, setSettlingSummary] = useState<DashboardSettlingSummary | null>(null)
   const [changeSummary, setChangeSummary] = useState<PlanChangeSummaryData | null>(null)
-  const [activeTab, setActiveTab] = useState<DashboardTabId>("overview")
+  const [vaultCount, setVaultCount] = useState<number>(0)
+  // Tabs retired in IA refresh; the guided tour still calls onTabChange
+  // for backward compat — we feed it a no-op so it doesn't break.
+
+  // Migrate legacy `?tab=...` deep links to the new IA pages.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (!tab) return;
+    const map: Record<string, string> = {
+      profile: "/settings",
+      visa: "/immigration",
+      "visa-legal": "/immigration",
+      money: "/settings",
+      settling: "/post-move",
+    };
+    const target = map[tab];
+    if (target) {
+      window.history.replaceState(null, "", target);
+      window.location.replace(target);
+    }
+  }, []);
+
   const [changeSummaryOpen, setChangeSummaryOpen] = useState(false)
 
   // Fetch the user's plan, guide, and document statuses on mount
   useEffect(() => {
     async function fetchData() {
       try {
-        const [planRes, guidesRes, docsRes, progressRes] = await Promise.all([
+        const [planRes, docsRes, progressRes, vaultRes] = await Promise.all([
           fetch("/api/profile"),
-          fetch("/api/guides"),
           fetch("/api/documents"),
           fetch("/api/progress"),
+          fetch("/api/vault"),
         ])
+
+        if (vaultRes.ok) {
+          const data = await vaultRes.json()
+          setVaultCount(Array.isArray(data.documents) ? data.documents.length : 0)
+        }
         
         if (planRes.ok) {
           const data = await planRes.json()
@@ -721,14 +760,9 @@ export default function DashboardPage() {
           }
         }
         
-        if (guidesRes.ok) {
-          const data = await guidesRes.json()
-          // Get the most recent guide
-          if (data.guides && data.guides.length > 0) {
-            setUserGuide(data.guides[0])
-          }
-        }
-        
+        // /api/guides retired — see IA refresh notes.
+
+
         if (docsRes.ok) {
           const data = await docsRes.json()
           setDocumentStatuses(data.statuses || {})
@@ -1076,44 +1110,88 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-6 md:p-8 lg:p-10 space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-6 w-96" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="p-4 md:p-5 lg:p-6 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-64" />
+        <div className="flex gap-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
+            <Skeleton key={i} className="h-6 w-32 rounded-lg" />
           ))}
         </div>
-        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-48 rounded-xl" />
       </div>
     )
   }
 
-  // Show onboarding prompt if profile is mostly empty
+  // Show onboarding prompt if profile is mostly empty.
+  // Empty state — compact admin-style welcome. No big illustration,
+  // no chat-driven onboarding nudge (the wizard at /onboarding is the
+  // only intake path now). Just a one-line invitation + tiles.
   if (dashboardState.showWelcome) {
     return (
-      <div className="p-6 md:p-8 lg:p-10">
-        <div className="max-w-2xl mx-auto text-center py-12">
-          <div className="relative inline-block mb-8">
-            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#1B3A2D] to-[#2D6A4F] flex items-center justify-center shadow-lg">
-              <Sparkles className="w-12 h-12 text-[#5EE89C]" />
+      <div className="p-4 md:p-5 lg:p-6 space-y-6 max-w-6xl">
+        <div className="gm-surface p-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <span className="gm-eyebrow mb-2">Welcome</span>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground mt-2">
+                Let's set up your move
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
+                Five quick steps and we'll have your visa pathway, budget, document checklist and
+                timeline ready. Save and resume anytime.
+              </p>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md">
-              <MapPin className="w-4 h-4 text-white" />
+            <Button
+              asChild
+              size="sm"
+              className="gap-1.5 rounded-lg bg-[#0D9488] hover:bg-[#0F766E] text-white h-8 px-3 text-xs"
+            >
+              <Link href="/onboarding">
+                Set up profile
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <span className="gm-eyebrow">Workspaces</span>
+          <WorkspaceTiles />
+        </div>
+
+        {/* What you get — fills empty space with value props */}
+        <div className="gm-surface-sub p-4">
+          <p className="text-xs font-medium text-foreground mb-3">What you'll get</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 w-6 h-6 rounded-md bg-[#E4F2EA] flex items-center justify-center mt-0.5">
+                <Shield className="w-3 h-3 text-[#2C6440]" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Visa pathway</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Personalised visa options based on your citizenship and destination.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 w-6 h-6 rounded-md bg-[#F6ECD7] flex items-center justify-center mt-0.5">
+                <TrendingUp className="w-3 h-3 text-[#8C6B2F]" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Budget plan</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Cost of living breakdown and savings target for your move.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 w-6 h-6 rounded-md bg-[#E1EEF1] flex items-center justify-center mt-0.5">
+                <Calendar className="w-3 h-3 text-[#3F6B6F]" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Timeline</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Step-by-step checklist with deadlines tailored to your move date.</p>
+              </div>
             </div>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4 tracking-tight">
-            {dashboardState.title}
-          </h1>
-          <p className="text-lg text-muted-foreground mb-10 max-w-md mx-auto text-pretty">
-            {dashboardState.description}
-          </p>
-          <Button asChild size="lg" className="rounded-xl gap-2 px-8 py-6 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-            <Link href="/onboarding">
-              <MessageSquare className="w-5 h-5" />
-              {dashboardState.chatActionLabel}
-            </Link>
-          </Button>
         </div>
       </div>
     )
@@ -1121,127 +1199,103 @@ export default function DashboardPage() {
 
   return (
     <DashboardAuditProvider profileId={plan?.id ?? null}>
-    <div className="p-6 md:p-8 lg:p-10">
-      {/* Hero — editorial slab. White card with emerald accent + subtle
-          sage tint, so it doesn't visually merge with the green sidebar.
-          Text is dark-on-light; CTA stays emerald-gradient for prominence. */}
-      <div className="relative overflow-hidden rounded-3xl mb-8 gm-animate-in gm-delay-1 bg-card border border-emerald-700/25 dark:border-emerald-400/20"
-        style={{
-          boxShadow:
-            "0 2px 8px rgba(20,48,42,0.06), 0 16px 40px rgba(20,48,42,0.08)",
-        }}>
-        {/* Soft sage tint in the top-right corner — keeps a hint of brand
-            colour without the sidebar-merge problem. */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_92%_-10%,rgba(94,232,156,0.10),transparent_55%)] pointer-events-none" />
-        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-300" />
-
-        <div className="relative p-7 md:p-10 lg:p-12">
-          {/* Section eyebrow */}
-          <div className="flex items-center gap-2.5 mb-5">
-            <span className="h-px w-8 bg-emerald-700/30 dark:bg-emerald-400/30" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">
-              Dashboard
-            </span>
+    <div className="p-5 md:p-6 lg:p-8">
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6 gm-animate-in gm-delay-1 pb-5 border-b border-[#DCE7DF]">
+        <div className="min-w-0">
+          <span className="gm-eyebrow mb-2">Dashboard</span>
+          <h1 className="text-[22px] font-semibold text-[#1F2A24] tracking-tight mt-2">
+            {profile.name ? `${profile.name}'s move` : "Your move"}
+          </h1>
+          <div className="flex items-center gap-2 mt-1.5 text-[12px] text-[#7E9088]">
+            <span>{dashboardState.profileProgressLabel} confirmed</span>
+            {targetCountry && (
+              <>
+                <span>·</span>
+                <span>{targetCountry}</span>
+              </>
+            )}
           </div>
-
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-            <div className="max-w-3xl">
-              <h1
-                className="text-foreground font-serif"
-                style={{
-                  fontSize: "clamp(36px, 5.6vw, 56px)",
-                  fontWeight: 600,
-                  lineHeight: 1.02,
-                  letterSpacing: "-0.018em",
-                }}
-              >
-                {profile.name ? `${profile.name}'s move at a glance` : "Your move at a glance"}
-              </h1>
-              <p className="text-muted-foreground mt-4 max-w-xl text-pretty text-[16px] md:text-[17px] leading-[1.55]">
-                {dashboardState.description}
-              </p>
-
-              {/* Status row — trust signals */}
-              {hasDestination && (
-                <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground"
-                  style={{ fontVariantNumeric: "tabular-nums" }}>
-                  <span>{dashboardState.profileProgressLabel} confirmed</span>
-                  {targetCountry && (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span>Destination: <span className="text-foreground font-medium">{targetCountry}</span></span>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {dashboardTrustSources.length > 0 && (
-                <div className="mt-4">
-                  <TrustBadge sources={dashboardTrustSources} variant="subtitle" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              <Button
-                onClick={() => setShowGuidedTour(true)}
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
-                data-testid="restart-tour-button"
-                aria-label="Restart dashboard tour"
-              >
-                <Compass className="w-4 h-4" />
-                Tour
-              </Button>
-              {isLocked && (
-                <Badge variant="secondary" className="gap-1.5 bg-white/10 text-white/90 border-white/20 backdrop-blur-sm">
-                  <Shield className="w-3.5 h-3.5" />
-                  Plan locked
-                </Badge>
-              )}
-              {dashboardState.showLockAction && (
-                <Button
-                  onClick={handleLockPlan}
-                  variant="outline"
-                  className="gap-2 rounded-xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm"
-                  disabled={lockLoading}
-                >
-                  <Lock className="w-4 h-4" />
-                  {lockLoading ? "Locking..." : "Lock plan"}
-                </Button>
-              )}
-              {dashboardState.showUnlockAction && (
-                <Button
-                  onClick={handleUnlockPlan}
-                  variant="outline"
-                  className="gap-2 rounded-xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm"
-                  disabled={lockLoading}
-                >
-                  <Unlock className="w-4 h-4" />
-                  {lockLoading ? "Unlocking..." : "Unlock to edit"}
-                </Button>
-              )}
-              <Button
-                asChild
-                className="gap-2 rounded-xl border-0 text-white font-semibold shadow-[0_4px_16px_rgba(232,93,60,0.35)] hover:shadow-[0_6px_20px_rgba(232,93,60,0.45)] transition-shadow"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #F26D4C 0%, #E85D3C 100%)",
-                }}
-              >
-                <Link href="/onboarding">
-                  <MessageSquare className="w-4 h-4" />
-                  {dashboardState.chatActionLabel}
-                </Link>
-              </Button>
-            </div>
-          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <NotificationBell />
+          <Button
+            onClick={() => setShowGuidedTour(true)}
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-8 px-2.5 text-xs rounded-md text-[#4E5F57] hover:bg-[#ECF1EC] hover:text-[#1F2A24]"
+            data-testid="restart-tour-button"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            Tour
+          </Button>
+          {isLocked && (
+            <Badge variant="secondary" className="gap-1 h-6 text-[11px] bg-[#ECF1EC] text-[#4E5F57]">
+              <Shield className="w-3 h-3" />
+              Locked
+            </Badge>
+          )}
+          {dashboardState.showLockAction && (
+            <Button
+              onClick={handleLockPlan}
+              variant="outline"
+              className="gap-1.5 h-8 px-2.5 text-xs rounded-md border-[#DCE7DF] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]"
+              disabled={lockLoading}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              {lockLoading ? "…" : "Lock"}
+            </Button>
+          )}
+          {dashboardState.showUnlockAction && (
+            <Button
+              onClick={handleUnlockPlan}
+              variant="outline"
+              className="gap-1.5 h-8 px-2.5 text-xs rounded-md border-[#DCE7DF] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]"
+              disabled={lockLoading}
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              {lockLoading ? "…" : "Unlock"}
+            </Button>
+          )}
+          <Button
+            asChild
+            size="sm"
+            className="gap-1.5 h-8 px-3 text-xs rounded-md bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm"
+          >
+            <Link href="/onboarding">
+              <MessageSquare className="w-3.5 h-3.5" />
+              {dashboardState.chatActionLabel}
+            </Link>
+          </Button>
         </div>
       </div>
 
+      {/* Compact countdown */}
+      {hasDestination && targetDate && (
+        <div className="mb-5 flex items-center gap-2 text-xs">
+          {(() => {
+            const target = new Date(targetDate)
+            const daysUntil = Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            const urgent = daysUntil <= 30 && daysUntil >= 0
+            const past = daysUntil < 0
+            return (
+              <>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium tabular-nums ${past ? 'bg-[#ECF1EC] text-[#4E5F57] border border-[#DCE7DF]' : urgent ? 'bg-[#F5DDDF] text-[#8B2F38] border border-[#E8B8BD]' : 'bg-[#E4F2EA] text-[#2C6440] border border-[#C2DECC]'}`}>
+                  <Clock className="w-3 h-3" />
+                  {past ? `${Math.abs(daysUntil)}d ago` : `${daysUntil}d to move`}
+                </span>
+                <span className="text-[#7E9088]">
+                  {target.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+                {targetCountry && <span className="text-[#7E9088]">· {targetCountry}</span>}
+              </>
+            )
+          })()}
+        </div>
+      )}
+
       {/* Plan Switcher - shows plan name with rename option, dropdown for Pro */}
-      <div className="mb-6">
+      <div className="mb-4">
         <PlanSwitcher 
           showRename 
           onPlanChange={() => {
@@ -1251,16 +1305,18 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Dashboard tab strip — splits the long scroll into focused panels */}
-      <DashboardTabs active={activeTab} onChange={setActiveTab} />
+      {/* Phase IA — the Overview/Profile/Visa & Legal/Money/Settling tab
+          system has been retired. Profile + Money moved to Settings;
+          Visa & Legal merged into the Immigration workspace; Settling
+          merged into Post-move. Dashboard is now overview-only. */}
 
-      {/* Compliance Alerts (post-arrival) — always visible across tabs */}
+      {/* Compliance Alerts (post-arrival) */}
       <ComplianceAlerts planStage={plan?.stage} className="gm-animate-in gm-delay-1" />
 
       {/* Plan Consistency Alerts */}
       {plan && hasDestination && (
         <TierGate tier={tier} feature="guides" onUpgrade={goToUpgrade}>
-          <div className="mb-6 gm-animate-in gm-delay-1">
+          <div className="mb-4 gm-animate-in gm-delay-1">
             <PlanConsistencyAlerts planId={plan.id} />
           </div>
         </TierGate>
@@ -1271,13 +1327,13 @@ export default function DashboardPage() {
 
       {/* Research Status Banner */}
       {researchStatus === "in_progress" && (
-        <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+        <div className="mb-4 p-3.5 rounded-md bg-[#F7FAF7] border border-[#DCE7DF] flex items-center gap-3 gm-surface" style={{ background: "#F7FAF7" }}>
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#E4F2EA]">
+            <Loader2 className="w-4 h-4 text-[#3F8E5A] animate-spin" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Researching your relocation requirements...</p>
-            <p className="text-xs text-muted-foreground">We're gathering visa options and local requirements for {targetCountry}. This may take a minute.</p>
+            <p className="text-[13px] font-semibold text-[#1F2A24]">Researching your relocation requirements…</p>
+            <p className="text-[11.5px] text-[#7E9088] mt-0.5">We're gathering visa options and local requirements for {targetCountry}. This may take a minute.</p>
           </div>
         </div>
       )}
@@ -1286,671 +1342,146 @@ export default function DashboardPage() {
         const daysSince = Math.floor((Date.now() - new Date(plan.research_completed_at).getTime()) / (1000 * 60 * 60 * 24))
         if (daysSince < 7) return null
         return (
-          <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/10 border border-amber-500/30 flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/30">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <div className="mb-4 p-3.5 rounded-md bg-[#F6ECD7]/40 border border-[#E8C77B] flex items-center gap-3">
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#F6ECD7]">
+              <AlertCircle className="w-3.5 h-3.5 text-[#8C6B2F]" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Research may be outdated</p>
-              <p className="text-xs text-muted-foreground">Last researched {daysSince} days ago. Consider re-running research for the latest information.</p>
+              <p className="text-[13px] font-semibold text-[#1F2A24]">Research may be outdated</p>
+              <p className="text-[11.5px] text-[#7E9088] mt-0.5">Last researched {daysSince} days ago.</p>
             </div>
           </div>
         )
       })()}
 
       {researchStatus === "partial" && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/10 border border-amber-500/30 flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/30">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+        <div className="mb-4 p-3.5 rounded-md bg-[#F6ECD7]/40 border border-[#E8C77B] flex items-center gap-3">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#F6ECD7]">
+            <AlertCircle className="w-3.5 h-3.5 text-[#8C6B2F]" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Research completed with limited results</p>
-            <p className="text-xs text-muted-foreground">Some research areas returned limited data. You can manually re-run research from the sections below for better results.</p>
+            <p className="text-[13px] font-semibold text-[#1F2A24]">Research completed with limited results</p>
+            <p className="text-[11.5px] text-[#7E9088] mt-0.5">Some research areas returned limited data.</p>
           </div>
         </div>
       )}
 
       {researchStatus === "failed" && (
-        <div className="mb-6 p-4 rounded-xl bg-destructive/5 border border-destructive/20 flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/10">
-            <AlertCircle className="w-4 h-4 text-destructive" />
+        <div className="mb-4 p-3.5 rounded-md bg-[#F5DDDF]/40 border border-[#E8B8BD] flex items-center gap-3">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#F5DDDF]">
+            <AlertCircle className="w-3.5 h-3.5 text-[#8B2F38]" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Research couldn't be completed</p>
-            <p className="text-xs text-muted-foreground">You can manually trigger research from the visa and requirements sections below.</p>
+            <p className="text-[13px] font-semibold text-[#1F2A24]">Research couldn't be completed</p>
+            <p className="text-[11.5px] text-[#7E9088] mt-0.5">You can manually trigger research from the sections below.</p>
           </div>
         </div>
       )}
 
-      <DashboardPanel id="overview" active={activeTab}>
-      {/* Countdown Timer - Prominent at top */}
+      {/* Dashboard overview — compact tile row + status snapshot only.
+          The previous twelve Phase-3-through-6 sections are homed in
+          their workspaces (/immigration /pre-move /post-move /documents
+          /guidance). */}
+      <div className="mb-7 space-y-3">
+        <span className="gm-eyebrow">Workspaces</span>
+        <WorkspaceTiles />
+      </div>
+      {/* Compact stats bar */}
       {hasDestination && (
-        <div className="mb-8 gm-animate-in gm-delay-1">
+        <div className="mb-5 gm-animate-in gm-delay-1">
           {hasCitizenship && (
-            <div className="flex items-center gap-4 mb-4">
-              <VisaStatusBadge 
-                citizenship={citizenship} 
-                destination={targetCountry} 
-              />
+            <div className="mb-3">
+              <VisaStatusBadge citizenship={citizenship} destination={targetCountry} />
             </div>
           )}
-          <CountdownTimer targetDate={targetDate} targetCountry={targetCountry} />
-        </div>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 gm-animate-in gm-delay-2">
-        <StatCard
-          title="Destination"
-          variant="primary"
-          value={
-            hasDestination ? (
-              <span className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-3 border-b border-[#DCE7DF]">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+                <MapPin className="w-3 h-3" strokeWidth={1.7} />
+                Destination
+              </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground flex items-center gap-1.5">
                 <CountryFlag country={targetCountry} size="sm" />
                 {targetCountry}
-              </span>
-            ) : "Not set"
-          }
-          subtitle={profile.current_location ? `From ${profile.current_location}` : "Set in chat"}
-          icon={<MapPin className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Purpose"
-          variant="blue"
-          value={formatEnumLabel(profile.purpose)}
-          subtitle={profile.visa_role ? `Visa role: ${formatEnumLabel(profile.visa_role)}` : "Set in chat"}
-          icon={<Calendar className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Profile"
-          variant="emerald"
-          value={dashboardState.profileProgressLabel}
-          subtitle={dashboardState.profileProgressSubtitle}
-          trend={progressPercent > 50 ? "up" : undefined}
-          icon={<TrendingUp className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Timeline"
-          variant="amber"
-          value={profile.timeline || (hasTimeline ? formatTimeUntilMove(monthsUntilMove) : "Not set")}
-          subtitle={hasTimeline && profile.timeline ? `≈ ${formatTimeUntilMove(monthsUntilMove)} from today` : "Set in chat"}
-          icon={<Clock className="w-5 h-5" />}
-        />
-      </div>
-
-      {/* Suggested Guide — editorial magazine card, full width on overview */}
-      {hasDestination && (
-        <div className="mb-8 gm-animate-in gm-delay-3">
-          <div className="gm-editorial-card overflow-hidden">
-            <div className="h-[3px]" style={{ background: "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 50%, #5EE89C 100%)" }} />
-            <div className="p-6 md:p-7">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <span className="gm-eyebrow">Suggested Guide</span>
-                  <h3
-                    className="mt-2 font-serif text-foreground"
-                    style={{ fontSize: "26px", fontWeight: 600, letterSpacing: "-0.012em", lineHeight: 1.15 }}
-                  >
-                    Your {targetCountry} relocation guide
-                  </h3>
-                  <p className="mt-2 text-sm text-foreground/60 max-w-md">
-                    Hand-curated reading for someone planning a {humaniseSnake(profile.purpose) || "relocation"} to {targetCountry}.
-                  </p>
-                </div>
-                <a
-                  href={`https://www.gomaterelocate.com/country-guides/${targetCountry.toLowerCase().replace(/\s+/g, "-")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative shrink-0"
-                >
-                  <div className="absolute inset-0 -m-2 rounded-2xl bg-gradient-to-br from-[#5EE89C]/0 to-[#5EE89C]/0 group-hover:from-[#5EE89C]/15 group-hover:to-[#234D3A]/10 transition-colors duration-300" />
-                  <div className="relative transition-transform duration-300 group-hover:scale-[1.04]">
-                    <CountryFlag country={targetCountry} size="lg" />
-                  </div>
-                </a>
               </div>
-              <div className="mt-5 pt-5 border-t border-foreground/[0.08] flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] uppercase tracking-[0.08em]">
-                    {humaniseSnake(profile.purpose) || "Relocation"}
-                  </Badge>
-                  {userGuide && (
-                    <Badge className="text-[11px] uppercase tracking-[0.08em] bg-[#16A34A]/12 text-[#16A34A] border border-[#16A34A]/25">
-                      Personal guide ready
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {isLocked && userGuide && (
-                    <Button asChild size="sm" variant="ghost" className="gap-1.5">
-                      <Link href={`/guides/${userGuide.id}`}>
-                        Open your guide
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </Button>
-                  )}
-                  <a
-                    href={`https://www.gomaterelocate.com/country-guides/${targetCountry.toLowerCase().replace(/\s+/g, "-")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1B3A2D] hover:text-[#2D6A4F] transition-colors"
-                  >
-                    Read country guide
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
+              {profile.current_location && (
+                <div className="text-[11px] text-muted-foreground">from {profile.current_location}</div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+                <Calendar className="w-3 h-3" strokeWidth={1.7} />
+                Purpose
               </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground">
+                {formatEnumLabel(profile.purpose)}
+              </div>
+              {profile.visa_role && (
+                <div className="text-[11px] text-muted-foreground">{formatEnumLabel(profile.visa_role)}</div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+                <TrendingUp className="w-3 h-3" strokeWidth={1.7} />
+                Profile
+              </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground">
+                {dashboardState.profileProgressLabel}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+                <Clock className="w-3 h-3" strokeWidth={1.7} />
+                Timeline
+              </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground">
+                {profile.timeline || (hasTimeline ? formatTimeUntilMove(monthsUntilMove) : "Not set")}
+              </div>
+              {hasTimeline && profile.timeline && (
+                <div className="text-[11px] text-muted-foreground">≈ {formatTimeUntilMove(monthsUntilMove)}</div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* Profile-aware Specialist Insights (kept in Overview)          */}
-      {/* ============================================================ */}
-      {specialistCards.length > 0 && (
-        <div className="mb-8 gm-animate-in gm-delay-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Tailored to your move</h2>
-            <Badge variant="outline" className="text-xs">
-              {specialistCards.length} insight{specialistCards.length === 1 ? "" : "s"}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {specialistCards.map((card) => {
-              const Component = PLACEHOLDER_CARD_REGISTRY[card.id]
-              if (!Component) return null
-              const specialistName = CARD_TO_SPECIALIST[card.id]
-              const specialistOutput = specialistName ? plan?.research_meta?.specialists?.[specialistName] : undefined
-              // Pass both `reason` (always) and `data`/`specialistOutput`
-              // (when persisted). The two prop shapes coexist: domain
-              // cards (DepartureTaxCard, IncomeComplianceCard, etc.)
-              // expect `data`; placeholder wrappers (CulturalCard,
-              // BankingWizardCard) expect `specialistOutput`. The
-              // component receives both — TS isn't strict here because
-              // PLACEHOLDER_CARD_REGISTRY's element-fn signature is
-              // intentionally loose.
-              const slim = specialistOutput
-                ? {
-                    paragraphs: specialistOutput.contentParagraphs ?? [],
-                    sources: (specialistOutput.citations ?? []).map((c) => ({ url: c.url, label: c.label ?? c.url })),
-                    quality: specialistOutput.quality ?? "fallback",
-                  }
-                : undefined
-              const props = {
-                reason: card.reason,
-                data: specialistOutput,
-                specialistOutput: slim,
-                destination: targetCountry,
-              } as Record<string, unknown>
-              return <Component key={card.id} {...(props as { reason: string })} />
-            })}
-          </div>
-        </div>
-      )}
-      </DashboardPanel>
-
-      {/* ============================ PROFILE TAB ============================ */}
-      <DashboardPanel id="profile" active={activeTab}>
-        <div className="mb-8 gm-animate-in gm-delay-1">
-          <ProfileDetailsCard
-            profile={profile}
-            onFieldClick={!isLocked ? (fieldKey, fieldLabel) => {
-              router.push(`/chat?field=${encodeURIComponent(fieldKey)}&label=${encodeURIComponent(fieldLabel)}`)
-            } : undefined}
-          />
-          <div className="mt-4">
-            {isLocked ? (
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Shield className="w-4 h-4 text-primary shrink-0" />
-                  <span>Profile is locked. Unlock to make changes, or chat to ask questions.</span>
-                </div>
-                <Button variant="outline" size="sm" asChild className="shrink-0 gap-2 bg-transparent">
-                  <Link href="/chat">
-                    <MessageSquare className="w-4 h-4" />
-                    Chat
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <Button variant="outline" asChild className="w-full gap-2 bg-transparent">
-                <Link href="/chat">
-                  <MessageSquare className="w-4 h-4" />
-                  Update profile in chat
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </DashboardPanel>
-
-      {/* ============================ VISA TAB ============================ */}
-      <DashboardPanel id="visa" active={activeTab}>
-      {hasDestination && hasCitizenship && (
-        <TierGate tier={tier} feature="visa_recommendation" onUpgrade={goToUpgrade}>
-          {(() => {
-            const selectedName = plan?.visa_application?.selectedVisaType ?? null
-            const appStatus = plan?.visa_application?.applicationStatus ?? null
-            const visaExpiry = plan?.visa_application?.visaExpiryDate ?? null
-            const options = visaResearch?.visaOptions ?? []
-            const selected = selectedName
-              ? options.find((v) => v.name === selectedName)
-              : null
-            const topOptions = [...options].sort((a, b) => {
-              const order = { high: 0, medium: 1, low: 2, unknown: 3 } as const
-              return (order[a.eligibility] ?? 3) - (order[b.eligibility] ?? 3)
-            }).slice(0, 3)
-
-            const requiredDocs = Object.entries(documentStatuses ?? {})
-              .map(([id, raw]) => ({ id, ...normalizeDocumentStatus(raw) }))
-            const readyDocs = requiredDocs.filter((d) => d.status === "ready" || d.status === "submitted")
-            const upcomingDocs = requiredDocs.filter((d) => d.status !== "ready" && d.status !== "submitted").slice(0, 5)
-
-            const statusLabelMap: Record<string, string> = {
-              not_started: "Not started",
-              preparing: "Preparing application",
-              submitted: "Submitted",
-              decision_pending: "Awaiting decision",
-              approved: "Approved",
-              rejected: "Rejected",
-            }
-
-            const expiryDays = visaExpiry
-              ? Math.ceil((new Date(visaExpiry).getTime() - Date.now()) / 86_400_000)
-              : null
-
-            return (
-              <div className="space-y-6">
-                {/* Editorial hero — matches the Settling-tab + Tailored
-                    insights surface so all tabs feel like one product. */}
-                <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
-                  <div
-                    className="h-[3px]"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)",
-                    }}
-                  />
-                  <div className="p-6 md:p-7 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-                    <div className="min-w-0">
-                      <span className="gm-eyebrow">Visa &amp; Legal</span>
-                      <h2
-                        className="mt-2 font-serif text-foreground"
-                        style={{
-                          fontSize: "26px",
-                          fontWeight: 600,
-                          letterSpacing: "-0.012em",
-                          lineHeight: 1.15,
-                        }}
-                      >
-                        {selected
-                          ? <>Your pathway: <span className="text-foreground/90">{selected.name}</span></>
-                          : <>Pick your pathway to {targetCountry}</>}
-                      </h2>
-                      <p className="mt-3 text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
-                        {selected
-                          ? `Status: ${statusLabelMap[appStatus ?? "not_started"] ?? "Not started"} · ${selected.processingTime} processing · ${selected.cost}`
-                          : options.length > 0
-                            ? `${options.length} routes shortlisted by our specialists for your profile. Pick one to lock in deadlines, documents and progress tracking.`
-                            : "Run research from the dashboard's main button to surface your visa options."}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button asChild size="sm" className="gap-1.5 rounded-full">
-                        <Link href="/visa">
-                          {selected ? "Open workspace" : "Compare options"}
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Selected pathway card — deeper card style with eligibility
-                    badge, processing, cost, validity, expiry warning. */}
-                {selected && (
-                  <div className="relative overflow-hidden rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/10">
-                    <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500" />
-                    <div className="p-5 md:p-6 space-y-3">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-emerald-700 dark:text-emerald-400">
-                              Selected pathway
-                            </span>
-                            {appStatus && (
-                              <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                                {statusLabelMap[appStatus] ?? appStatus}
-                              </Badge>
-                            )}
-                          </div>
-                          <h3 className="font-serif text-lg md:text-xl mt-1 text-foreground">
-                            {selected.name}
-                          </h3>
-                        </div>
-                        {expiryDays !== null && (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] py-0",
-                              expiryDays < 0
-                                ? "border-rose-500/40 text-rose-700 dark:text-rose-400"
-                                : expiryDays <= 90
-                                  ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
-                                  : "border-emerald-500/40 text-emerald-700 dark:text-emerald-400",
-                            )}
-                          >
-                            {expiryDays < 0
-                              ? "Visa expired"
-                              : expiryDays <= 90
-                                ? `${expiryDays}d to expiry`
-                                : `${expiryDays}d valid`}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-dashed border-emerald-200 dark:border-emerald-900/40">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Processing</p>
-                          <p className="text-sm font-medium text-foreground">{selected.processingTime}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Cost</p>
-                          <p className="text-sm font-medium text-foreground">{selected.cost}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Validity</p>
-                          <p className="text-sm font-medium text-foreground">{selected.validity}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Visa options grid — only when nothing selected yet. */}
-                {!selected && topOptions.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-stone-600 dark:text-stone-400">
-                        Top routes for you
-                      </h3>
-                      <Link
-                        href="/visa"
-                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-0.5"
-                      >
-                        See all {options.length}
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {topOptions.map((opt) => {
-                        const stripeColor =
-                          opt.eligibility === "high" ? "from-emerald-400 via-teal-400 to-emerald-500" :
-                          opt.eligibility === "medium" ? "from-amber-400 via-orange-400 to-amber-500" :
-                          opt.eligibility === "low" ? "from-rose-400 via-red-400 to-rose-500" :
-                          "from-stone-300 via-stone-400 to-stone-300"
-                        const eligLabel =
-                          opt.eligibility === "high" ? "Likely eligible" :
-                          opt.eligibility === "medium" ? "Possibly eligible" :
-                          opt.eligibility === "low" ? "Unlikely" : "Unclear"
-                        const eligTint =
-                          opt.eligibility === "high" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-                          opt.eligibility === "medium" ? "bg-amber-100 text-amber-800 border-amber-200" :
-                          opt.eligibility === "low" ? "bg-rose-100 text-rose-800 border-rose-200" :
-                          "bg-stone-100 text-stone-700 border-stone-200"
-                        return (
-                          <Link
-                            key={opt.name}
-                            href="/visa"
-                            className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card p-5 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-md transition-all duration-300 flex flex-col gap-2.5"
-                          >
-                            <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${stripeColor}`} />
-                            <div className="flex items-start justify-between gap-2">
-                              <h4 className="font-serif text-base leading-tight tracking-tight text-foreground">
-                                {opt.name}
-                              </h4>
-                              <span className={`shrink-0 text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 ${eligTint}`}>
-                                {eligLabel}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {opt.eligibilityReason}
-                            </p>
-                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-2 border-t border-dashed border-stone-200 dark:border-stone-800">
-                              <span><span className="font-semibold text-foreground">{opt.processingTime}</span></span>
-                              <span>·</span>
-                              <span>{opt.cost}</span>
-                            </div>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Document preview + checklist progress in one row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {/* Document preview */}
-                  <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card">
-                    <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" />
-                    <div className="p-5 md:p-6 flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="gm-eyebrow text-amber-700 dark:text-amber-400">Documents</p>
-                          <h3 className="font-serif text-lg leading-tight tracking-tight text-foreground mt-1">
-                            What you still need to gather
-                          </h3>
-                        </div>
-                        <span className="text-2xl font-serif font-bold tabular-nums text-foreground leading-none">
-                          {readyDocs.length}/{requiredDocs.length}
-                        </span>
-                      </div>
-
-                      {upcomingDocs.length > 0 ? (
-                        <ul className="space-y-1.5">
-                          {upcomingDocs.map((d) => (
-                            <li key={d.id} className="flex items-start gap-2 text-xs">
-                              <Circle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-stone-400" />
-                              <span className="text-foreground capitalize">
-                                {d.id.replace(/-/g, " ").replace(/_/g, " ")}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : requiredDocs.length > 0 ? (
-                        <p className="text-xs text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> All documents ready.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">
-                          Documents appear here once visa research is complete.
-                        </p>
-                      )}
-
-                      <Link
-                        href="/checklist?tab=documents"
-                        className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:underline pt-1"
-                      >
-                        Open documents
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Pre-move + Documents + Settling progress (existing tile) */}
-                  <ChecklistStatusTile
-                    postArrivalCompleted={settlingSummary?.stats?.completed ?? progressData?.post_arrival_progress?.completed ?? 0}
-                    postArrivalTotal={settlingSummary?.stats?.total ?? progressData?.post_arrival_progress?.total ?? 0}
-                    postArrivalOverdue={settlingSummary?.stats?.overdue ?? 0}
-                    documentsReady={readyDocs.length}
-                    documentsTotal={requiredDocs.length}
-                    preMoveCompleted={preMoveSummary.completed}
-                    preMoveTotal={preMoveSummary.total}
-                    preMoveCriticalRemaining={preMoveSummary.criticalRemaining}
-                  />
-                </div>
-              </div>
-            )
-          })()}
-        </TierGate>
-      )}
-      </DashboardPanel>
-
-      {/* ============================ MONEY TAB ============================ */}
-      <DashboardPanel id="money" active={activeTab}>
-      {/* Budget & Cost of Living Section */}
+      {/* Suggested Guide — compact row */}
       {hasDestination && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
-            <BudgetPlanCard
-              budget={budgetData}
-              targetCity={profile.target_city || profile.destination || "Berlin"}
-              targetCountry={targetCountry}
-              homeCurrency={resolveUserCurrency(profile)}
-              currentSavings={parseFloat(profile.savings_available || "0") || 0}
-              onUpdateSavings={async (amount) => {
-                if (!plan) return
-                const previousPlan = plan
-                // Update local state
-                const updatedProfile = { ...profile, savings_available: amount.toString() }
-                setPlan({ ...plan, profile_data: updatedProfile })
-                
-                // Persist to backend
-                try {
-                  const response = await fetch("/api/profile", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      profileData: { savings_available: amount.toString() },
-                      expectedVersion: plan.plan_version,
-                    }),
-                  })
-
-                  if (response.ok) {
-                    const data = await response.json()
-                    setPlan(data.plan)
-                    if (data.changeSummary) {
-                      setChangeSummary(data.changeSummary)
-                      setChangeSummaryOpen(true)
-                    }
-                  } else {
-                    setPlan(previousPlan)
-                  }
-                } catch (error) {
-                  setPlan(previousPlan)
-                  console.error("[GoMate] Error saving savings:", error)
-                }
-              }}
-            />
-          </TierGate>
-          
-          {/* Cost of Living from Numbeo */}
-          <TierGate tier={tier} feature="cost_of_living" onUpgrade={goToUpgrade}>
-            <CostOfLivingCard
-              country={targetCountry || profile.destination || ""}
-              city={profile.target_city || undefined}
-              compareFromCity={profile.current_location || undefined}
-              compareFromCountry={profile.citizenship || undefined}
-              citizenship={profile.citizenship || undefined}
-              // TODO[v2]: derive from profile when family/dependents flow exists
-              householdSize="single"
-              userCurrency={resolveUserCurrency(profile)}
-            />
-          </TierGate>
-        </div>
-      )}
-
-      {/* Affordability & Tax Overview */}
-      {hasDestination && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
-            <AffordabilityCard
-              monthlyBudget={parseFloat(profile.monthly_budget || "") || null}
-              monthlyIncome={parseFloat(profile.monthly_income || "") || null}
-              savingsAvailable={parseFloat(profile.savings_available || "") || null}
-              destination={profile.destination || ""}
-              city={profile.target_city || undefined}
-              // TODO[v2]: derive from profile when family/dependents flow exists
-              householdSize="single"
-              userCurrency={resolveUserCurrency(profile)}
-            />
-          </TierGate>
-          <TierGate tier={tier} feature="budget_planner" onUpgrade={goToUpgrade}>
-            <TaxOverviewCard
-              destination={profile.destination || ""}
-              annualIncome={
-                (parseFloat(profile.monthly_income || "") || parseFloat(profile.monthly_budget || "") || 0) * 12 || null
-              }
-              planId={plan?.id}
-            />
-          </TierGate>
-        </div>
-      )}
-      </DashboardPanel>
-
-      {/* ============================ SETTLING TAB ============================ */}
-      <DashboardPanel id="settling" active={activeTab}>
-      {/* Local Requirements Section */}
-      {hasDestination && (
-        <TierGate tier={tier} feature="local_requirements" onUpgrade={goToUpgrade}>
-          <div className="mb-8 gm-animate-in gm-delay-1">
-            <LocalRequirementsCard
-              planId={plan?.id}
-              destination={targetCountry}
-              city={profile.target_city || undefined}
-              cachedResearch={localRequirements}
-              researchStatus={researchStatus}
-              onResearchComplete={(data) => {
-                setLocalRequirements(data)
-              }}
-            />
+        <div className="mb-6 gm-animate-in gm-delay-3 gm-surface flex items-center justify-between gap-3 px-3.5 py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <CountryFlag country={targetCountry} size="sm" />
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-[#1F2A24] truncate">
+                {targetCountry} relocation guide
+              </p>
+              <p className="text-[11.5px] text-[#7E9088]">
+                {humaniseSnake(profile.purpose) || "Relocation"}
+              </p>
+            </div>
           </div>
-        </TierGate>
-      )}
-
-      {/* Commonly Forgotten Items */}
-      {plan && hasDestination && (
-        <div className="mb-6">
-          <CommonlyForgottenSection
-            planId={plan.id}
-            destination={profile.destination || undefined}
-            stage={plan.stage}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`https://www.gomaterelocate.com/country-guides/${targetCountry.toLowerCase().replace(/\s+/g, "-")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#3F6B53] hover:text-[#2D3E36] transition-colors"
+            >
+              Read
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       )}
 
-      {/* Post-Relocation: Arrival Transition or Settling-In link */}
-      {plan && hasDestination && (
-        <TierGate tier={tier} feature="post_relocation" onUpgrade={goToUpgrade}>
-          {dashboardState.showArrivalBanner && (
-            <ArrivalBanner
-              stage={plan.stage}
-              tier={tier}
-              destination={profile.destination || "your destination"}
-              onArrived={() => {
-                // Refresh dashboard data
-                window.location.reload()
-              }}
-            />
-          )}
-          {dashboardState.showArrivedSummary && (
-            <ChecklistStatusTile
-              postArrivalCompleted={settlingSummary?.stats?.completed ?? progressData?.post_arrival_progress?.completed ?? 0}
-              postArrivalTotal={settlingSummary?.stats?.total ?? progressData?.post_arrival_progress?.total ?? 0}
-              postArrivalOverdue={settlingSummary?.stats?.overdue ?? 0}
-              documentsReady={Object.values(documentStatuses ?? {}).map(normalizeDocumentStatus).filter((s) => s.status === "ready" || s.status === "submitted").length}
-              documentsTotal={Object.keys(documentStatuses ?? {}).length}
-              preMoveCompleted={preMoveSummary.completed}
-              preMoveTotal={preMoveSummary.total}
-              preMoveCriticalRemaining={preMoveSummary.criticalRemaining}
-            />
-          )}
-        </TierGate>
-      )}
-      </DashboardPanel>
+      {/* "Tailored to your move" specialist insight cards (Cultural
+          Brief, Departure / Exit Tax, etc.) lived here pre-IA refresh.
+          Per sitemap.md the dashboard is overview-only — these advisory
+          cards are now reachable via Plan & Guidance / Post-move
+          orientation. We keep the data flow + registry (specialistCards
+          / CARD_TO_SPECIALIST) wired in case we later want a tight
+          one-line "next insight"-strip on the dashboard, but the
+          full-card render is gone. */}
+
 
       {/* Plan Change Summary Dialog */}
       <PlanChangeSummary
@@ -1958,10 +1489,8 @@ export default function DashboardPage() {
         open={changeSummaryOpen}
         onClose={() => setChangeSummaryOpen(false)}
         onRegenerateGuide={() => {
+          // Guides retired — closing the dialog is enough now.
           setChangeSummaryOpen(false)
-          if (userGuide) {
-            router.push(`/guides/${userGuide.id}`)
-          }
         }}
       />
     </div>
@@ -1973,7 +1502,7 @@ export default function DashboardPage() {
     />
     <DashboardGuidedTour
       open={showGuidedTour}
-      onTabChange={setActiveTab}
+      onTabChange={() => { /* tabs retired — see IA refresh notes */ }}
       onClose={() => {
         setShowGuidedTour(false)
         if (typeof window !== "undefined") {
@@ -2058,23 +1587,22 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
 
   if (showGenerateResearch) {
     return (
-      <div className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 border border-emerald-200/70 dark:border-emerald-900/40 p-5 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="mb-5 gm-surface p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
-            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-700 dark:text-emerald-400">Step 1 of 3</p>
-            <h2 className="text-lg sm:text-xl font-serif font-semibold mt-1">Generate my plan</h2>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
+            <span className="gm-eyebrow">Step 1 of 3</span>
+            <h2 className="text-[16px] sm:text-[17px] font-sans font-semibold text-[#1F2A24] mt-2">Generate my plan</h2>
+            <p className="text-[12px] text-[#4E5F57] mt-1 max-w-xl leading-relaxed">
               Spin up your specialist team — visa, tax, housing, banking, healthcare, culture, documents — and produce your full relocation guide. Takes about 90 seconds.
             </p>
-            {error && <p className="text-sm text-rose-700 dark:text-rose-400 mt-2">⚠ {error}</p>}
+            {error && <p className="text-[12px] text-[#8B2F38] mt-2">⚠ {error}</p>}
           </div>
           <Button
             onClick={() => fire("research")}
             disabled={busy}
             data-testid="trigger-generate-research"
-            className="gap-2 rounded-xl text-white font-semibold shadow-lg"
-            style={{ background: "linear-gradient(180deg, #F26D4C 0%, #E85D3C 100%)" }}
-            size="lg"
+            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#24332C] hover:bg-[#2D3E36]"
+            size="sm"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {busy ? "Starting…" : "Generate my plan"}
@@ -2086,23 +1614,22 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
 
   if (showGeneratePreDeparture) {
     return (
-      <div className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 border border-emerald-200/70 dark:border-emerald-900/40 p-5 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="mb-5 gm-surface p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
-            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-700 dark:text-emerald-400">Step 2 of 3</p>
-            <h2 className="text-lg sm:text-xl font-serif font-semibold mt-1">Generate my pre-departure checklist</h2>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
+            <span className="gm-eyebrow">Step 2 of 3</span>
+            <h2 className="text-[16px] sm:text-[17px] font-sans font-semibold text-[#1F2A24] mt-2">Generate my pre-departure checklist</h2>
+            <p className="text-[12px] text-[#4E5F57] mt-1 max-w-xl leading-relaxed">
               Sequence every pre-move action — apostilles, A1, banking bridge, pet vaccination, lease termination — into a week-by-week plan with critical path highlighted. ~30 seconds.
             </p>
-            {error && <p className="text-sm text-rose-700 dark:text-rose-400 mt-2">⚠ {error}</p>}
+            {error && <p className="text-[12px] text-[#8B2F38] mt-2">⚠ {error}</p>}
           </div>
           <Button
             onClick={() => fire("preDeparture")}
             disabled={busy}
             data-testid="trigger-generate-predeparture"
-            className="gap-2 rounded-xl text-white font-semibold shadow-lg"
-            style={{ background: "linear-gradient(180deg, #F26D4C 0%, #E85D3C 100%)" }}
-            size="lg"
+            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#24332C] hover:bg-[#2D3E36]"
+            size="sm"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {busy ? "Generating…" : "Generate my pre-departure checklist"}
@@ -2114,23 +1641,22 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
 
   // showArrived
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 border border-emerald-200/70 dark:border-emerald-900/40 p-5 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+    <div className="mb-4 rounded-xl bg-white dark:bg-card border border-[rgba(15,23,42,0.08)] dark:border-[rgba(255,255,255,0.06)] p-4 sm:p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-700 dark:text-emerald-400">Step 3 of 3</p>
-          <h2 className="text-lg sm:text-xl font-serif font-semibold mt-1">I have arrived</h2>
-          <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
+          <span className="gm-eyebrow">Step 3 of 3</span>
+          <h2 className="text-[16px] sm:text-[17px] font-sans font-semibold text-[#1F2A24] mt-2">I have arrived</h2>
+          <p className="text-[12px] text-[#4E5F57] mt-1 max-w-xl leading-relaxed">
             Confirm your arrival to switch GoMate into post-arrival mode and unlock your settling-in task graph (population registration, bank, healthcare, schools).
           </p>
-          {error && <p className="text-sm text-rose-700 dark:text-rose-400 mt-2">⚠ {error}</p>}
+          {error && <p className="text-[12px] text-[#8B2F38] mt-2">⚠ {error}</p>}
         </div>
         <Button
           onClick={() => fire("arrived")}
           disabled={busy}
           data-testid="trigger-mark-arrived"
-          className="gap-2 rounded-xl text-white font-semibold shadow-lg"
-          style={{ background: "linear-gradient(180deg, #F26D4C 0%, #E85D3C 100%)" }}
-          size="lg"
+          className="gap-2 rounded-xl text-white font-semibold shadow-sm bg-[#0F172A] hover:bg-[#1E293B]"
+          size="sm"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {busy ? "Confirming…" : "I have arrived"}

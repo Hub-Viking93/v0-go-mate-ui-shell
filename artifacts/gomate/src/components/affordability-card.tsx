@@ -100,7 +100,7 @@ export function AffordabilityCard({
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-stone-300 via-amber-300 to-stone-300 dark:from-stone-700 dark:via-amber-800 dark:to-stone-700" />
         <div className="p-6 md:p-7">
           <p className="gm-eyebrow mb-2 text-stone-600 dark:text-stone-400">Affordability</p>
-          <h3 className="font-serif text-xl tracking-tight text-foreground mb-2">
+          <h3 className="font-sans text-xl tracking-tight text-foreground mb-2">
             Cost data not available yet
           </h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
@@ -149,7 +149,7 @@ export function AffordabilityCard({
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
             <p className="gm-eyebrow mb-1.5 text-emerald-700 dark:text-emerald-400">Affordability</p>
-            <h3 className="font-serif text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
+            <h3 className="font-sans text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-600/70 dark:text-emerald-500/70" />
               How {destination} fits your budget
             </h3>
@@ -176,7 +176,7 @@ export function AffordabilityCard({
           <div className="relative overflow-hidden rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-900/30 p-3.5">
             <div className="absolute inset-x-0 top-0 h-[2px] bg-emerald-400/60" />
             <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-emerald-700 dark:text-emerald-400">Your Budget</p>
-            <p className="font-serif text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="font-sans text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
               {symbol}{budget.toLocaleString()}
               <span className="text-xs font-sans text-muted-foreground font-normal">/mo</span>
             </p>
@@ -184,7 +184,7 @@ export function AffordabilityCard({
           <div className="relative overflow-hidden rounded-xl bg-stone-50 dark:bg-stone-900/60 border border-stone-200/60 dark:border-stone-800 p-3.5">
             <div className="absolute inset-x-0 top-0 h-[2px] bg-stone-400/60" />
             <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-stone-600 dark:text-stone-400">Minimum</p>
-            <p className="font-serif text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="font-sans text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
               {symbol}{convertedMinimum.toLocaleString()}
               <span className="text-xs font-sans text-muted-foreground font-normal">/mo</span>
             </p>
@@ -195,7 +195,7 @@ export function AffordabilityCard({
               Comfortable
               <AuditIcon size="xs" outputKey={`cost_of_living.0`} label="Audit trail for comfortable cost estimate" />
             </p>
-            <p className="font-serif text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="font-sans text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
               {symbol}{convertedComfortable.toLocaleString()}
               <span className="text-xs font-sans text-muted-foreground font-normal">/mo</span>
             </p>

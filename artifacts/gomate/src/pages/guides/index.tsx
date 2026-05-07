@@ -112,12 +112,12 @@ export default function GuidesPage() {
     <FullPageGate tier={tier} feature="guides" onUpgrade={() => router.push("/settings")}>
     <div className="p-6 md:p-8 lg:p-10">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8 mb-8">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] p-6 md:p-8 mb-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-              <BookOpen className="w-7 h-7 text-[#5EE89C]" />
+              <BookOpen className="w-7 h-7 text-[#0D9488]" />
               Guides
             </h1>
             <p className="text-white/60 mt-1.5 text-sm md:text-base">
@@ -127,7 +127,7 @@ export default function GuidesPage() {
           <Button
             onClick={handleGenerateGuide}
             disabled={generatingGuide}
-            className="gap-2 rounded-xl bg-white text-[#1B3A2D] hover:bg-white/90 shrink-0"
+            className="gap-2 rounded-xl bg-white text-[#0F172A] hover:bg-white/90 shrink-0"
           >
             {generatingGuide ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -168,7 +168,7 @@ export default function GuidesPage() {
             </div>
           ) : userGuides.length === 0 ? (
             <div className="gm-card-static overflow-hidden">
-              <div className="h-32 bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] relative">
+              <div className="h-32 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] relative">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.2),transparent_60%)]" />
               </div>
               <div className="p-12 text-center -mt-8">
@@ -209,7 +209,7 @@ export default function GuidesPage() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
                       </>
                     ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F]">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155]">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.2),transparent_60%)]" />
                       </div>
                     )}

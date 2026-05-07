@@ -159,6 +159,8 @@ router.post("/chat", async (req, res) => {
 
   try {
     if (stage === "arrived") {
+      // Post-arrival: settling-in tasks are loaded server-side and
+      // baked into the system prompt for action-oriented answers.
       await handleArrivedStage(
         ctx.supabase,
         ctx.user.id,
@@ -170,31 +172,19 @@ router.post("/chat", async (req, res) => {
       return;
     }
 
-    if (stage === "collecting" && !plan.locked) {
-      await handleCollectingStage({
-        supabase: ctx.supabase,
-        userId: ctx.user.id,
-        planId: plan.id,
-        profile,
-        hintedPendingField: typeof body.pendingField === "string" ? body.pendingField : null,
-        userMessage: lastUserMessage,
-        conversationHistory,
-        lastAssistantMessage,
-        currentStage: stage,
-        res,
-      });
-      return;
-    }
-
-    // generating / ready_for_pre_departure / pre_departure / locked-but-not-arrived:
-    // free-form chat with profile context. Onboarding is over; never
-    // re-enter the intake chain.
+    // All other stages — including "collecting" — get the plan-state-
+    // aware free-form chat. The wizard onboarding lives at /onboarding;
+    // /chat is always advisory chat now, never an intake re-entry.
+    void lastUserMessage; // (no longer drives field-extraction here)
+    void conversationHistory;
+    void lastAssistantMessage;
     await handlePostIntakeFreeForm(
       ctx.supabase,
       ctx.user.id,
       plan.id,
       profile,
       stage,
+      plan.arrival_date,
       messages,
       res,
     );
@@ -507,20 +497,63 @@ async function handleArrivedStage(
   res.end();
 }
 
+/**
+ * Translate the canonical lifecycle stage into a short phrase + a
+ * behavioral cue for the LLM. /chat is always free advisory chat now —
+ * the wizard handles onboarding — but the AI's tone + suggestions
+ * should still adjust based on where the user is in their move.
+ */
+function describeStageForPrompt(
+  stage: string,
+  arrivalDate: string | null,
+): { lifecyclePhrase: string; behavioralCue: string } {
+  const daysUntilArrival = arrivalDate
+    ? Math.round(
+        (new Date(arrivalDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+      )
+    : null;
+  switch (stage) {
+    case "collecting":
+      return {
+        lifecyclePhrase:
+          "The user has not yet committed to a destination, purpose or timeline.",
+        behavioralCue:
+          "Help them think things through — comparing options, what to research before they decide. Never ask them for personal profile data; never act like an intake form. Just be an advisor.",
+      };
+    case "generating":
+    case "ready_for_pre_departure":
+    case "pre_departure":
+    case "complete":
+    default:
+      return {
+        lifecyclePhrase: arrivalDate
+          ? `The user is in the pre-move phase. Arrival date is ${arrivalDate} (${daysUntilArrival} days away).`
+          : "The user is in the pre-move phase but hasn't pinned an arrival date yet.",
+        behavioralCue:
+          "Mode: pre-move helper. Focus on visa, documents, budget, housing search, lease termination at origin, banking/insurance, timing. Don't ask the user for profile details — use what's in the profile context. Be concise + actionable.",
+      };
+  }
+}
+
 async function handlePostIntakeFreeForm(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   userId: string,
   planId: string,
   profile: Profile,
   stage: string,
+  arrivalDate: string | null,
   messages: IncomingMessage[],
   res: import("express").Response,
 ): Promise<void> {
   const profileSummary = JSON.stringify(profile);
+  const phaseGuidance = describeStageForPrompt(stage, arrivalDate);
   const systemPrompt =
-    `You are GoMate, a knowledgeable AI relocation assistant. The user has completed onboarding and is now in the "${stage}" stage.\n\n` +
-    `Profile context (JSON): ${profileSummary}\n\n` +
-    `Be concise, practical, warm. Cite official sources whenever possible. Answer questions about visas, cost of living, banking, taxes, healthcare, settling in, documents, and timelines.`;
+    `You are GoMate, a knowledgeable AI relocation assistant. ${phaseGuidance.lifecyclePhrase}\n\n` +
+    `${phaseGuidance.behavioralCue}\n\n` +
+    `Profile context (JSON): ${profileSummary}\n` +
+    (arrivalDate ? `Arrival / move date: ${arrivalDate}\n` : "Arrival date: not set yet\n") +
+    `\n` +
+    `Be concise, practical, warm. Cite official sources whenever possible. Answer questions about visas, cost of living, banking, taxes, healthcare, settling in, documents, and timelines. Tailor depth to the user's current phase.`;
 
   prepareSseHeaders(res);
 

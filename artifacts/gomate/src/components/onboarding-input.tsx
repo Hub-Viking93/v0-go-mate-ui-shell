@@ -79,7 +79,7 @@ export function OnboardingInput({
   return (
     <div
       className={cn(
-        "relative flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_4px_18px_-6px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 transition-shadow focus-within:ring-2 focus-within:ring-[#2D6A4F]/40",
+        "relative flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_4px_18px_-6px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 transition-shadow focus-within:ring-2 focus-within:ring-[#334155]/40",
         disabled && "opacity-70",
       )}
       data-testid="onboarding-input"
@@ -105,7 +105,7 @@ export function OnboardingInput({
           className={cn(
             "flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all",
             canSubmit
-              ? "bg-[#2D6A4F] text-white shadow-md hover:bg-[#234D3A] active:scale-95"
+              ? "bg-[#334155] text-white shadow-md hover:bg-[#1E293B] active:scale-95"
               : "bg-slate-100 text-slate-400",
           )}
         >

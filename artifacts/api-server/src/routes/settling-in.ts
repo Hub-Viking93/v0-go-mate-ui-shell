@@ -3,7 +3,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, hasFeatureAccess } from "../lib/gomate/tier";
 import { logger } from "../lib/logger";
-import { generateSettlingInDAG, type SettlingInProfile, type SettlingTask } from "@workspace/agents";
+import {
+  generateSettlingInDAG,
+  computeUrgency,
+  daysUntil,
+  compareByUrgency,
+  type SettlingInProfile,
+  type SettlingTask,
+  type DeadlineType,
+  type Urgency,
+} from "@workspace/agents";
 
 const router: IRouter = Router();
 
@@ -54,6 +63,9 @@ async function generateAndPersistSettlingInTasks(args: {
       deadline_days: t.deadlineDays,
       deadline_at: deadlineDate.toISOString(),
       is_legal_requirement: t.isLegalRequirement,
+      deadline_type: t.deadlineType ?? (t.isLegalRequirement ? "legal" : "practical"),
+      walkthrough: t.walkthrough ?? null,
+      task_key: t.taskKey,
       steps: t.steps,
       documents_needed: [`__key:${t.taskKey}`, ...t.documentsNeeded],
       official_link: t.officialLink,
@@ -144,7 +156,36 @@ router.get("/settling-in", async (req, res) => {
       .select("*")
       .eq("plan_id", plan.id)
       .order("sort_order");
-    const list = tasks || [];
+    const rawList = tasks || [];
+
+    // Phase 1A — compute server-side urgency from deadline_at vs now and
+    // re-sort so that overdue/urgent items rise to the top within each
+    // category. Completed/skipped tasks are forced to "normal" so they
+    // don't dominate the urgent slots.
+    const now = new Date();
+    const decorated = rawList.map((t: any) => {
+      const due = t.deadline_at ? new Date(t.deadline_at) : null;
+      const isClosed = t.status === "completed" || t.status === "skipped";
+      const urgency: Urgency = isClosed ? "normal" : computeUrgency(due, now);
+      const deadlineType: DeadlineType =
+        (t.deadline_type as DeadlineType | undefined) ??
+        (t.is_legal_requirement ? "legal" : "practical");
+      return {
+        ...t,
+        deadline_type: deadlineType,
+        urgency,
+        days_until_deadline: daysUntil(due, now),
+      };
+    });
+    const list = decorated.slice().sort((a, b) => {
+      const r = compareByUrgency(
+        { urgency: a.urgency, due_at: a.deadline_at },
+        { urgency: b.urgency, due_at: b.deadline_at },
+      );
+      if (r !== 0) return r;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+
     const completed = list.filter((t: any) => t.status === "completed").length;
     const legalTotal = list.filter((t: any) => t.is_legal_requirement).length;
     const legalCompleted = list.filter((t: any) => t.is_legal_requirement && t.status === "completed").length;
@@ -157,7 +198,9 @@ router.get("/settling-in", async (req, res) => {
       stats: {
         total: list.length,
         completed,
-        overdue: list.filter((t: any) => t.deadline_at && new Date(t.deadline_at) < new Date() && t.status !== "completed").length,
+        overdue: list.filter((t: any) => t.urgency === "overdue").length,
+        urgent: list.filter((t: any) => t.urgency === "urgent").length,
+        approaching: list.filter((t: any) => t.urgency === "approaching").length,
         available: list.filter((t: any) => t.status === "available").length,
         locked: list.filter((t: any) => t.status === "locked").length,
         legalTotal,

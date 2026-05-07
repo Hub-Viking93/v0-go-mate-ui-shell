@@ -39,31 +39,46 @@ const PURPOSES: {
   value: Purpose
   label: string
   body: string
-  Icon: React.ComponentType<{ className?: string }>
+  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
+  accent: string
+  iconBg: string
+  iconFg: string
 }[] = [
   {
     value: "work",
     label: "Work",
     body: "Job offer or actively job hunting in your destination.",
     Icon: Briefcase,
+    accent: "#3F8E5A",
+    iconBg: "#E4F2EA",
+    iconFg: "#2C6440",
   },
   {
     value: "study",
     label: "Study",
     body: "University, language school, exchange, or vocational training.",
     Icon: GraduationCap,
+    accent: "#5D9CA5",
+    iconBg: "#E1EEF1",
+    iconFg: "#3F6B6F",
   },
   {
     value: "digital_nomad",
     label: "Digital nomad",
     body: "Earning remotely or freelancing globally — bringing your own income.",
     Icon: Laptop,
+    accent: "#C99746",
+    iconBg: "#F6ECD7",
+    iconFg: "#8C6B2F",
   },
   {
     value: "settle",
     label: "Settle",
     body: "Retirement, family reunion, ancestry — making it permanent.",
     Icon: Home,
+    accent: "#8B7B6E",
+    iconBg: "#EDE7E0",
+    iconFg: "#5C4F44",
   },
 ]
 
@@ -350,31 +365,39 @@ export default function OnboardingDestinationPage() {
                     type="button"
                     onClick={() => update("purpose", p.value)}
                     aria-pressed={selected}
+                    data-purpose={p.value}
+                    data-selected={selected ? "true" : "false"}
                     className={cn(
-                      "relative text-left rounded-xl border p-3 transition-all",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                      "gm-surface gm-tile-accent group relative text-left px-3.5 pt-4 pb-3.5",
+                      "transition-[box-shadow,transform,border-color,background] duration-[180ms]",
+                      "[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
                       selected
-                        ? "border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-sm"
-                        : "border-stone-200 dark:border-stone-800 bg-card hover:border-stone-300 dark:hover:border-stone-700",
+                        ? "shadow-[0_2px_0_rgba(31,42,36,0.04),0_8px_20px_-12px_rgba(31,42,36,0.18)]"
+                        : "hover:shadow-[var(--gm-card-shadow-hover)] hover:-translate-y-px",
                     )}
+                    style={{
+                      ["--gm-tile-accent-color" as string]: p.accent,
+                      borderColor: selected ? p.accent : undefined,
+                      background: selected ? `${p.iconBg}66` : undefined,
+                    }}
                   >
                     {selected && (
-                      <div className="absolute top-2.5 right-2.5 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-600 text-white">
+                      <div
+                        className="absolute top-3 right-3 flex items-center justify-center w-4 h-4 rounded-full text-white"
+                        style={{ background: p.accent }}
+                      >
                         <Check className="w-2.5 h-2.5" strokeWidth={3} />
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        "flex items-center justify-center w-8 h-8 rounded-lg mb-2",
-                        selected
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
-                      )}
+                    <span
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-md mb-2.5"
+                      style={{ background: p.iconBg, color: p.iconFg }}
                     >
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-[13px] font-semibold text-foreground">{p.label}</h3>
-                    <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+                      <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />
+                    </span>
+                    <h3 className="text-[13.5px] font-semibold text-[#1F2A24]">{p.label}</h3>
+                    <p className="text-[11.5px] text-[#7E9088] mt-1 leading-relaxed">
                       {p.body}
                     </p>
                   </button>

@@ -24,10 +24,14 @@
 import { Router, type IRouter } from "express";
 import {
   generatePreDepartureTimeline,
+  computeUrgency,
+  daysUntil,
+  compareByUrgency,
   type PreDepartureProfile,
   type VisaPathwayLite,
   type ActionStatus,
   type PreDepartureAction,
+  type Urgency,
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
@@ -111,14 +115,45 @@ router.get("/pre-departure", async (req, res) => {
       res.status(404).json({ error: "Pre-departure timeline not generated yet" });
       return;
     }
+
+    // Phase 1A — compute server-side urgency + days-until from each action's
+    // persisted deadlineIso. Completed/skipped actions are forced to "normal"
+    // so they don't squat the urgent slots. Sort so overdue → urgent →
+    // approaching → normal, ties broken by earliest deadline.
+    const now = new Date();
+    const decorated = stored.actions.map((a) => {
+      const due = a.deadlineIso ? new Date(a.deadlineIso) : null;
+      const isClosed = a.status === "complete" || a.status === "skipped";
+      const urgency: Urgency = isClosed ? "normal" : computeUrgency(due, now);
+      return {
+        ...a,
+        urgency,
+        daysUntilDeadline: daysUntil(due, now),
+      };
+    });
+    const sorted = decorated.slice().sort((a, b) => {
+      const r = compareByUrgency(
+        { urgency: a.urgency, due_at: a.deadlineIso ?? null },
+        { urgency: b.urgency, due_at: b.deadlineIso ?? null },
+      );
+      if (r !== 0) return r;
+      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+    });
+
     res.json({
       planId: resolvedPlanId,
-      actions: stored.actions,
-      totalActions: stored.actions.length,
+      actions: sorted,
+      totalActions: sorted.length,
       criticalPathActionKeys: stored.criticalPath,
       longestLeadTimeWeeks: stored.longestLeadTimeWeeks,
       moveDate: stored.moveDateIso.split("T")[0],
       generatedAt: stored.generatedAt,
+      stats: {
+        total: sorted.length,
+        overdue: sorted.filter((a) => a.urgency === "overdue").length,
+        urgent: sorted.filter((a) => a.urgency === "urgent").length,
+        approaching: sorted.filter((a) => a.urgency === "approaching").length,
+      },
     });
   } catch (err) {
     logger.error({ err }, "pre-departure GET threw");
@@ -199,14 +234,14 @@ router.post("/pre-departure/generate", async (req, res) => {
       preDeparture: stored,
     };
 
-    const now = new Date().toISOString();
+    const nowIso = new Date().toISOString();
     const { error: upErr } = await ctx.supabase
       .from("relocation_plans")
       .update({
         research_meta: newResearchMeta,
         stage: "pre_departure",
-        user_triggered_pre_departure_at: plan.user_triggered_pre_departure_at ?? now,
-        updated_at: now,
+        user_triggered_pre_departure_at: plan.user_triggered_pre_departure_at ?? nowIso,
+        updated_at: nowIso,
       })
       .eq("id", plan.id);
     if (upErr) {
@@ -215,14 +250,36 @@ router.post("/pre-departure/generate", async (req, res) => {
       return;
     }
 
+    const now = new Date();
+    const decorated = stored.actions.map((a) => {
+      const due = a.deadlineIso ? new Date(a.deadlineIso) : null;
+      const isClosed = a.status === "complete" || a.status === "skipped";
+      const urgency: Urgency = isClosed ? "normal" : computeUrgency(due, now);
+      return { ...a, urgency, daysUntilDeadline: daysUntil(due, now) };
+    });
+    const sorted = decorated.slice().sort((a, b) => {
+      const r = compareByUrgency(
+        { urgency: a.urgency, due_at: a.deadlineIso ?? null },
+        { urgency: b.urgency, due_at: b.deadlineIso ?? null },
+      );
+      if (r !== 0) return r;
+      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+    });
+
     res.json({
       planId: plan.id,
-      actions: stored.actions,
-      totalActions: stored.actions.length,
+      actions: sorted,
+      totalActions: sorted.length,
       criticalPathActionKeys: stored.criticalPath,
       longestLeadTimeWeeks: stored.longestLeadTimeWeeks,
       moveDate: stored.moveDateIso.split("T")[0],
       generatedAt: stored.generatedAt,
+      stats: {
+        total: sorted.length,
+        overdue: sorted.filter((a) => a.urgency === "overdue").length,
+        urgent: sorted.filter((a) => a.urgency === "urgent").length,
+        approaching: sorted.filter((a) => a.urgency === "approaching").length,
+      },
     });
   } catch (err) {
     logger.error({ err }, "pre-departure generate threw");

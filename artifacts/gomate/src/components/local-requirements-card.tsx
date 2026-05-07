@@ -240,7 +240,7 @@ function CategoryCard({
             <div className={`shrink-0 ${tint.icon}`}>
               {getCategoryIcon(category.category)}
             </div>
-            <h3 className="font-serif text-lg leading-tight tracking-tight text-foreground truncate">
+            <h3 className="font-sans text-lg leading-tight tracking-tight text-foreground truncate">
               {category.category || "Other"}
             </h3>
           </div>
@@ -406,7 +406,7 @@ export function LocalRequirementsCard({
         <div className="p-7 md:p-8">
           <span className="gm-eyebrow">Local Requirements</span>
           <h3
-            className="mt-3 font-serif text-foreground"
+            className="mt-3 font-sans text-foreground"
             style={{
               fontSize: "26px",
               fontWeight: 600,
@@ -481,7 +481,7 @@ export function LocalRequirementsCard({
           <div className="min-w-0">
             <span className="gm-eyebrow">Local Requirements</span>
             <h2
-              className="mt-2 font-serif text-foreground"
+              className="mt-2 font-sans text-foreground"
               style={{
                 fontSize: "26px",
                 fontWeight: 600,

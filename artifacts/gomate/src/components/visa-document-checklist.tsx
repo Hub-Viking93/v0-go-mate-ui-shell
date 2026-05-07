@@ -136,7 +136,7 @@ export function VisaDocumentChecklist({ items, statuses, onStatusToggle }: VisaD
             <FileCheck className="w-5 h-5 mt-1 shrink-0 text-amber-600/80 dark:text-amber-500/80" />
             <div className="min-w-0">
               <p className="gm-eyebrow text-amber-700 dark:text-amber-400">Document checklist</p>
-              <h2 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">
+              <h2 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground">
                 Visa Documents
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -145,7 +145,7 @@ export function VisaDocumentChecklist({ items, statuses, onStatusToggle }: VisaD
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-3xl font-serif font-bold tabular-nums text-foreground leading-none">
+            <p className="text-3xl font-sans font-bold tabular-nums text-foreground leading-none">
               {progressPct}%
             </p>
             <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-1">

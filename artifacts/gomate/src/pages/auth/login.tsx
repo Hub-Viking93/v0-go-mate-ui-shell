@@ -77,7 +77,7 @@ export default function LoginPage() {
           />
           <div className="text-center">
             <h1
-              className="font-serif tracking-tight text-foreground"
+              className="font-sans tracking-tight text-foreground"
               style={{ fontSize: "30px", fontWeight: 600, lineHeight: 1.1, letterSpacing: "-0.012em" }}
             >
               GoMate
@@ -95,7 +95,7 @@ export default function LoginPage() {
             className="h-[3px]"
             style={{
               background:
-                "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)",
+                "linear-gradient(90deg, #0F172A 0%, #334155 60%, #0D9488 100%)",
             }}
           />
           <div className="p-7 md:p-8">
@@ -104,7 +104,7 @@ export default function LoginPage() {
                 Sign in
               </p>
               <h2
-                className="font-serif tracking-tight text-foreground mt-1.5"
+                className="font-sans tracking-tight text-foreground mt-1.5"
                 style={{ fontSize: "24px", fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.012em" }}
               >
                 Welcome back
@@ -125,7 +125,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-xl border-stone-200 dark:border-stone-800 focus-visible:ring-[#2D6A4F]/40 focus-visible:border-[#2D6A4F]/40"
+                    className="h-11 rounded-xl border-stone-200 dark:border-stone-800 focus-visible:ring-[#334155]/40 focus-visible:border-[#334155]/40"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -136,7 +136,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 rounded-xl border-stone-200 dark:border-stone-800 focus-visible:ring-[#2D6A4F]/40 focus-visible:border-[#2D6A4F]/40"
+                    className="h-11 rounded-xl border-stone-200 dark:border-stone-800 focus-visible:ring-[#334155]/40 focus-visible:border-[#334155]/40"
                   />
                 </div>
                 {error && (
@@ -151,7 +151,7 @@ export default function LoginPage() {
                   className="w-full h-11 rounded-xl gap-2 text-white shadow-md disabled:opacity-70"
                   style={{
                     background:
-                      "linear-gradient(180deg, #2D6A4F 0%, #234D3A 100%)",
+                      "linear-gradient(180deg, #334155 0%, #1E293B 100%)",
                   }}
                 >
                   {isLoading ? (
@@ -205,7 +205,7 @@ export default function LoginPage() {
               Don't have an account?{" "}
               <Link
                 href="/auth/sign-up"
-                className="font-semibold text-[#2D6A4F] dark:text-emerald-400 hover:underline"
+                className="font-semibold text-[#334155] dark:text-emerald-400 hover:underline"
               >
                 Create one
               </Link>

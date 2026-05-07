@@ -157,11 +157,11 @@ export function ResearchProgressModal({
         <div className="flex flex-col items-center text-center pt-2 pb-4">
           <div className="relative mb-4">
             <motion.div
-              className="absolute inset-0 rounded-full bg-[#5EE89C]/30 blur-xl"
+              className="absolute inset-0 rounded-full bg-[#0D9488]/30 blur-xl"
               animate={{ scale: allDone ? [1, 1.1, 1] : [0.9, 1.1, 0.9] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             />
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#5EE89C]/20 to-[#1B3A2D]/10 ring-1 ring-[#5EE89C]/40">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#0D9488]/20 to-[#0F172A]/10 ring-1 ring-[#0D9488]/40">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={headline.emoji}
@@ -263,7 +263,7 @@ export function ResearchProgressModal({
           {!snap && !stream.error && (
             <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <Sparkles className="h-3.5 w-3.5 text-[#5EE89C]" />
+              <Sparkles className="h-3.5 w-3.5 text-[#0D9488]" />
               Connecting to your research team…
             </div>
           )}

@@ -312,13 +312,13 @@ export function VisaResearchCard({
           className="h-[3px]"
           style={{
             background:
-              "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 50%, #5EE89C 100%)",
+              "linear-gradient(90deg, #0F172A 0%, #334155 50%, #0D9488 100%)",
           }}
         />
         <div className="p-7 md:p-8">
           <span className="gm-eyebrow">Visa Research</span>
           <h3
-            className="mt-3 font-serif text-foreground"
+            className="mt-3 font-sans text-foreground"
             style={{
               fontSize: "26px",
               fontWeight: 600,
@@ -361,7 +361,7 @@ export function VisaResearchCard({
               className="gap-2 rounded-xl border-0 text-white font-semibold shadow-[0_4px_16px_rgba(27,58,45,0.25)]"
               style={{
                 background:
-                  "linear-gradient(180deg, #234D3A 0%, #1B3A2D 100%)",
+                  "linear-gradient(180deg, #1E293B 0%, #0F172A 100%)",
               }}
             >
               {isResearching || researchStatus === "in_progress" ? (

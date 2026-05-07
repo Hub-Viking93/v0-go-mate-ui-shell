@@ -151,12 +151,12 @@ export function DatePickerInput({
         </PopoverContent>
       </Popover>
 
-      <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+      <label className="flex items-center gap-2 text-[12.5px] text-[#7E9088] hover:text-[#1F2A24] cursor-pointer select-none transition-colors">
         <input
           type="checkbox"
           checked={isFlexible}
           onChange={(e) => toggleFlexible(e.target.checked)}
-          className="h-4 w-4 rounded border-stone-300 dark:border-stone-700 text-emerald-700 focus:ring-emerald-500/40"
+          className="h-4 w-4 rounded border-[#DCE7DF] text-[#24332C] focus:ring-[#3F6B53]/30 focus:ring-offset-1"
         />
         {flexibleLabel}
       </label>

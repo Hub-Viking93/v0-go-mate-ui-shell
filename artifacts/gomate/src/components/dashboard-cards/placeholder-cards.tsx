@@ -93,7 +93,7 @@ function PlaceholderCard({ title, description, reason, Icon, accent = "stone", s
               </span>
             )}
           </div>
-          <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">{title}</h3>
+          <h3 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground">{title}</h3>
         </div>
       </div>
       {hasContent ? (
@@ -180,7 +180,7 @@ export function CulturalCard({ reason, specialistOutput, destination }: { reason
           <Globe className="w-5 h-5 mt-0.5 shrink-0 text-amber-600/70 dark:text-amber-500/70" />
           <div className="min-w-0 flex-1">
             <p className="gm-eyebrow mb-1 text-amber-700 dark:text-amber-400">{reason}</p>
-            <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">Cultural Brief</h3>
+            <h3 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground">Cultural Brief</h3>
           </div>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -289,7 +289,7 @@ export function PreDepartureTimelineCard({ reason }: { reason: string }) {
           <CalendarClock className="w-5 h-5 mt-0.5 shrink-0 text-stone-500 dark:text-stone-400" />
           <div className="min-w-0 flex-1">
             <p className="gm-eyebrow mb-1 text-stone-600 dark:text-stone-400">{reason}</p>
-            <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">
+            <h3 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground">
               Pre-Departure Timeline
             </h3>
           </div>
@@ -330,7 +330,7 @@ export function PreDepartureTimelineCard({ reason }: { reason: string }) {
               {formatDaysToMove(data.moveDate)}
             </span>
           </div>
-          <h3 className="font-serif text-lg md:text-xl leading-tight tracking-tight text-foreground">
+          <h3 className="font-sans text-lg md:text-xl leading-tight tracking-tight text-foreground">
             Pre-Departure Timeline
           </h3>
         </div>

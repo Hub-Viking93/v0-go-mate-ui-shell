@@ -27,23 +27,26 @@ interface PlanConsistencyAlertsProps {
 const SEVERITY_CONFIG = {
   critical: {
     icon: AlertCircle,
-    bg: "bg-red-50 border-red-200",
-    text: "text-red-700",
-    iconColor: "text-red-500",
+    bg: "bg-[#F5DDDF]/40",
+    border: "#E8B8BD",
+    text: "text-[#8B2F38]",
+    iconColor: "text-[#B5414C]",
     label: "Critical",
   },
   warning: {
     icon: AlertTriangle,
-    bg: "bg-amber-50 border-amber-200",
-    text: "text-amber-700",
-    iconColor: "text-amber-500",
+    bg: "bg-[#F6ECD7]/40",
+    border: "#E8C77B",
+    text: "text-[#8C6B2F]",
+    iconColor: "text-[#C99746]",
     label: "Warning",
   },
   suggestion: {
     icon: Lightbulb,
-    bg: "bg-blue-50 border-blue-200",
-    text: "text-blue-700",
-    iconColor: "text-blue-500",
+    bg: "bg-[#E1EEF1]/40",
+    border: "#B7D3D8",
+    text: "text-[#3F6B6F]",
+    iconColor: "text-[#5D9CA5]",
     label: "Suggestion",
   },
 }
@@ -113,8 +116,11 @@ export function PlanConsistencyAlerts({ planId }: PlanConsistencyAlertsProps) {
 
   if (visible.length === 0) {
     return (
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+      <div
+        className="flex items-center gap-2 p-3 rounded-md text-[12.5px] gm-surface"
+        style={{ background: "#E4F2EA66", borderColor: "#C2DECC", color: "#2C6440" }}
+      >
+        <CheckCircle2 className="w-4 h-4 flex-shrink-0" strokeWidth={1.7} />
         <span>No issues detected with your plan</span>
       </div>
     )
@@ -126,13 +132,17 @@ export function PlanConsistencyAlerts({ planId }: PlanConsistencyAlertsProps) {
     const isExpanded = expanded.has(w.code)
 
     return (
-      <div key={w.code} className={`rounded-lg border p-3 ${config.bg}`}>
+      <div
+        key={w.code}
+        className={`rounded-md border p-3 ${config.bg}`}
+        style={{ borderColor: config.border }}
+      >
         <div className="flex items-start gap-2">
-          <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${config.iconColor}`} />
+          <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${config.iconColor}`} strokeWidth={1.7} />
           <div className="flex-1 min-w-0">
-            <p className={`text-sm ${config.text}`}>{w.message}</p>
+            <p className={`text-[12.5px] leading-relaxed ${config.text}`}>{w.message}</p>
             {isExpanded && (
-              <p className={`text-xs mt-1.5 ${config.text} opacity-80`}>
+              <p className={`text-[11.5px] mt-1.5 leading-relaxed ${config.text} opacity-80`}>
                 <strong>How to fix:</strong> {w.fix}
               </p>
             )}
@@ -140,7 +150,7 @@ export function PlanConsistencyAlerts({ planId }: PlanConsistencyAlertsProps) {
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => toggleExpand(w.code)}
-              className={`p-0.5 rounded hover:bg-black/5 ${config.iconColor}`}
+              className={`p-0.5 rounded hover:bg-black/5 ${config.iconColor} transition-colors`}
               aria-label={isExpanded ? "Collapse" : "Expand"}
             >
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -148,7 +158,7 @@ export function PlanConsistencyAlerts({ planId }: PlanConsistencyAlertsProps) {
             {w.severity !== "critical" && (
               <button
                 onClick={() => dismiss(w.code)}
-                className={`p-0.5 rounded hover:bg-black/5 ${config.iconColor}`}
+                className={`p-0.5 rounded hover:bg-black/5 ${config.iconColor} transition-colors`}
                 aria-label="Dismiss"
               >
                 <X className="w-3.5 h-3.5" />

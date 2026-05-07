@@ -39,10 +39,10 @@ export function CityInput({ value, onChange, country, placeholder, id }: CityInp
                 size="sm"
                 onClick={() => onChange(isSelected ? null : city)}
                 className={cn(
-                  "h-7 px-2.5 text-xs font-normal rounded-full",
+                  "h-7 px-3 text-[11.5px] font-medium rounded-full transition-colors",
                   isSelected
-                    ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-700"
-                    : "border-stone-200 dark:border-stone-700 text-muted-foreground hover:text-foreground",
+                    ? "bg-[#24332C] hover:bg-[#2D3E36] text-white border-[#24332C]"
+                    : "border-[#DCE7DF] text-[#7E9088] hover:text-[#1F2A24] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]",
                 )}
               >
                 {city}

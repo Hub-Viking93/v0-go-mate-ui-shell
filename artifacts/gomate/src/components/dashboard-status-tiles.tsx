@@ -1,5 +1,12 @@
 import { Link } from "wouter"
-import { Shield, ListChecks, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react"
+import {
+  Shield,
+  ListChecks,
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2,
+  FolderLock,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -169,6 +176,47 @@ export function ChecklistStatusTile({
             )}
           </p>
         </div>
+      </div>
+    </Link>
+  )
+}
+
+interface VaultStatusTileProps {
+  documentCount?: number
+}
+
+export function VaultStatusTile({ documentCount = 0 }: VaultStatusTileProps) {
+  return (
+    <Link
+      href="/vault"
+      className="group block gm-card-static p-5 hover:border-primary/40 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <FolderLock className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Document vault</h3>
+            <p className="text-xs text-muted-foreground">
+              Store passport, visa, apostilles &amp; more — privately.
+            </p>
+          </div>
+        </div>
+        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors mt-2" />
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <div>
+          <p className="text-2xl font-semibold font-mono text-foreground">
+            {documentCount}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {documentCount === 1 ? "document stored" : "documents stored"}
+          </p>
+        </div>
+        <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+          Encrypted &amp; private
+        </Badge>
       </div>
     </Link>
   )

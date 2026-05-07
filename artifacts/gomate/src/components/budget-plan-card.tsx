@@ -117,10 +117,10 @@ export function BudgetPlanCard({
   if (!budget) {
     return (
       <div className="gm-editorial-card overflow-hidden">
-        <div className="h-[3px]" style={{ background: "linear-gradient(90deg, #1B3A2D, #2D6A4F)" }} />
+        <div className="h-[3px]" style={{ background: "linear-gradient(90deg, #0F172A, #334155)" }} />
         <div className="p-7">
           <span className="gm-eyebrow">Budget Plan</span>
-          <h3 className="mt-3 font-serif text-foreground" style={{ fontSize: "22px", fontWeight: 600 }}>
+          <h3 className="mt-3 font-sans text-foreground" style={{ fontSize: "22px", fontWeight: 600 }}>
             Budget will appear with your recommendations
           </h3>
           <p className="mt-2 text-sm text-foreground/60">
@@ -135,7 +135,7 @@ export function BudgetPlanCard({
   return (
     <div className="gm-editorial-card overflow-hidden">
       {/* Top accent stripe */}
-      <div className="h-[3px]" style={{ background: "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)" }} />
+      <div className="h-[3px]" style={{ background: "linear-gradient(90deg, #0F172A 0%, #334155 60%, #0D9488 100%)" }} />
 
       <div className="p-6 md:p-7">
         {/* Header with status badge */}
@@ -143,7 +143,7 @@ export function BudgetPlanCard({
           <div>
             <span className="gm-eyebrow">Budget Plan</span>
             <h3
-              className="mt-2 font-serif text-foreground"
+              className="mt-2 font-sans text-foreground"
               style={{ fontSize: "22px", fontWeight: 600, letterSpacing: "-0.012em" }}
             >
               {destination}
@@ -174,9 +174,9 @@ export function BudgetPlanCard({
         >
           <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
             <div>
-              <span className="gm-label" style={{ color: "#234D3A", opacity: 0.85 }}>Savings goal</span>
+              <span className="gm-label" style={{ color: "#1E293B", opacity: 0.85 }}>Savings goal</span>
               <p
-                className="mt-1.5 font-serif text-foreground"
+                className="mt-1.5 font-sans text-foreground"
                 style={{ fontSize: "32px", lineHeight: 1.05, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
               >
                 {fmt(totalGoal)}
@@ -184,14 +184,14 @@ export function BudgetPlanCard({
             </div>
             <div className="text-right">
               <div className="flex items-center justify-end gap-2 mb-1">
-                <span className="gm-label" style={{ color: "#234D3A", opacity: 0.85 }}>Current savings</span>
+                <span className="gm-label" style={{ color: "#1E293B", opacity: 0.85 }}>Current savings</span>
                 {!isEditing && onUpdateSavings && (
                   <button
                     onClick={() => {
                       setInputValue(savings.toString())
                       setIsEditing(true)
                     }}
-                    className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#1B3A2D] hover:text-[#2D6A4F] underline-offset-2 hover:underline"
+                    className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0F172A] hover:text-[#334155] underline-offset-2 hover:underline"
                   >
                     Edit
                   </button>
@@ -204,7 +204,7 @@ export function BudgetPlanCard({
                     type="number"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    className="w-28 bg-white/80 border border-[#234D3A]/30 rounded-md px-2 py-1 text-sm font-serif font-semibold text-[#1B3A2D] focus:outline-none focus:ring-2 focus:ring-[#5EE89C]/40"
+                    className="w-28 bg-white/80 border border-[#1E293B]/30 rounded-md px-2 py-1 text-sm font-sans font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0D9488]/40"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                     placeholder="0"
                     autoFocus
@@ -212,7 +212,7 @@ export function BudgetPlanCard({
                   <button
                     onClick={handleSave}
                     className="px-3 py-1 rounded-md text-white text-xs font-semibold"
-                    style={{ background: "linear-gradient(180deg, #234D3A, #1B3A2D)" }}
+                    style={{ background: "linear-gradient(180deg, #1E293B, #0F172A)" }}
                   >
                     Save
                   </button>
@@ -228,7 +228,7 @@ export function BudgetPlanCard({
                 </div>
               ) : (
                 <p
-                  className="font-serif text-[#1B3A2D]"
+                  className="font-sans text-[#0F172A]"
                   style={{ fontSize: "26px", lineHeight: 1.05, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
                 >
                   {fmt(savings)}
@@ -238,12 +238,12 @@ export function BudgetPlanCard({
           </div>
 
           {/* Custom progress bar with gradient + animated fill */}
-          <div className="relative h-2.5 rounded-full overflow-hidden bg-[#234D3A]/12">
+          <div className="relative h-2.5 rounded-full overflow-hidden bg-[#1E293B]/12">
             <div
               className="h-full rounded-full transition-[width] duration-700 ease-out"
               style={{
                 width: `${progressPercent}%`,
-                background: "linear-gradient(90deg, #234D3A 0%, #2D6A4F 50%, #5EE89C 100%)",
+                background: "linear-gradient(90deg, #1E293B 0%, #334155 50%, #0D9488 100%)",
                 boxShadow: "0 0 12px rgba(94,232,156,0.45)",
               }}
             />
@@ -277,7 +277,7 @@ export function BudgetPlanCard({
       {/* Summary tiles — warm domain tints, serif tabular numbers, top stripe */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: "Total target", value: fmt(budget.totalSavingsTarget), accent: "#234D3A", tint: "#EEF3EC", icon: TrendingUp },
+          { label: "Total target", value: fmt(budget.totalSavingsTarget), accent: "#1E293B", tint: "#EEF3EC", icon: TrendingUp },
           { label: "Monthly", value: fmt(budget.monthlySavingsTarget), accent: "#16A34A", tint: "#EEF6EF", icon: Target },
           { label: "Months left", value: String(budget.monthsUntilMove), accent: "#D97706", tint: "#FBF3E5", icon: Calendar },
         ].map((tile) => {
@@ -299,7 +299,7 @@ export function BudgetPlanCard({
                 <Icon className="w-4 h-4" style={{ color: tile.accent, opacity: 0.7 }} strokeWidth={1.6} />
               </div>
               <p
-                className="font-serif text-foreground"
+                className="font-sans text-foreground"
                 style={{ fontSize: "20px", lineHeight: 1.1, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
               >
                 {tile.value}

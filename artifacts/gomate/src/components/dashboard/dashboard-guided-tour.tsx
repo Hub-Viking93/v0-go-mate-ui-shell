@@ -40,14 +40,14 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     emoji: "👋",
-    icon: <Sparkles className="h-5 w-5 text-[#5EE89C]" />,
+    icon: <Sparkles className="h-5 w-5 text-[#0D9488]" />,
     title: "Welcome to your relocation plan",
     body:
       "Your specialists just finished researching. Everything you need lives on this dashboard — let's take a 30-second tour. Tabs at the top group the content; the sidebar on the left jumps to deeper tools.",
   },
   {
     emoji: "🗺️",
-    icon: <LayoutGrid className="h-5 w-5 text-[#5EE89C]" />,
+    icon: <LayoutGrid className="h-5 w-5 text-[#0D9488]" />,
     title: "Overview",
     body:
       "Your move at a glance: destination, purpose, key dates, and how confident the plan is. Start every visit here for the high-level picture.",
@@ -94,7 +94,7 @@ const STEPS: TourStep[] = [
   },
   {
     emoji: "✨",
-    icon: <Compass className="h-5 w-5 text-[#5EE89C]" />,
+    icon: <Compass className="h-5 w-5 text-[#0D9488]" />,
     title: "You're set",
     body:
       "Re-run this tour anytime from the “Tour” button in the dashboard header. Good luck with the move!",
@@ -185,8 +185,8 @@ export function DashboardGuidedTour({
 
           <div className="flex items-start gap-4 p-5">
             <div className="relative shrink-0">
-              <div className="absolute inset-0 rounded-full bg-[#5EE89C]/20 blur-lg" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#5EE89C]/15 to-[#1B3A2D]/10 ring-1 ring-[#5EE89C]/40">
+              <div className="absolute inset-0 rounded-full bg-[#0D9488]/20 blur-lg" />
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#0D9488]/15 to-[#0F172A]/10 ring-1 ring-[#0D9488]/40">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={current.emoji}
@@ -233,7 +233,7 @@ export function DashboardGuidedTour({
                   aria-label={`Go to step ${i + 1}`}
                   className={`h-1.5 rounded-full transition-all ${
                     i === step
-                      ? "w-5 bg-[#1B3A2D] dark:bg-[#5EE89C]"
+                      ? "w-5 bg-[#0F172A] dark:bg-[#0D9488]"
                       : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
                   }`}
                 />

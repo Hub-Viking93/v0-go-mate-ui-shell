@@ -1455,7 +1455,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                 <div className="flex items-end justify-between gap-2">
                   <div>
                     <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Shortlist</p>
-                    <h2 className="font-serif text-xl tracking-tight text-foreground mt-0.5">
+                    <h2 className="font-sans text-xl tracking-tight text-foreground mt-0.5">
                       Recommended programs for you
                     </h2>
                   </div>
@@ -1485,7 +1485,7 @@ export default function GuideDetailPage({ id }: { id: string }) {
                         <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${typeTint.stripe}`} />
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className="font-serif text-base leading-tight tracking-tight text-foreground">
+                            <h3 className="font-sans text-base leading-tight tracking-tight text-foreground">
                               {p.name || "Program"}
                             </h3>
                             {p.city && (

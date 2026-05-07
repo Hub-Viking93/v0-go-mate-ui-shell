@@ -26,8 +26,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrustBadge } from "@/components/trust-badge";
 import { cn } from "@/lib/utils";
+import {
+  TaskDetailSheet,
+  type TaskDetailViewModel,
+  type TaskWalkthroughView,
+  type VaultDocRefView,
+} from "@/components/task-detail-sheet";
 
 type ActionStatus = "not_started" | "in_progress" | "complete" | "blocked" | "skipped";
+type Urgency = "overdue" | "urgent" | "approaching" | "normal";
+type DeadlineType = "legal" | "practical" | "recommended";
 
 interface ActionView {
   id: string;
@@ -49,6 +57,14 @@ interface ActionView {
   deadlineIso?: string;
   completedAt?: string | null;
   userNotes?: string | null;
+  /** Phase 1A — server-computed urgency bucket. */
+  urgency?: Urgency;
+  /** Phase 1A — explicit deadline weight. */
+  deadlineType?: DeadlineType;
+  /** Phase 1A — days until deadline (negative when overdue). */
+  daysUntilDeadline?: number | null;
+  /** Phase 1B — structured walkthrough payload. */
+  walkthrough?: TaskWalkthroughView | null;
 }
 
 interface TimelineResponse {
@@ -59,6 +75,7 @@ interface TimelineResponse {
   longestLeadTimeWeeks: number;
   moveDate: string;
   generatedAt: string;
+  stats?: { total: number; overdue: number; urgent: number; approaching: number };
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -91,6 +108,56 @@ const CATEGORY_TINT: Record<string, string> = {
   admin: "bg-stone-500/10 text-stone-700 dark:text-stone-400 border-stone-500/30",
 };
 
+function urgencyBadge(
+  urgency: Urgency | undefined,
+  daysLeft: number | null | undefined,
+): { label: string; className: string } | null {
+  if (!urgency || urgency === "normal") return null;
+  if (urgency === "overdue") {
+    const n = typeof daysLeft === "number" ? Math.abs(daysLeft) : null;
+    return {
+      label: n != null ? `Overdue by ${n}d` : "Overdue",
+      className: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40",
+    };
+  }
+  if (urgency === "urgent") {
+    if (daysLeft == null || daysLeft <= 0) {
+      return {
+        label: "Due today",
+        className: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40",
+      };
+    }
+    return {
+      label: daysLeft === 1 ? "Due tomorrow" : `Due in ${daysLeft}d`,
+      className: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40",
+    };
+  }
+  // approaching
+  return {
+    label: typeof daysLeft === "number" && daysLeft <= 7 ? "Due this week" : `Due in ${daysLeft ?? "≤14"}d`,
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
+  };
+}
+
+function deadlineTypeBadge(
+  deadlineType: DeadlineType | undefined,
+): { label: string; className: string } | null {
+  if (!deadlineType) return null;
+  if (deadlineType === "legal") {
+    return {
+      label: "Legal",
+      className: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30",
+    };
+  }
+  if (deadlineType === "recommended") {
+    return {
+      label: "Recommended",
+      className: "bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/30",
+    };
+  }
+  return null; // "practical" stays implicit; default styling
+}
+
 function formatCountdown(moveDateIso: string): { primary: string; sub: string } {
   const days = Math.ceil((new Date(moveDateIso).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (days < 0) return { primary: "Already past your move date", sub: moveDateIso };
@@ -108,7 +175,37 @@ export function PreDepartureTimeline() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailActionId, setDetailActionId] = useState<string | null>(null);
+  const [vaultDocs, setVaultDocs] = useState<VaultDocRefView[]>([]);
+
+  const refreshVault = async () => {
+    try {
+      const res = await fetch("/api/vault");
+      if (!res.ok) return;
+      const data = (await res.json()) as { documents: Array<{
+        id: string;
+        fileName: string;
+        category: VaultDocRefView["category"];
+        uploadedAt: string;
+        linkedTaskKeys: string[];
+      }> };
+      setVaultDocs(
+        (data.documents ?? []).map((d) => ({
+          id: d.id,
+          fileName: d.fileName,
+          category: d.category,
+          uploadedAt: d.uploadedAt,
+          linkedTaskKeys: d.linkedTaskKeys ?? [],
+        })),
+      );
+    } catch {
+      /* swallow */
+    }
+  };
+
+  useEffect(() => {
+    void refreshVault();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -208,6 +305,13 @@ export function PreDepartureTimeline() {
     return { total, complete, inProgress, notStarted };
   }, [timeline]);
 
+  const urgentActions = useMemo(() => {
+    if (!timeline) return [] as ActionView[];
+    return timeline.actions
+      .filter((a) => (a.urgency === "overdue" || a.urgency === "urgent") && a.status !== "complete" && a.status !== "skipped")
+      .slice(0, 6);
+  }, [timeline]);
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground p-6">
@@ -218,58 +322,32 @@ export function PreDepartureTimeline() {
 
   if (!timeline) {
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-card shadow-[0_12px_40px_rgba(20,48,42,0.08)]">
-        <div
-          className="h-[3px]"
-          style={{
-            background:
-              "linear-gradient(90deg, #1B3A2D 0%, #2D6A4F 60%, #5EE89C 100%)",
-          }}
-        />
-        <div className="p-7 md:p-8">
-          <div className="flex items-start gap-5">
-            {/* Real, contextual icon — Plane reads as "departure /
-                move plan". The previous Sparkles glyph reads as
-                generic "AI", which is what it landed on every other
-                AI-generated card too. */}
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-[#1B3A2D]/10 ring-1 ring-emerald-500/30 flex items-center justify-center shrink-0">
-              <Plane className="w-7 h-7 text-emerald-700 dark:text-emerald-400" strokeWidth={1.8} />
+      <div className="rounded-xl border border-stone-200/80 dark:border-stone-800 bg-card">
+        <div className="p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#E4F5EB] ring-1 ring-[#A8D9C0] flex items-center justify-center shrink-0">
+              <Plane className="w-5 h-5 text-[#14532D]" strokeWidth={1.8} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="gm-eyebrow text-emerald-700 dark:text-emerald-400">Pre-move plan</p>
-              <h2
-                className="font-serif text-foreground mt-1"
-                style={{
-                  fontSize: "24px",
-                  fontWeight: 600,
-                  letterSpacing: "-0.012em",
-                  lineHeight: 1.15,
-                }}
-              >
+              <h2 className="text-base font-semibold text-foreground">
                 Generate your week-by-week move plan
               </h2>
-              <p className="text-[14px] text-muted-foreground mt-2.5 leading-relaxed max-w-xl">
-                Our specialists sequence every pre-move action —
-                {" "}<span className="text-foreground font-medium">visa pickup</span>,
-                {" "}<span className="text-foreground font-medium">apostille chain</span>,
-                {" "}<span className="text-foreground font-medium">A1 certificate</span>,
-                {" "}<span className="text-foreground font-medium">banking bridge</span>,
-                {" "}<span className="text-foreground font-medium">pet vaccination</span>
-                {" "}— into a timeline with critical path highlighted.
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-xl">
+                Our specialists sequence every pre-move action into a timeline with critical path highlighted.
               </p>
               {error && (
-                <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-xl px-3 py-2 mt-4">
+                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5 mt-2">
                   {error}
                 </div>
               )}
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
-                size="lg"
-                className="gap-2 mt-5 rounded-full bg-gradient-to-r from-[#1B3A2D] to-[#2D6A4F] text-white shadow-md hover:opacity-95"
+                size="sm"
+                className="gap-1.5 mt-3 rounded-lg bg-[#0D9488] text-white hover:bg-[#0F766E]"
               >
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plane className="w-4 h-4" />}
-                {generating ? "Generating…" : "Generate my pre-move checklist"}
+                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plane className="w-3.5 h-3.5" />}
+                {generating ? "Generating…" : "Generate checklist"}
               </Button>
             </div>
           </div>
@@ -283,27 +361,61 @@ export function PreDepartureTimeline() {
   return (
     <div className="space-y-6">
       {/* Header — countdown + stats */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] text-white p-6 sm:p-8 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.25),transparent_60%)]" />
-        <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="rounded-xl bg-[#0F172A] text-white p-4 sm:p-5 relative overflow-hidden">
+        <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] font-semibold text-emerald-200/80 mb-2">
+            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-emerald-300/80 mb-1">
               Pre-departure
             </p>
-            <h1 className="text-3xl sm:text-4xl font-serif tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
               {countdown.primary}
             </h1>
-            <p className="text-sm text-emerald-100/80 mt-2">
-              Move date: {countdown.sub} · {timeline.longestLeadTimeWeeks}-week lead time on the longest item
+            <p className="text-xs text-emerald-200/70 mt-1">
+              Move: {countdown.sub} · {timeline.longestLeadTimeWeeks}w lead time
             </p>
           </div>
-          <div className="flex gap-4 text-sm">
+          <div className="flex gap-3 text-xs">
             <Stat label="Done" value={stats.complete} accent="text-emerald-300" />
             <Stat label="In progress" value={stats.inProgress} accent="text-amber-300" />
             <Stat label="Not started" value={stats.notStarted} accent="text-white" />
           </div>
         </div>
       </div>
+
+      {/* Phase 1A — overdue / urgent banner */}
+      {urgentActions.length > 0 && (
+        <div className="rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/20 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-rose-700 dark:text-rose-400" />
+            <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+              {urgentActions.filter((a) => a.urgency === "overdue").length > 0
+                ? `${urgentActions.filter((a) => a.urgency === "overdue").length} overdue · ${urgentActions.filter((a) => a.urgency === "urgent").length} due in ≤3 days`
+                : `${urgentActions.length} action${urgentActions.length === 1 ? "" : "s"} due in ≤3 days`}
+            </h3>
+          </div>
+          <ul className="space-y-1.5">
+            {urgentActions.map((a) => {
+              const u = urgencyBadge(a.urgency, a.daysUntilDeadline ?? null);
+              return (
+                <li key={a.id} className="flex items-center gap-2 text-xs">
+                  {u && (
+                    <Badge variant="outline" className={cn("text-[10px] py-0 shrink-0", u.className)}>
+                      {u.label}
+                    </Badge>
+                  )}
+                  <button
+                    type="button"
+                    className="text-left text-stone-800 dark:text-stone-200 hover:underline truncate"
+                    onClick={() => setDetailActionId(a.id)}
+                  >
+                    {a.title}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Re-generate */}
       <div className="flex justify-end">
@@ -314,29 +426,28 @@ export function PreDepartureTimeline() {
       </div>
 
       {/* Vertical bucket timeline */}
-      <div className="space-y-6">
+      <div className="space-y-5">
         {buckets.map(([weeks, actions]) => (
-          <div key={weeks} className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 flex items-center justify-center font-serif text-lg font-bold">
+          <div key={weeks} className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-sm font-bold">
                 {weeks}w
               </div>
               <div>
-                <h2 className="text-base font-semibold">
+                <h2 className="text-sm font-semibold">
                   {weeks} week{weeks === 1 ? "" : "s"} before move
                 </h2>
-                <p className="text-xs text-muted-foreground">
-                  {actions.length} action{actions.length === 1 ? "" : "s"} kick off this week
+                <p className="text-[11px] text-muted-foreground">
+                  {actions.length} action{actions.length === 1 ? "" : "s"}
                 </p>
               </div>
             </div>
-            <div className="space-y-2 pl-6 border-l border-stone-200 dark:border-stone-800 ml-6">
+            <div className="space-y-2 pl-5 border-l border-stone-200 dark:border-stone-800 ml-5">
               {actions.map((a) => (
                 <ActionCard
                   key={a.id}
                   action={a}
-                  expanded={expandedId === a.id}
-                  onToggle={() => setExpandedId((id) => (id === a.id ? null : a.id))}
+                  onOpenDetail={() => setDetailActionId(a.id)}
                   onStatusChange={(next) => handleStatusChange(a, next)}
                 />
               ))}
@@ -347,14 +458,14 @@ export function PreDepartureTimeline() {
 
       {/* Sources */}
       {sourceList.length > 0 && (
-        <Card className="p-5">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-emerald-600" /> Official sources used
+        <Card className="p-3">
+          <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-[#0D9488]" /> Sources
           </h3>
-          <ol className="space-y-1.5 text-xs">
+          <ol className="space-y-1 text-xs">
             {sourceList.map((s) => (
               <li key={s.url}>
-                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 dark:text-emerald-400 hover:underline">
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-[#0D9488] hover:underline">
                   {s.title} <ExternalLink className="inline w-3 h-3" />
                 </a>
               </li>
@@ -380,14 +491,68 @@ export function PreDepartureTimeline() {
           </div>
         </div>
       </Card>
+
+      {/* Phase 1B detail sheet (+ Phase 2B doc section) */}
+      <TaskDetailSheet
+        open={Boolean(detailActionId)}
+        onOpenChange={(o) => {
+          if (!o) setDetailActionId(null);
+        }}
+        task={(() => {
+          if (!detailActionId || !timeline) return null;
+          const a = timeline.actions.find((x) => x.id === detailActionId);
+          return a ? actionToViewModel(a, timeline.planId) : null;
+        })()}
+        vaultDocs={vaultDocs}
+        onVaultChange={refreshVault}
+        onStatusChange={async (next) => {
+          if (!timeline || !detailActionId) return;
+          const a = timeline.actions.find((x) => x.id === detailActionId);
+          if (!a) return;
+          const mapped: ActionStatus =
+            next === "completed"
+              ? "complete"
+              : next === "available"
+                ? "not_started"
+                : (next as ActionStatus);
+          await handleStatusChange(a, mapped);
+        }}
+      />
     </div>
   );
+}
+
+function actionToViewModel(a: ActionView, planId: string): TaskDetailViewModel {
+  return {
+    id: a.id,
+    title: a.title,
+    description: a.description,
+    category: a.category,
+    urgency: a.urgency,
+    deadlineType: a.deadlineType,
+    deadlineAt: a.deadlineIso ?? null,
+    daysUntilDeadline: a.daysUntilDeadline ?? null,
+    estimatedTime: null,
+    cost: null,
+    officialLink: a.officialSourceUrl,
+    documentsNeeded: a.documentsNeeded,
+    legacySteps: [],
+    walkthrough: a.walkthrough ?? null,
+    status:
+      a.status === "complete"
+        ? "completed"
+        : a.status === "not_started"
+          ? "available"
+          : a.status,
+    taskRefKey: `pre-departure:${a.id}`,
+    planId,
+  };
 }
 
 function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
     <div className="text-center">
-      <div className={cn("text-2xl font-serif font-bold tabular-nums", accent)}>{value}</div>
+      <div className={cn("text-2xl font-sans font-bold tabular-nums", accent)}>{value}</div>
       <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-100/70 mt-0.5">{label}</div>
     </div>
   );
@@ -395,13 +560,11 @@ function Stat({ label, value, accent }: { label: string; value: number; accent: 
 
 function ActionCard({
   action,
-  expanded,
-  onToggle,
+  onOpenDetail,
   onStatusChange,
 }: {
   action: ActionView;
-  expanded: boolean;
-  onToggle: () => void;
+  onOpenDetail: () => void;
   onStatusChange: (next: ActionStatus) => void;
 }) {
   const statusIcon =
@@ -435,18 +598,34 @@ function ActionCard({
         >
           {statusIcon}
         </button>
-        <button type="button" onClick={onToggle} className="flex-1 text-left">
+        <button type="button" onClick={onOpenDetail} className="flex-1 text-left">
           <div className="flex items-start gap-2 flex-wrap mb-1">
             <Badge variant="outline" className={cn("text-[10px] py-0", tint)}>
               {CATEGORY_LABEL[action.category] ?? action.category}
             </Badge>
+            {(() => {
+              const u = urgencyBadge(action.urgency, action.daysUntilDeadline ?? null);
+              return u ? (
+                <Badge variant="outline" className={cn("text-[10px] py-0", u.className)}>
+                  {u.label}
+                </Badge>
+              ) : null;
+            })()}
+            {(() => {
+              const d = deadlineTypeBadge(action.deadlineType);
+              return d ? (
+                <Badge variant="outline" className={cn("text-[10px] py-0", d.className)}>
+                  {d.label}
+                </Badge>
+              ) : null;
+            })()}
             {action.onCriticalPath && (
               <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30 text-[10px] py-0">
                 Critical path
               </Badge>
             )}
             {action.deadlineIso && (
-              <span className="text-[11px] text-muted-foreground">deadline {action.deadlineIso}</span>
+              <span className="text-[11px] text-muted-foreground">by {action.deadlineIso}</span>
             )}
           </div>
           <p className={cn("text-sm font-semibold leading-snug", action.status === "complete" && "line-through text-muted-foreground")}>
@@ -454,68 +633,10 @@ function ActionCard({
           </p>
           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{action.description}</p>
         </button>
-        <button type="button" onClick={onToggle} className="shrink-0 text-muted-foreground" aria-label="Expand">
-          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        <button type="button" onClick={onOpenDetail} className="shrink-0 text-muted-foreground" aria-label="Open walkthrough">
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-      {expanded && (
-        <div className="px-4 pb-4 pt-0 space-y-3 border-t border-dashed border-stone-200 dark:border-stone-800">
-          <p className="text-xs text-muted-foreground leading-relaxed pt-3">{action.description}</p>
-          {action.documentsNeeded.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-stone-600 dark:text-stone-400 mb-1.5">
-                Documents needed
-              </p>
-              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
-                {action.documentsNeeded.map((d, i) => (
-                  <li key={i}>{d}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {action.legalConsequenceIfMissed && (
-            <div className="flex gap-2 text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-lg p-2.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0" />
-              <span className="text-amber-900 dark:text-amber-200 leading-relaxed">
-                <span className="font-semibold">If missed: </span>
-                {action.legalConsequenceIfMissed}
-              </span>
-            </div>
-          )}
-          {action.officialSourceUrl && (
-            <div>
-              <TrustBadge
-                sources={[{
-                  name: action.title + " — official source",
-                  url: action.officialSourceUrl,
-                  authority: "official",
-                }]}
-              />
-            </div>
-          )}
-          <div className="flex gap-2 pt-1">
-            <Button
-              size="sm"
-              variant={action.status === "in_progress" ? "default" : "outline"}
-              onClick={() => onStatusChange("in_progress")}
-              className="text-xs h-7"
-            >
-              Mark in progress
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onStatusChange("skipped")}
-              className="text-xs h-7"
-            >
-              Skip
-            </Button>
-          </div>
-          <p className="text-[10px] text-muted-foreground italic">
-            Added by: {action.agentWhoAddedIt}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

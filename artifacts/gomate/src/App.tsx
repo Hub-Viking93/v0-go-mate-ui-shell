@@ -15,7 +15,7 @@ import AuthErrorPage from "@/pages/auth/error";
 import AuthCallbackPage from "@/pages/auth/callback";
 import DashboardPage from "@/pages/dashboard";
 import ChatPage from "@/pages/chat";
-import { RedirectToOnboardingIfCollecting } from "@/pages/chat/redirect-to-onboarding";
+// RedirectToOnboardingIfCollecting retired — /chat is always chat now.
 // chat-v1 (legacy onboarding chat) is no longer mounted. The v2
 // onboarding flow lives at /onboarding (mascot UI) and /chat (post-onboarding
 // assistant). Keeping the import + route would expose a stale entry point.
@@ -34,11 +34,22 @@ import OnboardingDigitalNomadPage from "@/pages/onboarding/digital-nomad";
 import OnboardingVisaFinancePage from "@/pages/onboarding/visa-finance";
 import OnboardingReviewPage from "@/pages/onboarding/review";
 import ResearchPage from "@/pages/research";
-import GuidesPage from "@/pages/guides";
-import GuideDetailPage from "@/pages/guides/detail";
+// Guides retired — all the live, state-driven workspaces (Immigration,
+// Pre-move, Post-move, Documents, Plan & Guidance) replace the
+// generated-PDF-style guide. The composeGuide pipeline is no longer
+// triggered by research, and the routes below are gone.
+// import GuidesPage from "@/pages/guides";
+// import GuideDetailPage from "@/pages/guides/detail";
 import VisaWorkspacePage from "@/pages/visa";
 import SettingsPage from "@/pages/settings";
 import ChecklistPage from "@/pages/checklist";
+import VaultPage from "@/pages/vault";
+// IA refresh — top-level pages per sitemap.md.
+import ImmigrationPage from "@/pages/immigration";
+import PreMovePage from "@/pages/pre-move";
+import PostMovePage from "@/pages/post-move";
+import DocumentsPage from "@/pages/documents";
+import GuidancePage from "@/pages/guidance";
 
 // Redirect helper: merges query params into the target. Incoming params
 // from the legacy URL win over the target's defaults — so
@@ -83,11 +94,33 @@ function RootRedirect() {
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
+    void (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!mounted) return;
-      setLocation(data.session ? "/dashboard" : "/auth/login");
+      if (!sessionData.session) {
+        setLocation("/auth/login");
+        setResolved(true);
+        return;
+      }
+      // Signed in — decide between onboarding and dashboard.
+      // New accounts (no plan, stage=collecting, or empty profile)
+      // get sent into the wizard. Everyone else lands on dashboard.
+      const userId = sessionData.session.user.id;
+      const { data: plan } = await supabase
+        .from("relocation_plans")
+        .select("stage, profile_data")
+        .eq("user_id", userId)
+        .eq("is_current", true)
+        .maybeSingle();
+      if (!mounted) return;
+      const needsOnboarding =
+        !plan ||
+        plan.stage === "collecting" ||
+        !plan.profile_data ||
+        Object.keys((plan.profile_data ?? {}) as Record<string, unknown>).length === 0;
+      setLocation(needsOnboarding ? "/onboarding" : "/dashboard");
       setResolved(true);
-    });
+    })();
     return () => {
       mounted = false;
     };
@@ -112,7 +145,11 @@ function Router() {
       <Route path="/auth/callback"><AuthCallbackPage /></Route>
 
       <Route path="/dashboard"><ProtectedRoute><DashboardPage /></ProtectedRoute></Route>
-      <Route path="/chat"><ProtectedRoute><RedirectToOnboardingIfCollecting><ChatPage /></RedirectToOnboardingIfCollecting></ProtectedRoute></Route>
+      {/* /chat is always the assistant — no auto-redirect to /onboarding.
+          The wizard stays at /onboarding for users who actually need it.
+          Chat is plan-state-aware (system prompt receives stage +
+          arrival_date) so it adapts before/after arrival. */}
+      <Route path="/chat"><ProtectedRoute><ChatPage /></ProtectedRoute></Route>
       {/* /chat-v1 retired — see import comment. */}
       {/* Wizard onboarding (new flow). The legacy chat-driven onboarding
           still lives at /onboarding for now; once all 5 wizard steps land
@@ -132,19 +169,31 @@ function Router() {
       <Route path="/dev/profile-field-chip"><ProfileFieldChipPreviewPage /></Route>
       <Route path="/dev/specialist-cards"><SpecialistCardsPreviewPage /></Route>
       <Route path="/dev/audit-popover"><AuditPopoverPreviewPage /></Route>
-      <Route path="/guides"><ProtectedRoute><GuidesPage /></ProtectedRoute></Route>
-      <Route path="/guides/:id">
-        {(params) => <ProtectedRoute><GuideDetailPage id={params.id} /></ProtectedRoute>}
-      </Route>
+      {/* /guides retired — see import comment. Legacy deep links bounce
+          to dashboard so users aren't stranded on a 404. */}
+      <Route path="/guides"><Redirect to="/dashboard" /></Route>
+      <Route path="/guides/:id"><Redirect to="/dashboard" /></Route>
+      {/* New IA per sitemap.md ----------------------------------------- */}
+      <Route path="/immigration"><ProtectedRoute><ImmigrationPage /></ProtectedRoute></Route>
+      <Route path="/pre-move"><ProtectedRoute><PreMovePage /></ProtectedRoute></Route>
+      <Route path="/post-move"><ProtectedRoute><PostMovePage /></ProtectedRoute></Route>
+      <Route path="/documents"><ProtectedRoute><DocumentsPage /></ProtectedRoute></Route>
+      <Route path="/guidance"><ProtectedRoute><GuidancePage /></ProtectedRoute></Route>
+
+      {/* Existing pages still mounted at their internal URLs — they
+          underpin the new IA wrappers above and remain reachable for
+          deep links and back-compat. */}
       <Route path="/visa"><ProtectedRoute><VisaWorkspacePage /></ProtectedRoute></Route>
-      <Route path="/pre-departure"><Redirect to="/checklist?tab=pre-move" /></Route>
       <Route path="/checklist"><ProtectedRoute><ChecklistPage /></ProtectedRoute></Route>
+      <Route path="/vault"><ProtectedRoute><VaultPage /></ProtectedRoute></Route>
       <Route path="/settings"><ProtectedRoute><SettingsPage /></ProtectedRoute></Route>
 
-      {/* Legacy route redirects (preserve query params) */}
-      <Route path="/visa-tracker"><Redirect to="/visa" /></Route>
-      <Route path="/settling-in"><Redirect to="/checklist?tab=post-move" /></Route>
-      <Route path="/documents"><Redirect to="/checklist?tab=documents" /></Route>
+      {/* Legacy route redirects ----------------------------------------- */}
+      {/* Pre-IA URLs that no longer match the sidebar map to the new
+          top-level destination they live under. */}
+      <Route path="/visa-tracker"><Redirect to="/immigration" /></Route>
+      <Route path="/pre-departure"><Redirect to="/pre-move" /></Route>
+      <Route path="/settling-in"><Redirect to="/post-move" /></Route>
 
       <Route component={NotFound} />
     </Switch>

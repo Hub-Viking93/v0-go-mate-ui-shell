@@ -68,3 +68,6 @@ artifacts/gomate/test-results/
 /screenshots/
 /ui/
 /scripts/screenshots/
+
+# Claude Code workspace state
+.claude/

@@ -37,7 +37,7 @@ export function CountdownTimer({ targetDate, targetCountry }: CountdownTimerProp
     critical: { color: "#B91C1C", tint: "#FBEDEC", label: "Very soon" },
     urgent: { color: "#D97706", tint: "#FBF3E5", label: "Coming up" },
     moderate: { color: "#16A34A", tint: "#EEF6EF", label: "On track" },
-    comfortable: { color: "#234D3A", tint: "#EFF3EC", label: "Plenty of time" },
+    comfortable: { color: "#1E293B", tint: "#EFF3EC", label: "Plenty of time" },
   }
   const c = config[urgency]
 
@@ -140,7 +140,7 @@ export function CountdownTimer({ targetDate, targetCountry }: CountdownTimerProp
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-3 flex-wrap">
             <span
-              className="font-serif tracking-tight text-foreground"
+              className="font-sans tracking-tight text-foreground"
               style={{
                 fontSize: "56px",
                 lineHeight: 1,
@@ -151,7 +151,7 @@ export function CountdownTimer({ targetDate, targetCountry }: CountdownTimerProp
               {bigNumber}
             </span>
             {unitLabel && (
-              <span className="font-serif text-[22px] text-foreground/80 leading-none">
+              <span className="font-sans text-[22px] text-foreground/80 leading-none">
                 {unitLabel}
               </span>
             )}

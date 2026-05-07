@@ -15,6 +15,54 @@ Scope:
 - Fokus på vad vi kan bygga utan myndighetsintegrationer eller
   partnerships
 
+## V1-scope: single applicant först
+
+V1 ska optimeras för **single applicant**.
+
+Det betyder:
+
+- en primär användare
+- en primär relocationresa
+- household-signaler får finnas som enklare profilflaggor
+- men **ingen** riktig multi-person- eller dependent-arkitektur i v1
+
+Detta är viktigt eftersom family/dependents påverkar nästan allt:
+
+- onboarding
+- research
+- recommendations
+- documents
+- tasks
+- readiness
+- risks
+- pre-move
+- post-move
+
+Om vi försöker lösa detta för tidigt blir produkten snabbt mycket mer
+komplex innan vi ens bevisat att kärnan fungerar för en person.
+
+Så v1-principen är:
+
+- bevisa att GoMate fungerar för **en riktig ensam användare**
+- lansera
+- få feedback
+- verifiera att navigation, guidance och recommendations håller
+
+Först därefter breddar vi till riktig family/dependents-modell.
+
+### Konsekvens för roadmapen
+
+- `Phase 6B` finns kvar i planen
+- men den är **inte v1-kritisk**
+- den ska uttryckligen ses som **senare expansion**, inte som något som
+  måste lösas innan launch
+
+Tills dess gäller:
+
+- single-applicant first
+- household-aware hints är okej
+- full family/dependents workflows är out of scope
+
 ## Vad "pocket consultant" betyder
 
 En riktig relocationkonsult gör fyra saker en vanlig app sällan gör:

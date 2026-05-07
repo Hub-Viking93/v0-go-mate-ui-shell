@@ -43,13 +43,13 @@ interface ProfileDetailsCardProps {
 // Category configuration — warm editorial tints, monochromatic
 // per-domain accents (not generic candy pastels).
 const CATEGORIES = [
-  { id: "journey",    label: "Journey Overview",      icon: Plane,     accent: "#234D3A", tint: "#EEF3EC" },
+  { id: "journey",    label: "Journey Overview",      icon: Plane,     accent: "#1E293B", tint: "#EEF3EC" },
   { id: "purpose",    label: "Purpose Details",       icon: Briefcase, accent: "#7C5A2E", tint: "#F8F2E8" },
   { id: "family",     label: "Family & Dependents",   icon: Users,     accent: "#B65A3F", tint: "#FBEFEC" },
   { id: "financial",  label: "Financial Planning",    icon: Wallet,    accent: "#16A34A", tint: "#EEF6EF" },
   { id: "background", label: "Background",            icon: BookOpen,  accent: "#D97706", tint: "#FBF3E5" },
-  { id: "legal",      label: "Visa & Legal",          icon: FileText,  accent: "#1B3A2D", tint: "#F1EFEC" },
-  { id: "special",    label: "Special Considerations",icon: Heart,     accent: "#234D3A", tint: "#F4F1EA" },
+  { id: "legal",      label: "Visa & Legal",          icon: FileText,  accent: "#0F172A", tint: "#F1EFEC" },
+  { id: "special",    label: "Special Considerations",icon: Heart,     accent: "#1E293B", tint: "#F4F1EA" },
 ]
 
 // Purpose-specific icons
@@ -199,7 +199,7 @@ function CategorySection({
         />
         <div className="flex-1 text-left min-w-0">
           <p
-            className="font-serif text-foreground"
+            className="font-sans text-foreground"
             style={{ fontSize: "16px", fontWeight: 600, letterSpacing: "-0.01em" }}
           >
             {category.label}
@@ -214,7 +214,7 @@ function CategorySection({
                 style={{
                   width: `${progress}%`,
                   background: progress === 100
-                    ? "linear-gradient(90deg, #16A34A, #5EE89C)"
+                    ? "linear-gradient(90deg, #16A34A, #0D9488)"
                     : `linear-gradient(90deg, ${category.accent}, ${category.accent}CC)`,
                 }}
               />
@@ -370,7 +370,7 @@ export function ProfileDetailsCard({ profile, showAllCategories = true, onFieldC
   return (
     <div className="space-y-4">
       {/* Header with overview */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-5 md:p-6">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] p-5 md:p-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.12),transparent_60%)]" />
         <div className="relative flex items-start gap-4">
           {profile.destination && (

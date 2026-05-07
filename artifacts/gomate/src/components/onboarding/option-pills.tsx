@@ -41,11 +41,12 @@ export function OptionPills({
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 h-8 text-[13px] transition-all",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 h-8 text-[12.5px] font-medium",
+              "transition-all duration-[150ms] [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3F6B53]/30 focus-visible:ring-offset-1",
               selected
-                ? "bg-emerald-700 text-white border border-emerald-700 shadow-sm"
-                : "bg-card border border-stone-200 dark:border-stone-700 text-foreground hover:border-stone-300 dark:hover:border-stone-600",
+                ? "bg-[#24332C] text-white border border-[#24332C] shadow-sm"
+                : "bg-white border border-[#DCE7DF] text-[#1F2A24] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]",
             )}
           >
             {showCheck && selected && <Check className="w-3 h-3" strokeWidth={3} />}

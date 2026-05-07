@@ -184,7 +184,7 @@ export function ProfilePreviewList({
       >
         <header className="mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Sparkles className="h-4 w-4 text-[#5EE89C]" />
+            <Sparkles className="h-4 w-4 text-[#0D9488]" />
             Your profile so far
           </h2>
           <span
@@ -204,7 +204,7 @@ export function ProfilePreviewList({
       >
         <summary className="flex cursor-pointer items-center justify-between gap-2">
           <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Sparkles className="h-4 w-4 text-[#5EE89C]" />
+            <Sparkles className="h-4 w-4 text-[#0D9488]" />
             Your profile so far
           </span>
           <span className="text-xs font-medium tabular-nums text-muted-foreground">

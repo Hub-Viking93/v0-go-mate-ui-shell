@@ -113,8 +113,8 @@ export function GoMateAvatar({ size = "md", className, static: isStatic }: GoMat
           <circle cx="122" cy="92" r="11" fill="#FFFFFF" opacity="0.85" />
           {/* Pupils — bumped up from r=5.5 to r=7 for stronger
               expression at small avatar sizes. */}
-          <circle cx="78" cy="92" r="7" fill="#1B3A2D" />
-          <circle cx="122" cy="92" r="7" fill="#1B3A2D" />
+          <circle cx="78" cy="92" r="7" fill="#0F172A" />
+          <circle cx="122" cy="92" r="7" fill="#0F172A" />
           {/* Highlight catchlight */}
           <circle cx="80.5" cy="89" r="2" fill="#FFFFFF" />
           <circle cx="124.5" cy="89" r="2" fill="#FFFFFF" />
@@ -144,13 +144,13 @@ export function GoMateAvatar({ size = "md", className, static: isStatic }: GoMat
         >
           <path
             d="M 67 92 L 89 92"
-            stroke="#1B3A2D"
+            stroke="#0F172A"
             strokeWidth="6"
             strokeLinecap="round"
           />
           <path
             d="M 111 92 L 133 92"
-            stroke="#1B3A2D"
+            stroke="#0F172A"
             strokeWidth="6"
             strokeLinecap="round"
           />
@@ -159,7 +159,7 @@ export function GoMateAvatar({ size = "md", className, static: isStatic }: GoMat
             reads at avatar size. */}
         <path
           d="M 80 122 Q 100 142 120 122"
-          stroke="#1B3A2D"
+          stroke="#0F172A"
           strokeWidth="7"
           fill="none"
           strokeLinecap="round"

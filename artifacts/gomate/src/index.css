@@ -5,66 +5,97 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* GoMate Theme: Editorial-warm premium with sharp precision.
-   Warm off-white canvas + serif headings + tabular numerals.
-   Single source of truth lives here; lib/design-tokens.ts mirrors. */
+/* GoMate Theme — Light sage admin (IA refresh).
+   Calm, professional, low-saturation. Sage/mint accent on a warm
+   off-white canvas. Solid white cards with defined borders, not glass.
+   Reference: WorkFlex / Personio / JumpCloud calmness, but warmer. */
 :root {
-  --background: #FAFAF6;
-  --foreground: #1A1614;
-  --card: rgba(255, 255, 255, 0.65);
-  --card-foreground: #0F172A;
+  /* Surfaces — three real layers: page / card / sub-surface */
+  --background: #EEF3EE;       /* App canvas — slightly more saturated, reads as paper */
+  --foreground: #1F2A24;       /* Primary heading text */
+  --card: #FFFFFF;             /* Solid white card surface */
+  --card-foreground: #1F2A24;
+  --gm-surface-sub: #F7FAF7;   /* Embedded surface inside cards (rows, list items) */
+  --gm-surface-sub-border: #ECF1EC;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --primary: #22C55E;
+  --popover-foreground: #1F2A24;
+
+  /* CTA / dark anchor — green-leaning ink rather than navy black */
+  --primary: #24332C;
   --primary-foreground: #FFFFFF;
-  --secondary: #F1F5F9;
-  --secondary-foreground: #334155;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
-  --destructive: #EF4444;
+
+  --secondary: #ECF1EC;
+  --secondary-foreground: #4E5F57;
+
+  /* Muted text + surfaces */
+  --muted: #ECF1EC;
+  --muted-foreground: #7E9088;
+
+  --accent: #DDF0E4;
+  --accent-foreground: #24332C;
+
+  --destructive: #B5414C;
   --destructive-foreground: #FFFFFF;
-  --border: rgba(120, 90, 60, 0.15);
-  --input: #E2E8F0;
-  --ring: #22C55E;
-  --chart-1: #22C55E;
-  --chart-2: #16A34A;
-  --chart-3: #4ADE80;
-  --chart-4: #86EFAC;
-  --chart-5: #BBF7D0;
-  --radius: 1rem;
-  --sidebar: #1B3A2D;
-  --sidebar-foreground: #E8F0EC;
-  --sidebar-primary: #5EE89C;
-  --sidebar-primary-foreground: #0D2818;
-  --sidebar-accent: rgba(94, 232, 156, 0.08);
-  --sidebar-accent-foreground: #E8F0EC;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #5EE89C;
 
-  --gm-card-bg: rgba(255, 255, 255, 0.7);
-  --gm-card-border: rgba(15, 23, 42, 0.06);
-  --gm-card-shadow: 0px 2px 8px rgba(15, 23, 42, 0.03), 0px 4px 16px rgba(15, 23, 42, 0.04);
-  --gm-card-shadow-hover: 0px 8px 24px rgba(15, 23, 42, 0.07), 0px 16px 32px rgba(15, 23, 42, 0.05);
-  --gm-success-glow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+  /* Calm borders + inputs */
+  --border: #DCE7DF;
+  --input: #DCE7DF;
+  --ring: #7BB091;
 
-  --gm-forest: #1B3A2D;
-  --gm-forest-mid: #234D3A;
-  --gm-forest-light: #2D6A4F;
-  --gm-mint: #5EE89C;
-  --gm-sage: #A7D7C5;
-  --gm-body: #475569;
+  --chart-1: #24332C;
+  --chart-2: #4E5F57;
+  --chart-3: #7E9088;
+  --chart-4: #8FB9BF;
+  --chart-5: #DCEFF1;
+
+  /* Slightly tighter radius — less Figma-wireframe, more app */
+  --radius: 0.625rem;
+
+  /* Sidebar — defined against content with a clear right border */
+  --sidebar: #C8E0D0;
+  --sidebar-foreground: #1F2A24;
+  --sidebar-primary: #166534;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #A8C8B8;
+  --sidebar-accent-foreground: #1F2A24;
+  --sidebar-border: #90B8A4;
+  --sidebar-ring: #16A34A;
+
+  /* Card shadow — barely there, just enough to lift off the canvas */
+  --gm-card-bg: #FFFFFF;
+  --gm-card-border: #DCE7DF;
+  --gm-card-border-hover: #B5D2BC;
+  --gm-card-shadow: 0 1px 0 rgba(31, 42, 36, 0.02), 0 4px 12px -8px rgba(31, 42, 36, 0.06);
+  --gm-card-shadow-hover: 0 2px 0 rgba(31, 42, 36, 0.03), 0 10px 24px -10px rgba(31, 42, 36, 0.10);
+  --gm-success-glow: 0 0 0 2px rgba(123, 176, 145, 0.25);
+
+  /* Brand accent — used for active sidebar, active subnav, primary chip */
+  --gm-brand: #3F6B53;
+  --gm-brand-hover: #2D3E36;
+
+  /* Motion — single timing function across the app */
+  --gm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --gm-dur-fast: 120ms;
+  --gm-dur: 180ms;
+  --gm-dur-slow: 240ms;
+
+  /* Legacy GM tokens kept (used by editorial cards on a few pages) */
+  --gm-forest: #24332C;
+  --gm-forest-mid: #2E4136;
+  --gm-forest-light: #4E5F57;
+  --gm-mint: #7BB091;
+  --gm-sage: #7E9088;
+  --gm-body: #4E5F57;
 }
 
 .dark {
-  --background: #131315;
+  --background: #0F172A;
   --foreground: #EDEDF0;
   --card: rgba(28, 28, 32, 0.65);
   --card-foreground: #EDEDF0;
   --popover: #1C1C20;
   --popover-foreground: #EDEDF0;
-  --primary: #22C55E;
+  --primary: #0F172A;
   --primary-foreground: #FFFFFF;
   --secondary: #1C1C20;
   --secondary-foreground: #C8C8D0;
@@ -76,32 +107,32 @@
   --destructive-foreground: #FFFFFF;
   --border: rgba(255, 255, 255, 0.08);
   --input: #2A2A2F;
-  --ring: #22C55E;
-  --chart-1: #22C55E;
-  --chart-2: #16A34A;
-  --chart-3: #4ADE80;
-  --chart-4: #86EFAC;
-  --chart-5: #BBF7D0;
-  --sidebar: #111113;
+  --ring: #0D9488;
+  --chart-1: #0F172A;
+  --chart-2: #1E293B;
+  --chart-3: #334155;
+  --chart-4: #64748B;
+  --chart-5: #94A3B8;
+  --sidebar: #0F172A;
   --sidebar-foreground: #D4D4DA;
-  --sidebar-primary: #5EE89C;
-  --sidebar-primary-foreground: #0D2818;
-  --sidebar-accent: rgba(94, 232, 156, 0.08);
+  --sidebar-primary: #0D9488;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(13, 148, 136, 0.08);
   --sidebar-accent-foreground: #D4D4DA;
   --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: #5EE89C;
+  --sidebar-ring: #0D9488;
 
   --gm-card-bg: rgba(28, 28, 32, 0.7);
   --gm-card-border: rgba(255, 255, 255, 0.07);
-  --gm-card-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2), 0px 4px 16px rgba(0, 0, 0, 0.25);
-  --gm-card-shadow-hover: 0px 8px 24px rgba(0, 0, 0, 0.3), 0px 16px 32px rgba(0, 0, 0, 0.25);
-  --gm-success-glow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+  --gm-card-shadow: 0px 1px 3px rgba(0, 0, 0, 0.2), 0px 4px 12px rgba(0, 0, 0, 0.25);
+  --gm-card-shadow-hover: 0px 4px 12px rgba(0, 0, 0, 0.3), 0px 12px 24px rgba(0, 0, 0, 0.25);
+  --gm-success-glow: 0 0 0 2px rgba(13, 148, 136, 0.3);
 
-  --gm-forest: #1A1C1B;
-  --gm-forest-mid: #242725;
-  --gm-forest-light: #2E3230;
-  --gm-mint: #5EE89C;
-  --gm-sage: #7FBFA5;
+  --gm-forest: #0F172A;
+  --gm-forest-mid: #1E293B;
+  --gm-forest-light: #334155;
+  --gm-mint: #0D9488;
+  --gm-sage: #64748B;
   --gm-body: #8B8B96;
 }
 
@@ -161,21 +192,15 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Subtle warm grain — SVG noise at ~2% opacity, fixed so it doesn't
-       scroll. Generated inline as a data-uri to avoid an extra request. */
-    background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.32 0 0 0 0 0.20 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
-    background-attachment: fixed;
-    background-size: 240px 240px;
   }
-  h1, h2, h3 {
-    font-family: var(--font-serif);
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
     letter-spacing: -0.012em;
     color: var(--foreground);
   }
   h1 { font-weight: 600; line-height: 1.05; }
   h2 { font-weight: 600; line-height: 1.15; }
-  h3 { font-weight: 600; line-height: 1.25; font-family: var(--font-sans); letter-spacing: -0.005em; }
+  h3 { font-weight: 600; line-height: 1.25; letter-spacing: -0.005em; }
 
   /* Tabular numerals everywhere — costs, deadlines, tables align. */
   body, button, input, table, td, th {
@@ -199,9 +224,22 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--gm-mint);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+}
+
+/* ============================================================
+   Canvas texture — subtle dot-grid across the entire app surface.
+   Applied once at the AppShell root so every page inherits it.
+   Cards (.gm-surface, .gm-card, etc.) are opaque white, so the
+   texture only shows in the negative space between/under them.
+   ============================================================ */
+.gm-canvas {
+  background-color: var(--background);
+  background-image: radial-gradient(circle, #DCE7DF 0.5px, transparent 0.5px);
+  background-size: 20px 20px;
+  background-attachment: fixed;
 }
 
 .gm-card {
@@ -216,9 +254,9 @@
               border-color 200ms ease;
 }
 .gm-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--gm-card-shadow-hover);
-  border-color: rgba(34, 197, 94, 0.12);
+  border-color: rgba(15, 23, 42, 0.10);
 }
 .gm-card:active {
   transform: translateY(-1px);
@@ -234,12 +272,12 @@
   transition: border-color 200ms ease;
 }
 .gm-card-static:hover {
-  border-color: rgba(34, 197, 94, 0.08);
+  border-color: rgba(15, 23, 42, 0.08);
 }
 
 @keyframes success-glow {
   0% { box-shadow: var(--gm-success-glow); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
 }
 .gm-success-glow {
   animation: success-glow 800ms ease-out forwards;
@@ -275,21 +313,21 @@
    most dashboard panels for a unified feel. */
 .gm-editorial-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(255,253,248,0.92) 0%, rgba(255,252,246,0.78) 100%);
-  border: 1px solid rgba(120, 90, 60, 0.16);
-  border-radius: 20px;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
   box-shadow:
-    0 1px 2px rgba(120, 90, 60, 0.04),
-    0 6px 24px rgba(120, 90, 60, 0.05);
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.03);
   transition: box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1),
               border-color 200ms ease,
               transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .gm-editorial-card:hover {
-  border-color: rgba(120, 90, 60, 0.24);
+  border-color: rgba(15, 23, 42, 0.14);
   box-shadow:
-    0 4px 8px rgba(120, 90, 60, 0.06),
-    0 18px 36px rgba(120, 90, 60, 0.10);
+    0 4px 8px rgba(15, 23, 42, 0.05),
+    0 12px 24px rgba(15, 23, 42, 0.04);
 }
 
 /* Section eyebrow — small caps + hairline rule. */
@@ -302,14 +340,14 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  color: var(--gm-forest-mid);
+  color: var(--muted-foreground);
 }
 .gm-eyebrow::before {
   content: "";
   display: block;
   width: 24px;
   height: 1px;
-  background: rgba(120, 90, 60, 0.35);
+  background: rgba(15, 23, 42, 0.20);
 }
 
 .gm-checklist-line {
@@ -321,6 +359,86 @@
   background: var(--border);
 }
 .gm-checklist-line-active {
-  background: #22C55E;
+  background: #0D9488;
   transition: height 300ms ease;
+}
+
+/* ============================================================
+   Surface system — the new sage-stationery treatment.
+   Use .gm-surface for any "real card" (lifts off page bg).
+   Use .gm-surface-sub for embedded rows inside a card.
+   Use .gm-lift on anything clickable to add hover affordance.
+   ============================================================ */
+.gm-surface {
+  background: var(--card);
+  border: 1px solid var(--gm-card-border);
+  border-radius: 10px;
+  box-shadow: var(--gm-card-shadow);
+  transition: box-shadow var(--gm-dur) var(--gm-ease),
+              border-color var(--gm-dur) var(--gm-ease),
+              transform var(--gm-dur) var(--gm-ease);
+}
+.gm-surface-sub {
+  background: var(--gm-surface-sub);
+  border: 1px solid var(--gm-surface-sub-border);
+  border-radius: 6px;
+}
+.gm-lift {
+  transition: box-shadow var(--gm-dur) var(--gm-ease),
+              border-color var(--gm-dur) var(--gm-ease),
+              transform var(--gm-dur) var(--gm-ease),
+              background-color var(--gm-dur) var(--gm-ease);
+}
+.gm-lift:hover {
+  border-color: var(--gm-card-border-hover);
+  box-shadow: var(--gm-card-shadow-hover);
+  transform: translateY(-1px);
+}
+.gm-lift:active {
+  transform: translateY(0);
+  transition-duration: var(--gm-dur-fast);
+}
+
+/* Row — list item inside a surface. Subtle hover for scanability. */
+.gm-row {
+  transition: background-color var(--gm-dur-fast) var(--gm-ease);
+}
+.gm-row:hover {
+  background-color: rgba(31, 42, 36, 0.03);
+}
+.gm-row-interactive {
+  cursor: pointer;
+  transition: background-color var(--gm-dur-fast) var(--gm-ease),
+              box-shadow var(--gm-dur) var(--gm-ease);
+}
+.gm-row-interactive:hover {
+  background-color: rgba(31, 42, 36, 0.03);
+  box-shadow: inset 3px 0 0 var(--gm-mint);
+}
+.gm-lift .gm-lift-arrow {
+  transition: transform var(--gm-dur) var(--gm-ease);
+}
+.gm-lift:hover .gm-lift-arrow {
+  transform: translateX(2px);
+}
+
+/* Workspace-tile top accent — colored 2px stripe on the very top
+   of the card, scoped to dashboard. Each workspace owns one hue;
+   this is the only place we use color-coding for navigation. */
+.gm-tile-accent {
+  position: relative;
+  overflow: hidden;
+}
+.gm-tile-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--gm-tile-accent-color, #3F6B53);
+  opacity: 0.8;
+  transition: opacity var(--gm-dur) var(--gm-ease), height var(--gm-dur) var(--gm-ease);
+}
+.gm-tile-accent:hover::before {
+  opacity: 1;
+  height: 3px;
 }

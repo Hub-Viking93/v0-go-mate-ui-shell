@@ -292,7 +292,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-stone-200 via-stone-300 to-stone-200 dark:from-stone-800 dark:via-stone-700 dark:to-stone-800 animate-pulse" />
         <div className="p-6 md:p-7 flex items-center gap-3">
           <p className="gm-eyebrow text-stone-600 dark:text-stone-400">Tax</p>
-          <h3 className="font-serif text-xl text-foreground">Loading…</h3>
+          <h3 className="font-sans text-xl text-foreground">Loading…</h3>
           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-auto" />
         </div>
       </Card>
@@ -305,7 +305,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-300 via-orange-400 to-amber-400 dark:from-amber-800 dark:via-orange-700 dark:to-amber-800" />
         <div className="p-6 md:p-7">
           <p className="gm-eyebrow mb-2 text-amber-700 dark:text-amber-400">Tax</p>
-          <h3 className="font-serif text-2xl md:text-[26px] leading-tight tracking-tight text-foreground mb-2 inline-flex items-center gap-2">
+          <h3 className="font-sans text-2xl md:text-[26px] leading-tight tracking-tight text-foreground mb-2 inline-flex items-center gap-2">
             <Receipt className="w-5 h-5 text-amber-600/70 dark:text-amber-500/70" />
             Tax overview for {destination}
           </h3>
@@ -359,7 +359,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <p className="gm-eyebrow mb-1.5 text-amber-700 dark:text-amber-400">Tax</p>
-              <h3 className="font-serif text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
+              <h3 className="font-sans text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-amber-600/70 dark:text-amber-500/70" />
                 Tax overview — {destination}
               </h3>
@@ -378,7 +378,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
                 {taxInfo.specialRegimes.map((regime, i) => (
                   <div key={i} className="relative overflow-hidden rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 p-3.5">
                     <div className="absolute inset-y-0 left-0 w-[3px] bg-amber-500/70" />
-                    <p className="font-serif text-base text-foreground">{regime.name}</p>
+                    <p className="font-sans text-base text-foreground">{regime.name}</p>
                     <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 leading-relaxed">{regime.summary}</p>
                     <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5"><span className="font-semibold">Eligibility:</span> {regime.eligibility}</p>
                   </div>
@@ -412,7 +412,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
       <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
         <div>
           <p className="gm-eyebrow mb-1.5 text-amber-700 dark:text-amber-400">Tax</p>
-          <h3 className="font-serif text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
+          <h3 className="font-sans text-2xl md:text-[26px] leading-tight tracking-tight text-foreground inline-flex items-center gap-2">
             <Receipt className="w-5 h-5 text-amber-600/70 dark:text-amber-500/70" />
             Tax overview — {destination}
           </h3>
@@ -451,14 +451,14 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
           <div className="relative overflow-hidden rounded-xl bg-stone-50 dark:bg-stone-900/60 border border-stone-200/60 dark:border-stone-800 p-3.5">
             <div className="absolute inset-x-0 top-0 h-[2px] bg-stone-400/60" />
             <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-stone-600 dark:text-stone-400">Annual income</p>
-            <p className="font-serif text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="font-sans text-lg md:text-xl text-foreground mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
               {formatCurrency(annualIncome, cur)}
             </p>
           </div>
           <div className="relative overflow-hidden rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/30 p-3.5">
             <div className="absolute inset-x-0 top-0 h-[2px] bg-emerald-500/70" />
             <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-emerald-700 dark:text-emerald-400">Est. monthly take-home</p>
-            <p className="font-serif text-lg md:text-xl text-emerald-800 dark:text-emerald-300 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="font-sans text-lg md:text-xl text-emerald-800 dark:text-emerald-300 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
               {formatCurrency(monthlyTakeHome, cur)}
             </p>
           </div>
@@ -515,7 +515,7 @@ export function TaxOverviewCard({ destination, annualIncome, currency, planId }:
               {taxInfo.specialRegimes.map((regime, i) => (
                 <div key={i} className="relative overflow-hidden rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 p-3.5">
                   <div className="absolute inset-y-0 left-0 w-[3px] bg-amber-500/70" />
-                  <p className="font-serif text-base text-foreground">{regime.name}</p>
+                  <p className="font-sans text-base text-foreground">{regime.name}</p>
                   <p className="text-xs text-stone-700 dark:text-stone-300 mt-1 leading-relaxed">{regime.summary}</p>
                   <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5"><span className="font-semibold">Eligibility:</span> {regime.eligibility}</p>
                 </div>

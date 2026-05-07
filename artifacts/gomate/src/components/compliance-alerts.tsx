@@ -111,43 +111,44 @@ export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps
     <div className={cn("space-y-2", className)}>
       {/* Overdue banner */}
       {overdueAlerts.length > 0 && (
-        <div className="gm-card-static overflow-hidden border-destructive/30">
-          <div className="bg-destructive/5 px-4 py-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-destructive">
-                  {overdueAlerts.length} overdue legal requirement{overdueAlerts.length > 1 ? "s" : ""}
-                </h4>
-                <ul className="mt-1.5 space-y-1">
-                  {overdueAlerts.map(a => (
-                    <li key={a.id} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
-                      <span className="font-medium text-foreground">{a.title}</span>
-                      <span className="text-destructive font-mono">
-                        {Math.abs(a.daysLeft)}d overdue
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button variant="outline" size="sm" asChild className="text-xs h-7">
-                  <Link href="/checklist?tab=post-move">
-                    View tasks
-                    <ArrowRight className="w-3 h-3 ml-1" />
-                  </Link>
-                </Button>
-                <button
-                  onClick={handleDismiss}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Dismiss alerts"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+        <div
+          className="gm-surface px-4 py-3.5"
+          style={{ borderColor: "#E8B8BD", background: "#F5DDDF33" }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 w-8 h-8 rounded-md bg-[#F5DDDF] flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4 text-[#8B2F38]" strokeWidth={1.7} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-[13px] font-semibold text-[#8B2F38]">
+                {overdueAlerts.length} overdue legal requirement{overdueAlerts.length > 1 ? "s" : ""}
+              </h4>
+              <ul className="mt-1.5 space-y-1">
+                {overdueAlerts.map(a => (
+                  <li key={a.id} className="text-[11.5px] flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-[#B5414C] shrink-0" />
+                    <span className="font-medium text-[#1F2A24]">{a.title}</span>
+                    <span className="text-[#B5414C] font-mono tabular-nums">
+                      {Math.abs(a.daysLeft)}d overdue
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" asChild className="text-xs h-7 rounded-md border-[#DCE7DF] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]">
+                <Link href="/checklist?tab=post-move">
+                  View tasks
+                  <ArrowRight className="w-3 h-3 ml-1" />
+                </Link>
+              </Button>
+              <button
+                onClick={handleDismiss}
+                className="text-[#7E9088] hover:text-[#1F2A24] transition-colors"
+                aria-label="Dismiss alerts"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -155,43 +156,44 @@ export function ComplianceAlerts({ planStage, className }: ComplianceAlertsProps
 
       {/* Urgent (due within 7 days) banner */}
       {urgentAlerts.length > 0 && overdueAlerts.length === 0 && (
-        <div className="gm-card-static overflow-hidden border-amber-500/30">
-          <div className="bg-amber-50 dark:bg-amber-950/10 px-4 py-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center shrink-0">
-                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                  {urgentAlerts.length} deadline{urgentAlerts.length > 1 ? "s" : ""} approaching
-                </h4>
-                <ul className="mt-1.5 space-y-1">
-                  {urgentAlerts.map(a => (
-                    <li key={a.id} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />
-                      <span className="font-medium text-foreground">{a.title}</span>
-                      <span className="text-amber-600 dark:text-amber-400 font-mono">
-                        {a.daysLeft === 0 ? "due today" : `${a.daysLeft}d left`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button variant="outline" size="sm" asChild className="text-xs h-7">
-                  <Link href="/checklist?tab=post-move">
-                    View tasks
-                    <ArrowRight className="w-3 h-3 ml-1" />
-                  </Link>
-                </Button>
-                <button
-                  onClick={handleDismiss}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Dismiss alerts"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+        <div
+          className="gm-surface px-4 py-3.5"
+          style={{ borderColor: "#E8C77B", background: "#F6ECD733" }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 w-8 h-8 rounded-md bg-[#F6ECD7] flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4 text-[#8C6B2F]" strokeWidth={1.7} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-[13px] font-semibold text-[#8C6B2F]">
+                {urgentAlerts.length} deadline{urgentAlerts.length > 1 ? "s" : ""} approaching
+              </h4>
+              <ul className="mt-1.5 space-y-1">
+                {urgentAlerts.map(a => (
+                  <li key={a.id} className="text-[11.5px] flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-[#C99746] shrink-0" />
+                    <span className="font-medium text-[#1F2A24]">{a.title}</span>
+                    <span className="text-[#C99746] font-mono tabular-nums">
+                      {a.daysLeft === 0 ? "due today" : `${a.daysLeft}d left`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" asChild className="text-xs h-7 rounded-md border-[#DCE7DF] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]">
+                <Link href="/checklist?tab=post-move">
+                  View tasks
+                  <ArrowRight className="w-3 h-3 ml-1" />
+                </Link>
+              </Button>
+              <button
+                onClick={handleDismiss}
+                className="text-[#7E9088] hover:text-[#1F2A24] transition-colors"
+                aria-label="Dismiss alerts"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

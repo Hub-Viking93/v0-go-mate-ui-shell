@@ -12,24 +12,24 @@ export const colors = {
   card: "rgba(255, 252, 246, 0.78)",
 
   // Brand
-  brandForest: "#1B3A2D",
-  brandForestMid: "#234D3A",
-  brandForestLight: "#2D6A4F",
-  brandMint: "#5EE89C",
-  brandSage: "#A7D7C5",
+  brandForest: "#0F172A",
+  brandForestMid: "#1E293B",
+  brandForestLight: "#334155",
+  brandMint: "#0D9488",
+  brandSage: "#94A3B8",
 
   // Warm primary action — coral/amber, used sparingly.
-  actionCoral: "#E85D3C",
-  actionAmber: "#F59E0B",
+  actionCoral: "#0F172A",
+  actionAmber: "#1E293B",
 
   // Status (deeper, not pastel)
-  successGreen: "#16A34A",
+  successGreen: "#0D9488",
   warningHoney: "#D97706",
   errorBurgundy: "#B91C1C",
 
-  // Hairline borders — warm tint of brown/amber.
-  borderHairline: "rgba(120, 90, 60, 0.15)",
-  borderHairlineStrong: "rgba(120, 90, 60, 0.28)",
+  // Hairline borders — cool neutral.
+  borderHairline: "rgba(15, 23, 42, 0.08)",
+  borderHairlineStrong: "rgba(15, 23, 42, 0.16)",
 
   // Domain tints (soft, < 8% saturated)
   tintCultural: "#F8F2E8",
@@ -39,7 +39,7 @@ export const colors = {
 } as const
 
 export const typography = {
-  serif: "'Source Serif 4', 'Source Serif Pro', Georgia, serif",
+  serif: "'Inter', 'Geist', system-ui, sans-serif",
   sans: "'Inter', 'Geist', system-ui, sans-serif",
   mono: "'JetBrains Mono', 'Geist Mono', monospace",
   // Display sizes (px)

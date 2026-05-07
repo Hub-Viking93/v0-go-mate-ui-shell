@@ -593,55 +593,62 @@ function getVisaHint(profile: Profile): string {
   return hints.join(" ") || "Standard visa pathway for " + profile.destination
 }
 
-// Opening message - warm and planner-focused, not interview-like
-export const OPENING_MESSAGE = `Hi! I'm GoMate, your relocation planning assistant.
+// Opening message — purely advisory now. Chat never asks for profile
+// fields or runs onboarding; that lives on /onboarding. This is a
+// generic fallback for users who haven't filled out a destination yet.
+export const OPENING_MESSAGE = `Hi! I'm GoMate.
 
-I'll help you build a personalized relocation plan based on your specific situation. I only ask what's necessary for your move - no long forms or irrelevant questions.
+Ask me anything about your relocation — visas, cost of living, banking, taxes, healthcare, settling in, documents, timing.
 
-Once I understand your plans, you'll get visa recommendations, a timeline, budget breakdown, and practical tips tailored to you.
+If you haven't pinned down a destination yet, I can also help you think through options.`
 
-Feel free to ask me questions anytime along the way. To get started, what's your name?`
-
-// Smart opening for returning users with complete profiles
-export function getSmartOpeningMessage(profile: Profile): string {
-  const { name, destination, purpose, timeline, target_city } = profile
+// Smart opening — pre-arrival mode. Helps the user think through what
+// still needs to happen before they fly. Never asks for profile fields.
+export function getPreMoveOpeningMessage(profile: Profile): string {
+  const { destination, purpose, target_city } = profile
   const city = target_city || destination
-  
-  // Generate contextual suggestions based on their profile
+
   const suggestions: string[] = []
-  
   if (purpose === "work") {
-    suggestions.push(`What are the salary expectations for my field in ${city}?`)
-    suggestions.push(`How do I get my qualifications recognized in ${destination}?`)
-    suggestions.push(`What's the job market like for foreigners?`)
+    suggestions.push(`What documents should I gather for my work visa to ${destination}?`)
+    suggestions.push(`How does the typical onboarding-gap before payroll work in ${destination}?`)
   } else if (purpose === "study") {
-    suggestions.push(`What are the top universities in ${city}?`)
-    suggestions.push(`How do student work permits work in ${destination}?`)
-    suggestions.push(`What scholarships are available for international students?`)
+    suggestions.push(`What enrolment + visa documents do I need for ${destination}?`)
+    suggestions.push(`What does the typical study-permit timeline look like?`)
   } else if (purpose === "digital_nomad") {
-    suggestions.push(`What are the best coworking spaces in ${city}?`)
-    suggestions.push(`How do digital nomad visas work in ${destination}?`)
-    suggestions.push(`What's the internet infrastructure like?`)
-  } else {
-    suggestions.push(`What neighborhoods would you recommend in ${city}?`)
-    suggestions.push(`How's the expat community in ${destination}?`)
-    suggestions.push(`What should I know about local culture?`)
+    suggestions.push(`What does a typical digital-nomad visa application require in ${destination}?`)
+    suggestions.push(`How do tax-residency rules apply to nomads in ${destination}?`)
+  } else if (purpose === "settle") {
+    suggestions.push(`What does the residency-permit pathway typically look like in ${destination}?`)
   }
-  
-  // Add common questions
-  suggestions.push(`What documents should I start gathering now?`)
-  suggestions.push(`Can you help me refine my budget?`)
-  
-  // Pick 3-4 suggestions
-  const selectedSuggestions = suggestions.slice(0, 4)
-  
-  return `Welcome back, ${name}! Your relocation plan to ${destination} is ready in your dashboard.
+  suggestions.push(`What's a realistic budget for my first 3 months in ${city || destination}?`)
+  suggestions.push(`Which documents should I apostille / translate before I move?`)
 
-Is there anything specific you'd like to know about your move? Here are some things I can help with:
+  const dest = city || destination || "your destination"
+  return `I'm here to help you get to ${dest} smoothly.
 
-${selectedSuggestions.map(s => `- ${s}`).join("\n")}
+Ask me anything about your pre-move — visas, documents, budget, housing, banking, what to cancel at home, what to bring. A few starting points:
 
-Or just ask me anything about relocating to ${city}!`
+${suggestions.slice(0, 4).map((s) => `- ${s}`).join("\n")}`
+}
+
+// Smart opening — post-arrival mode. Shifts to settling-in focus.
+export function getPostArrivalOpeningMessage(profile: Profile): string {
+  const { destination, target_city } = profile
+  const city = target_city || destination || "your new city"
+  return `You've landed — let's settle you in.
+
+I'll help you with the local stuff: registration, tax ID, banking, healthcare, leases, getting around, what locals do that newcomers miss. A few starting points:
+
+- What's the right order to handle registration + tax ID + banking in ${city}?
+- How does primary care / health-card setup typically work?
+- What are common first-month culture gotchas in ${city}?
+- What should I keep on my radar for the first year-end tax filing?`
+}
+
+/** @deprecated use getPreMoveOpeningMessage / getPostArrivalOpeningMessage */
+export function getSmartOpeningMessage(profile: Profile): string {
+  return getPreMoveOpeningMessage(profile)
 }
 
 // ── Post-Arrival System Prompt ──────────────────────────────────────

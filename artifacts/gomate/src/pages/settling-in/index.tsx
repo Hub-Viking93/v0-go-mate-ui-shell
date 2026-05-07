@@ -37,6 +37,7 @@ import {
   SettlingInTaskCard,
   type SettlingInTask,
 } from "@/components/settling-in-task-card"
+import type { VaultDocRefView } from "@/components/task-detail-sheet"
 import { SETTLING_CATEGORIES } from "@/lib/gomate/settling-in-generator"
 import { ComplianceTimeline } from "@/components/compliance-timeline"
 import { ComplianceCalendar } from "@/components/compliance-calendar"
@@ -97,6 +98,36 @@ export default function SettlingInPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<"all" | "first30">("all")
   const [activeTab, setActiveTab] = useState<"tasks" | "calendar">("tasks")
+  const [vaultDocs, setVaultDocs] = useState<VaultDocRefView[]>([])
+
+  const refreshVault = useCallback(async () => {
+    try {
+      const res = await fetch("/api/vault")
+      if (!res.ok) return
+      const data = (await res.json()) as { documents: Array<{
+        id: string
+        fileName: string
+        category: VaultDocRefView["category"]
+        uploadedAt: string
+        linkedTaskKeys: string[]
+      }> }
+      setVaultDocs(
+        (data.documents ?? []).map((d) => ({
+          id: d.id,
+          fileName: d.fileName,
+          category: d.category,
+          uploadedAt: d.uploadedAt,
+          linkedTaskKeys: d.linkedTaskKeys ?? [],
+        })),
+      )
+    } catch {
+      /* swallow — vault fetch failure isn't fatal */
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshVault()
+  }, [refreshVault])
 
   // Compute days since arrival
   const daysSinceArrival = arrivalDate
@@ -250,97 +281,84 @@ export default function SettlingInPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B3A2D] via-[#234D3A] to-[#2D6A4F] p-6 md:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(94,232,156,0.15),transparent_60%)]" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-              <ListChecks className="w-7 h-7 text-[#5EE89C]" />
-              Settling-In Checklist
-            </h1>
-            <p className="text-white/60 mt-1.5 text-sm md:text-base">
-              Your personalized post-arrival tasks with smart dependency tracking
-            </p>
-          </div>
-          <Button variant="outline" size="sm" asChild className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0">
-            <Link href="/dashboard">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Dashboard
-            </Link>
-          </Button>
-        </div>
-
-        {/* View mode toggle + Day counter */}
-        {generated && tasks.length > 0 && arrivalDate && (
-          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
-            {/* Day counter */}
-            {daysSinceArrival !== null && daysSinceArrival >= 0 && daysSinceArrival <= 30 && viewMode === "first30" && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#5EE89C]" />
-                  <span className="text-white font-bold text-lg">Day {daysSinceArrival + 1}</span>
-                  <span className="text-white/50 text-sm">of 30</span>
-                </div>
-                <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#5EE89C] rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(((daysSinceArrival + 1) / 30) * 100, 100)}%` }}
-                  />
-                </div>
+    <div className="space-y-4">
+      {/* Compact toolbar: day counter + view-mode toggle. The page-level
+          title lives in PostMovePage's PageShell — no hero needed. */}
+      {generated && tasks.length > 0 && arrivalDate && (
+        <div
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3.5 py-2.5 bg-card"
+          style={{ border: "1px solid #DCE7DF", borderRadius: "6px" }}
+        >
+          {daysSinceArrival !== null && daysSinceArrival >= 0 && daysSinceArrival <= 30 && viewMode === "first30" ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-[#7BB091]" strokeWidth={1.7} />
+                <span className="text-[13px] font-semibold text-[#1F2A24]">Day {daysSinceArrival + 1}</span>
+                <span className="text-[11px] text-[#7E9088]">of 30</span>
               </div>
-            )}
-            {viewMode === "first30" && (
-              <span className="text-white/60 text-sm">
-                {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""} remaining
-              </span>
-            )}
-            <div className="flex items-center rounded-lg bg-white/10 p-0.5">
-              <button
-                onClick={() => handleViewToggle("first30")}
-                className={cn(
-                  "px-3 py-1 text-xs rounded-md transition-colors",
-                  viewMode === "first30" ? "bg-white/20 text-white font-medium" : "text-white/60 hover:text-white"
-                )}
-              >
-                First 30 Days
-              </button>
-              <button
-                onClick={() => handleViewToggle("all")}
-                className={cn(
-                  "px-3 py-1 text-xs rounded-md transition-colors",
-                  viewMode === "all" ? "bg-white/20 text-white font-medium" : "text-white/60 hover:text-white"
-                )}
-              >
-                All Tasks
-              </button>
+              <div className="w-24 h-1.5 bg-[#ECF1EC] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#7BB091] rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(((daysSinceArrival + 1) / 30) * 100, 100)}%` }}
+                />
+              </div>
             </div>
+          ) : (
+            <span className="text-[12px] text-[#7E9088]">
+              {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""} {viewMode === "first30" ? "in your first 30 days" : "in your settling-in plan"}
+            </span>
+          )}
+          <div
+            className="flex items-center rounded-md bg-[#F4F8F4] p-0.5"
+            style={{ border: "1px solid #DCE7DF" }}
+          >
+            <button
+              onClick={() => handleViewToggle("first30")}
+              className={cn(
+                "px-2.5 py-1 text-[12px] rounded transition-colors",
+                viewMode === "first30"
+                  ? "bg-white text-[#1F2A24] font-medium shadow-sm"
+                  : "text-[#7E9088] hover:text-[#1F2A24]",
+              )}
+            >
+              First 30 days
+            </button>
+            <button
+              onClick={() => handleViewToggle("all")}
+              className={cn(
+                "px-2.5 py-1 text-[12px] rounded transition-colors",
+                viewMode === "all"
+                  ? "bg-white text-[#1F2A24] font-medium shadow-sm"
+                  : "text-[#7E9088] hover:text-[#1F2A24]",
+              )}
+            >
+              All tasks
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Tab toggle: Tasks / Calendar */}
       {!loading && generated && tasks.length > 0 && (
-        <div className="flex items-center rounded-lg border border-border bg-muted/30 p-1 w-fit">
+        <div className="flex items-center rounded-lg border border-border bg-[#F0FAF5] p-0.5 w-fit">
           <button
             onClick={() => setActiveTab("tasks")}
             className={cn(
-              "px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5",
-              activeTab === "tasks" ? "bg-background text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
+              "px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1",
+              activeTab === "tasks" ? "bg-white text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <ListChecks className="w-4 h-4" />
+            <ListChecks className="w-3.5 h-3.5 text-[#16A34A]" />
             Tasks
           </button>
           <button
             onClick={() => setActiveTab("calendar")}
             className={cn(
-              "px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5",
-              activeTab === "calendar" ? "bg-background text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
+              "px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1",
+              activeTab === "calendar" ? "bg-white text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-3.5 h-3.5 text-[#D97706]" />
             Calendar
           </button>
         </div>
@@ -348,10 +366,10 @@ export default function SettlingInPage() {
 
       {/* Loading state */}
       {loading && (
-        <div className="space-y-4">
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-16 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl" />
+        <div className="space-y-3">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-12 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       )}
 
@@ -366,62 +384,63 @@ export default function SettlingInPage() {
         </div>
       )}
 
-      {/* Pre-arrival locked state */}
+      {/* Pre-arrival locked state — calm sage card, no big lock-bubble. */}
       {!loading && planStage && planStage !== 'arrived' && !generated && (
-        <div className="gm-card-static p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
-            <Lock className="w-8 h-8 text-muted-foreground" />
+        <div
+          className="bg-card px-4 py-4"
+          style={{ border: "1px solid #DCE7DF", borderRadius: "6px" }}
+        >
+          <div className="flex items-start gap-2.5">
+            <Lock className="w-3.5 h-3.5 text-[#7E9088] shrink-0 mt-0.5" strokeWidth={1.7} />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[13px] font-semibold text-[#1F2A24]">
+                Confirm your arrival first
+              </h3>
+              <p className="text-[12px] text-[#4E5F57] mt-0.5">
+                Your settling-in checklist will be available after you confirm arrival on the dashboard.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" asChild className="shrink-0 h-7 text-[11px]">
+              <Link href="/dashboard">
+                <ArrowLeft className="w-3 h-3 mr-1" />
+                Dashboard
+              </Link>
+            </Button>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Confirm your arrival first
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Your settling-in checklist will be available after you confirm arrival at your destination.
-              Head to the dashboard to confirm you have arrived.
-            </p>
-          </div>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Go to Dashboard
-            </Link>
-          </Button>
         </div>
       )}
 
       {/* Not yet generated (arrived but no checklist yet) */}
       {!loading && (!planStage || planStage === 'arrived') && !generated && !generating && (
-        <div className="gm-card-static p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-            <ListChecks className="w-8 h-8 text-primary" />
+        <div className="gm-card-static p-5 text-center space-y-3">
+          <div className="w-10 h-10 rounded-xl bg-[#E4F5EB] flex items-center justify-center mx-auto">
+            <ListChecks className="w-5 h-5 text-[#14532D]" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-foreground">
               Generate your settling-in checklist
             </h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Based on your relocation profile, we will create a personalized task list
-              of common steps to consider after arriving at your destination.
+            <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+              Create a personalized task list for after arriving.
             </p>
           </div>
-          <Button onClick={handleGenerate} disabled={generating}>
-            <Sparkles className="w-4 h-4 mr-1.5" />
-            Generate checklist
+          <Button onClick={handleGenerate} disabled={generating} size="sm" className="bg-[#0D9488] text-white hover:bg-[#0F766E]">
+            <Sparkles className="w-3.5 h-3.5 mr-1" />
+            Generate
           </Button>
         </div>
       )}
 
       {/* Generating state */}
       {generating && (
-        <div className="gm-card-static p-8 text-center space-y-4">
-          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto" />
+        <div className="gm-card-static p-5 text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-[#0D9488] animate-spin mx-auto" />
           <div>
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-foreground">
               Researching your destination...
             </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              This may take a moment while we gather official requirements.
+            <p className="text-xs text-muted-foreground mt-1">
+              Gathering official requirements.
             </p>
           </div>
         </div>
@@ -429,7 +448,7 @@ export default function SettlingInPage() {
 
       {/* Stats bar */}
       {!loading && generated && stats && (
-        <div className="gm-card-static p-5 space-y-4">
+        <div className="gm-card-static p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold text-foreground">Progress</h3>
@@ -523,6 +542,9 @@ export default function SettlingInPage() {
                 arrivalDate={arrivalDate}
                 onStatusChange={handleStatusChange}
                 allTasks={tasks}
+                vaultDocs={vaultDocs}
+                planId={planId}
+                onVaultChange={refreshVault}
               />
             ))}
           </div>
@@ -539,12 +561,12 @@ export default function SettlingInPage() {
 
       {/* First 30 days empty state */}
       {!loading && generated && activeTab === "tasks" && viewMode === "first30" && filteredTasks.length === 0 && tasks.length > 0 && (
-        <div className="gm-card-static p-6 text-center space-y-3">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-          <p className="text-foreground font-medium">All first 30 days tasks completed!</p>
+        <div className="gm-card-static p-4 text-center space-y-2">
+          <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+          <p className="text-foreground font-medium text-sm">All first 30 days tasks completed!</p>
           <button
             onClick={() => handleViewToggle("all")}
-            className="text-sm text-primary hover:underline"
+            className="text-xs text-primary hover:underline"
           >
             View all tasks →
           </button>
@@ -646,6 +668,9 @@ export default function SettlingInPage() {
                         arrivalDate={arrivalDate}
                         onStatusChange={handleStatusChange}
                         allTasks={tasks}
+                        vaultDocs={vaultDocs}
+                        planId={planId}
+                        onVaultChange={refreshVault}
                       />
                     ))}
                   </div>
@@ -667,10 +692,10 @@ export default function SettlingInPage() {
 
       {/* Empty state after generation */}
       {!loading && generated && activeTab === "tasks" && tasks.length === 0 && (
-        <div className="gm-card-static p-8 text-center space-y-3">
-          <p className="text-muted-foreground">No tasks found.</p>
-          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+        <div className="gm-card-static p-5 text-center space-y-3">
+          <p className="text-muted-foreground text-sm">No tasks found.</p>
+          <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />
             Regenerate
           </Button>
         </div>

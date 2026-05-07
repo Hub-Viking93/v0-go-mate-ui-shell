@@ -149,7 +149,7 @@ function RouteCard({
               <span className="text-stone-300 dark:text-stone-700">•</span>
               <DifficultyChip difficulty={route.difficulty} />
             </div>
-            <h4 className="font-serif text-xl md:text-[22px] leading-tight text-foreground tracking-tight">
+            <h4 className="font-sans text-xl md:text-[22px] leading-tight text-foreground tracking-tight">
               {route.name || route.official_visa_name}
             </h4>
             {(route.why_recommended || route.description || route.who_its_for) && (
