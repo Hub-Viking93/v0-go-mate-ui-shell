@@ -1094,16 +1094,98 @@ export function generatePreDepartureTimeline(
 ): PreDepartureTimeline {
   void specialistOutputs; // 5.2 narrative wrapper consumes this.
 
+  return composePreDepartureTimeline({
+    profile,
+    visa,
+    moveDate,
+    researchedByDomain: {},
+  });
+}
+
+// =============================================================
+// Phase A1 — researched-aware composer entry point
+// =============================================================
+// Same legacy timeline shape as generatePreDepartureTimeline above
+// but accepts a per-domain researched-output map. For each domain
+// present in `researchedByDomain` we replace the hardcoded
+// contribution function with research-derived ActionDrafts (one
+// per ResearchedStep with phase ∈ {before_move, move_day}).
+// Domains absent from the map fall back to their hardcoded
+// contribution — that's how we keep `/pre-move` working before the
+// rest of the specialists migrate.
+
+export interface ComposePreDepartureArgs {
+  profile: PreDepartureProfile;
+  visa: VisaPathwayLite | null;
+  moveDate: Date;
+  /**
+   * Researched output per specialist domain. Domains absent fall
+   * back to the legacy hardcoded contribution function.
+   *
+   * Typed loosely (the package's own ResearchedSteps shape, but
+   * keyed by string so callers don't have to import the union
+   * type) — the composer only reads `domain`, `quality`, `steps`,
+   * `documents` from each entry.
+   */
+  researchedByDomain?: Record<string, ResearchedStepsLite>;
+}
+
+/** Subset of ResearchedSteps the composer reads. Kept inline so
+ *  pre-departure.ts doesn't have to import from the specialists/
+ *  contracts module (which would require a slightly painful
+ *  cross-folder import path); the legacy adapter produces the
+ *  same shape. */
+export interface ResearchedStepsLite {
+  domain: string;
+  quality: "full" | "partial" | "fallback";
+  steps: ResearchedStepLite[];
+  sources: { url: string }[];
+}
+
+export interface ResearchedStepLite {
+  id: string;
+  title: string;
+  description: string;
+  deadlineWindow: { phase: string; weeksBeforeMove?: number };
+  prerequisites?: string[];
+  documentIds?: string[];
+  walkthrough?: string[];
+  bottleneck?: string;
+  sources?: string[];
+}
+
+export function composePreDepartureTimeline(
+  args: ComposePreDepartureArgs,
+): PreDepartureTimeline {
+  const { profile, visa, moveDate, researchedByDomain = {} } = args;
+
+  // For each domain that has researched output, build researched
+  // drafts; for everything else we keep the legacy contribution.
+  const visaDrafts = researchedByDomain.visa
+    ? researchedToDrafts(researchedByDomain.visa, "visa")
+    : visaContributions(profile, visa);
+  const docsDrafts = researchedByDomain.documents
+    ? researchedToDrafts(researchedByDomain.documents, "documents")
+    : documentContributions(profile);
+  const housingDrafts = researchedByDomain.housing
+    ? researchedToDrafts(researchedByDomain.housing, "housing")
+    : leaseContributions(profile);
+  const bankingDrafts = researchedByDomain.banking
+    ? researchedToDrafts(researchedByDomain.banking, "banking")
+    : bankingContributions(profile);
+
   const drafts: ActionDraft[] = [
     ...alwaysApplicable(profile),
-    ...visaContributions(profile, visa),
-    ...documentContributions(profile),
+    ...visaDrafts,
+    ...docsDrafts,
+    ...housingDrafts,
+    ...bankingDrafts,
+    // Not yet researched — these stay on hardcoded contributions
+    // until B2 adds the corresponding specialists.
     ...postedWorkerContributions(profile),
     ...petContributions(profile),
-    ...bankingContributions(profile),
     ...healthContributions(profile),
     ...vehicleContributions(profile),
-    ...leaseContributions(profile),
     ...shippingContributions(profile),
   ];
 
@@ -1143,4 +1225,89 @@ export function generatePreDepartureTimeline(
     moveDateIso: moveDate.toISOString(),
     generatedAt: new Date().toISOString(),
   };
+}
+
+// =============================================================
+// Researched → ActionDraft mapper (Phase A1)
+// =============================================================
+//
+// Maps each ResearchedStep onto the legacy ActionDraft shape so the
+// composer treats research-backed and hardcoded contributions
+// uniformly. Steps with phase NOT in {before_move, move_day} are
+// skipped — those belong to /post-move.
+
+const DOMAIN_TO_CATEGORY: Record<string, PreDepartureAction["category"]> = {
+  visa: "visa",
+  documents: "documents",
+  housing: "housing",
+  banking: "banking",
+  healthcare: "health",
+  pet: "pets",
+  cost: "admin",
+  cultural: "admin",
+  tax: "tax",
+  departure_tax: "tax",
+};
+
+/**
+ * Default phase → weeks-before-move. We don't know exact lead times
+ * from the researched output (the legacy specialists rarely emit
+ * `weeksBeforeMove` explicitly), so we anchor by phase. Visa-domain
+ * steps lead the pack at 12 weeks, documents at 10, housing/banking
+ * at 8, move_day at 0. The composer's sort still respects whatever
+ * the research layer DID provide via step.deadlineWindow.weeksBeforeMove.
+ */
+function phaseToWeeks(phase: string, domain: string): { start: number; deadline: number } {
+  if (phase === "move_day") return { start: 1, deadline: 0 };
+  if (domain === "visa") return { start: 12, deadline: 10 };
+  if (domain === "documents") return { start: 10, deadline: 8 };
+  if (domain === "housing") return { start: 8, deadline: 6 };
+  if (domain === "banking") return { start: 6, deadline: 4 };
+  return { start: 8, deadline: 6 };
+}
+
+function researchedToDrafts(
+  bundle: ResearchedStepsLite,
+  domain: string,
+): ActionDraft[] {
+  if (!bundle || !Array.isArray(bundle.steps)) return [];
+  const category = DOMAIN_TO_CATEGORY[domain] ?? "admin";
+  const drafts: ActionDraft[] = [];
+  for (const step of bundle.steps) {
+    const phase = step?.deadlineWindow?.phase ?? "before_move";
+    if (phase !== "before_move" && phase !== "move_day") continue;
+    const explicit = step.deadlineWindow?.weeksBeforeMove;
+    const { start, deadline } =
+      typeof explicit === "number" && explicit >= 0
+        ? { start: explicit, deadline: Math.max(0, explicit - 1) }
+        : phaseToWeeks(phase, domain);
+    const sourceUrl = step.sources?.[0] ?? bundle.sources?.[0]?.url ?? null;
+    const walkthrough: TaskWalkthrough | undefined =
+      Array.isArray(step.walkthrough) && step.walkthrough.length > 0
+        ? {
+            steps: step.walkthrough.map((line) => ({ text: line })),
+          }
+        : undefined;
+    drafts.push({
+      id: step.id,
+      title: step.title,
+      description: step.description,
+      category,
+      weeksBeforeMoveStart: start,
+      weeksBeforeMoveDeadline: deadline,
+      estimatedDurationDays: 3,
+      dependsOn: Array.isArray(step.prerequisites) ? step.prerequisites : [],
+      documentsNeeded: Array.isArray(step.documentIds) ? step.documentIds : [],
+      officialSourceUrl: sourceUrl,
+      preFilledFormUrl: null,
+      agentWhoAddedIt: `${domain}_specialist`,
+      legalConsequenceIfMissed:
+        step.bottleneck && step.bottleneck.trim().length > 0
+          ? step.bottleneck.trim()
+          : "",
+      priority: domain === "visa" ? 0 : 1,
+      ...(walkthrough ? { walkthrough } : {}),
+    });
+  }
+  return drafts;
 }

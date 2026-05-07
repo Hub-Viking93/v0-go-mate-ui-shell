@@ -115,6 +115,15 @@ export {
   type ValidatedSteps,
   type ValidatedDocuments,
 } from "./specialists/_researched-helpers.js";
+
+// Phase A1 — legacy → researched adapter. Reads persisted columns
+// (visa_research, local_requirements_research) and produces
+// ResearchedSteps so the new pre-departure composer can consume
+// the same shape regardless of where it came from.
+export {
+  adaptVisaResearchToSteps,
+  adaptLocalRequirementsToSteps,
+} from "./specialists/_legacy-adapter.js";
 export {
   // legacy
   scrapeOfficialSource,
@@ -499,8 +508,15 @@ export {
 } from "./deadline-model.js";
 
 // Phase 5.1 — pre-departure timeline lib (pure code).
+// Phase A1 added composePreDepartureTimeline — researched-aware
+// entry point that takes a per-domain ResearchedSteps map and
+// falls back to legacy hardcoded contributions for missing domains.
 export {
   generatePreDepartureTimeline,
+  composePreDepartureTimeline,
+  type ComposePreDepartureArgs,
+  type ResearchedStepsLite,
+  type ResearchedStepLite,
   type PreDepartureTimeline,
   type PreDepartureAction,
   type PreDepartureProfile,

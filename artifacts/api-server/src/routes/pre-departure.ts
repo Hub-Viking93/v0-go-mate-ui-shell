@@ -23,14 +23,17 @@
 
 import { Router, type IRouter } from "express";
 import {
-  generatePreDepartureTimeline,
+  composePreDepartureTimeline,
   computeUrgency,
   daysUntil,
   compareByUrgency,
+  adaptVisaResearchToSteps,
+  adaptLocalRequirementsToSteps,
   type PreDepartureProfile,
   type VisaPathwayLite,
   type ActionStatus,
   type PreDepartureAction,
+  type ResearchedStepsLite,
   type Urgency,
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
@@ -74,7 +77,8 @@ interface PlanRowForGenerate extends PlanRowForRead {
   stage: string | null;
   locked: boolean | null;
   profile_data: Record<string, unknown> | null;
-  visa_research: { visaOptions?: Array<Record<string, unknown>> } | null;
+  visa_research: Record<string, unknown> | null;
+  local_requirements_research: Record<string, unknown> | null;
   arrival_date: string | null;
   user_triggered_pre_departure_at: string | null;
 }
@@ -168,7 +172,7 @@ router.post("/pre-departure/generate", async (req, res) => {
     const { data: plan, error: planErr } = await ctx.supabase
       .from("relocation_plans")
       .select(
-        "id, stage, locked, profile_data, visa_research, arrival_date, user_triggered_pre_departure_at, research_meta",
+        "id, stage, locked, profile_data, visa_research, local_requirements_research, arrival_date, user_triggered_pre_departure_at, research_meta",
       )
       .eq("user_id", ctx.user.id)
       .eq("is_current", true)
@@ -194,9 +198,13 @@ router.post("/pre-departure/generate", async (req, res) => {
       ? new Date(plan.arrival_date)
       : new Date(Date.now() + 1000 * 60 * 60 * 24 * 90);
 
+    // Build the legacy VisaPathwayLite (still used by the hardcoded
+    // visaContributions fallback) — same logic as before.
     let visa: VisaPathwayLite | null = null;
-    if (plan.visa_research?.visaOptions && plan.visa_research.visaOptions.length > 0) {
-      const v = plan.visa_research.visaOptions[0];
+    const visaOptions = (plan.visa_research as { visaOptions?: Array<Record<string, unknown>> } | null)
+      ?.visaOptions;
+    if (Array.isArray(visaOptions) && visaOptions.length > 0) {
+      const v = visaOptions[0];
       visa = {
         name: typeof v.name === "string" ? v.name : undefined,
         type: typeof v.type === "string" ? v.type : undefined,
@@ -206,7 +214,32 @@ router.post("/pre-departure/generate", async (req, res) => {
       };
     }
 
-    const timeline = generatePreDepartureTimeline(profile, visa, moveDate);
+    // Phase A1 — adapt persisted research outputs into the new
+    // ResearchedSteps contract so the composer can consume them
+    // uniformly. Domains absent from researchedByDomain (today: pet,
+    // posted_worker, vehicle, lease/shipping, healthcare, alwaysApplicable)
+    // continue to flow through their hardcoded contribution functions
+    // inside the composer.
+    const researchedByDomain: Record<string, ResearchedStepsLite> = {};
+    const visaResearched = adaptVisaResearchToSteps(plan.visa_research as Parameters<typeof adaptVisaResearchToSteps>[0]);
+    if (visaResearched.steps.length > 0) {
+      researchedByDomain.visa = visaResearched;
+    }
+    const localRequirementsAdapted = adaptLocalRequirementsToSteps(
+      plan.local_requirements_research as Parameters<typeof adaptLocalRequirementsToSteps>[0],
+    );
+    for (const [domain, bundle] of Object.entries(localRequirementsAdapted)) {
+      if (bundle && bundle.steps.length > 0) {
+        researchedByDomain[domain] = bundle;
+      }
+    }
+
+    const timeline = composePreDepartureTimeline({
+      profile,
+      visa,
+      moveDate,
+      researchedByDomain,
+    });
 
     const criticalKeySet = new Set(timeline.criticalPath.map((c) => c.id));
     const moveMs = moveDate.getTime();
