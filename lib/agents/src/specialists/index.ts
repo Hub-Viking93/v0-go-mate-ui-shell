@@ -55,6 +55,12 @@ export { bankingSpecialistV2 } from "./banking_v2.js";
 export { documentsSpecialistV2 } from "./documents_v2.js";
 export { housingSpecialistV2 } from "./housing_v2.js";
 
+// Phase B3 — researched-contract specialist for healthcare.
+// Same contract + hardening as B1/B2. Will be wired into the post-move
+// researched cache by Phase C2 (mirroring how registration + banking
+// landed in C1).
+export { healthcareSpecialistV2 } from "./healthcare_v2.js";
+
 export {
   scrapeOfficialSource,
   searchAndScrape,
