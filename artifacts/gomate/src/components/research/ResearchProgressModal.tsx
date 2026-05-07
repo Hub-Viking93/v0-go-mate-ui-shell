@@ -244,51 +244,67 @@ export function ResearchProgressModal({
     return () => clearInterval(t);
   }, [open, allDone]);
 
-  // Stagnation detector: track when `done` last changed. If it hasn't
-  // ticked in >5s we consider the progress bar stagnant and switch on
-  // the shimmer overlay so the user sees motion even while waiting on
-  // a slow specialist.
+  // Stagnation detector: track when `done` last changed via refs (no
+  // re-render). A single always-on interval re-evaluates "has it been
+  // >5s since last progress?" so shimmer turns on whether we're stuck
+  // before any progress OR between increments. The previous version
+  // early-returned on `done` change and never re-started the interval,
+  // which meant shimmer stayed off after the first specialist completed.
   const lastDoneRef = useRef<number>(0);
   const lastDoneChangeAtRef = useRef<number>(Date.now());
+  if (done !== lastDoneRef.current) {
+    lastDoneRef.current = done;
+    lastDoneChangeAtRef.current = Date.now();
+  }
   const [isStagnant, setIsStagnant] = useState(false);
   useEffect(() => {
-    if (done !== lastDoneRef.current) {
-      lastDoneRef.current = done;
-      lastDoneChangeAtRef.current = Date.now();
-      setIsStagnant(false);
-      return;
-    }
     if (allDone) {
       setIsStagnant(false);
       return;
     }
-    const t = setInterval(() => {
+    const tick = () => {
       const stagnant = Date.now() - lastDoneChangeAtRef.current > 5_000;
       setIsStagnant((prev) => (prev !== stagnant ? stagnant : prev));
-    }, 1_000);
+    };
+    tick();
+    const t = setInterval(tick, 1_000);
     return () => clearInterval(t);
-  }, [done, allDone]);
+  }, [allDone]);
 
   // Rotating "currently doing" microcopy. The headline tells you WHAT
-  // specialist is running; this tells you WHAT THEY'RE DOING right now —
-  // so even when the headline pauses, this line keeps moving.
+  // specialist is running; this line tells you WHAT THEY'RE DOING right
+  // now — so even when the headline pauses, this keeps moving. Gated
+  // behind "current specialist has been running >10s" so we don't flash
+  // text the moment a specialist starts (per task spec).
   const [busyLineIndex, setBusyLineIndex] = useState(0);
   const currentSpecialistName = inFlight[tickIndex % Math.max(inFlight.length, 1)]?.name;
+  const specialistStartedAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    specialistStartedAtRef.current = Date.now();
+    setBusyLineIndex(0);
+  }, [currentSpecialistName]);
   const busyLines = useMemo(
     () => (currentSpecialistName ? busyLinesFor(currentSpecialistName) : FALLBACK_BUSY_LINES),
     [currentSpecialistName],
   );
+  const [showBusyLine, setShowBusyLine] = useState(false);
   useEffect(() => {
-    setBusyLineIndex(0);
-  }, [currentSpecialistName]);
+    if (allDone || !currentSpecialistName) {
+      setShowBusyLine(false);
+      return;
+    }
+    setShowBusyLine(false);
+    const reveal = setTimeout(() => setShowBusyLine(true), 10_000);
+    return () => clearTimeout(reveal);
+  }, [currentSpecialistName, allDone]);
   useEffect(() => {
-    if (allDone || busyLines.length <= 1) return;
+    if (allDone || !showBusyLine || busyLines.length <= 1) return;
     const t = setInterval(
       () => setBusyLineIndex((i) => (i + 1) % busyLines.length),
       4_500,
     );
     return () => clearInterval(t);
-  }, [busyLines.length, allDone]);
+  }, [busyLines.length, allDone, showBusyLine]);
 
   const headline = useMemo(() => {
     if (allDone) return { verb: "All set", subject: "your dashboard is ready", emoji: "✨" };
@@ -402,7 +418,7 @@ export function ResearchProgressModal({
                 doing right now. Generic verb-phrases only (no fabricated
                 URLs / agency names per the NO MOCK DATA rule). Rotates
                 every 4.5s so the user always sees something change. */}
-            {!allDone && !isFinishing && currentSpecialistName && (
+            {!allDone && !isFinishing && currentSpecialistName && showBusyLine && (
               <div className="mt-1 h-4 overflow-hidden">
                 <AnimatePresence mode="wait">
                   <motion.p
