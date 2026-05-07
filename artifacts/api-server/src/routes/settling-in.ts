@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, hasFeatureAccess } from "../lib/gomate/tier";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatch } from "../lib/research-meta-patch";
+import { applyResearchMetaPatchAt } from "../lib/research-meta-patch";
 import {
   composeSettlingInTimeline,
   computeUrgency,
@@ -118,11 +118,20 @@ async function generateAndPersistSettlingInTasks(args: {
       logWriter: createSupabaseLogWriter(args.supabase),
     });
     researchedCache = { ...researchedCache, ...fresh };
-    // Phase F1 — atomic JSONB merge so the cache write doesn't
-    // clobber other research_meta sub-keys (notifications.*, …).
-    await applyResearchMetaPatch(args.supabase, args.planId, {
-      researchedSpecialists: researchedCache,
-    });
+    // Phase F1 fix — per-domain path writes (jsonb_set) so a
+    // concurrent refresh of a different domain doesn't race the
+    // researchedSpecialists parent. Each fresh bundle is its own
+    // atomic write; if more than one bundle was just produced
+    // (registration + banking + healthcare in this surface), they
+    // serialise via Promise resolution but never collide on each
+    // other's slot.
+    for (const [domain, bundle] of Object.entries(fresh)) {
+      if (bundle === undefined) continue;
+      await applyResearchMetaPatchAt(args.supabase, args.planId, [
+        "researchedSpecialists",
+        domain,
+      ], bundle);
+    }
   } else {
     logger.info({ planId: args.planId }, "settling-in: post-move researched cache hit");
   }

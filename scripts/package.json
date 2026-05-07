@@ -14,6 +14,7 @@
     "dry-run-e1b": "tsx ./src/dry-run-e1b-stale.ts",
     "dry-run-f1": "tsx ./src/dry-run-f1-concurrent.ts",
     "dry-run-f1-race": "tsx ./src/dry-run-f1-scheduler-race.ts",
+    "dry-run-f1-nested": "tsx ./src/dry-run-f1-nested-race.ts",
     "seed-b2-cache": "tsx ./src/seed-b2-cache.ts",
     "seed-c1-cache": "tsx ./src/seed-c1-cache.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

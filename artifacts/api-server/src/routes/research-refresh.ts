@@ -56,7 +56,7 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatch } from "../lib/research-meta-patch";
+import { applyResearchMetaPatchAt } from "../lib/research-meta-patch";
 
 const router: IRouter = Router();
 
@@ -215,15 +215,21 @@ router.post("/research/refresh", async (req, res) => {
     });
   }
 
-  // ---- Persist via atomic JSONB-merge RPC (Phase F1) ------------
-  // Sub-key write only: just researchedSpecialists. Other top-level
-  // keys (preDeparture, notifications, …) keep whatever value the
-  // last writer set; this writer doesn't touch them.
+  // ---- Persist via path-aware atomic write (Phase F1 fix) -------
+  // One jsonb_set call per refreshed domain so concurrent refreshes
+  // of different domains don't race on the researchedSpecialists
+  // parent object (which they would under top-level-merge semantics
+  // — see dry-run-f1-nested-race for the demonstration).
   const persistedAt = new Date().toISOString();
   try {
-    await applyResearchMetaPatch(ctx.supabase, plan.id, {
-      researchedSpecialists: newCache,
-    });
+    for (const r of refreshed) {
+      await applyResearchMetaPatchAt(
+        ctx.supabase,
+        plan.id,
+        ["researchedSpecialists", r.domain],
+        newCache[r.domain],
+      );
+    }
   } catch (err) {
     logger.error({ err, planId: plan.id }, "research-refresh: persist failed");
     res.status(500).json({

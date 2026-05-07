@@ -45,7 +45,8 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatch } from "../lib/research-meta-patch";
+import { applyResearchMetaPatch, applyResearchMetaPatchAt } from "../lib/research-meta-patch";
+import { resolveMoveDate } from "../lib/gomate/move-date";
 
 const router: IRouter = Router();
 
@@ -465,8 +466,11 @@ router.post("/pre-departure/generate", async (req, res) => {
     }
 
     const profile = (plan.profile_data ?? {}) as PreDepartureProfile;
-    const moveDate = plan.arrival_date
-      ? new Date(plan.arrival_date)
+    // Canonical move date — falls back to a real ISO profile.timeline
+    // for legacy plans whose arrival_date is still null pre-backfill.
+    const resolvedMoveDate = resolveMoveDate(plan);
+    const moveDate = resolvedMoveDate
+      ? new Date(resolvedMoveDate)
       : new Date(Date.now() + 1000 * 60 * 60 * 24 * 90);
 
     // Build the legacy VisaPathwayLite (still used by the hardcoded
@@ -590,22 +594,29 @@ router.post("/pre-departure/generate", async (req, res) => {
       provenance,
     };
 
-    // Phase F1 — split the persist into two atomic statements:
-    //   (1) atomic JSONB-merge for the research_meta sub-keys this
-    //       writer owns (preDeparture + researchedSpecialists).
-    //       Other sub-keys (notifications.*, …) belong to other
-    //       writers and stay untouched.
-    //   (2) a direct UPDATE for the non-jsonb columns this route
-    //       does need to touch (stage flip, user_triggered_pre_departure_at).
-    //
-    // The RPC bumps updated_at on its own; the (2) UPDATE bumps it
-    // again to keep the existing freshness signal consistent.
+    // Phase F1 fix — split the persist into:
+    //   (1) top-level merge for `preDeparture` (single owner — only
+    //       this route writes it, top-level merge is fine).
+    //   (2) per-domain path writes for each cached specialist
+    //       bundle, so concurrent refreshes of e.g. banking from
+    //       /api/research/refresh don't race the researchedSpecialists
+    //       parent.
+    //   (3) direct UPDATE for non-jsonb columns (stage flip,
+    //       user_triggered_pre_departure_at).
     const nowIso = new Date().toISOString();
     try {
       await applyResearchMetaPatch(ctx.supabase, plan.id, {
         preDeparture: stored,
-        researchedSpecialists: researchedSpecialistsCache,
       });
+      for (const [domain, bundle] of Object.entries(researchedSpecialistsCache)) {
+        if (bundle === undefined) continue;
+        await applyResearchMetaPatchAt(
+          ctx.supabase,
+          plan.id,
+          ["researchedSpecialists", domain],
+          bundle,
+        );
+      }
     } catch (err) {
       logger.error({ err }, "pre-departure: research_meta patch failed");
       res.status(500).json({

@@ -15,6 +15,7 @@
 // =============================================================
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveMoveDate } from "./gomate/move-date";
 import {
   computeNotifications,
   countNotifications,
@@ -231,7 +232,7 @@ export async function runSchedulerTick(now: Date = new Date()): Promise<TickStat
           destination: typeof profile.destination === "string" ? profile.destination : null,
           visa_role: typeof profile.visa_role === "string" ? profile.visa_role : null,
         },
-        arrivalDate: plan.arrival_date,
+        arrivalDate: resolveMoveDate(plan),
         stage: plan.stage,
         tasks,
         documents,
