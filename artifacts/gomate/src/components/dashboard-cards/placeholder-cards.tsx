@@ -250,7 +250,14 @@ export function PreDepartureTimelineCard({ reason }: { reason: string }) {
           return
         }
         if (!res.ok) return
-        const json = await res.json()
+        const json = await res.json() as Partial<PreDepTimelineLite> & { generated?: boolean }
+        // Empty 200 payload (generated:false, actions:[]) is the
+        // "not generated yet" signal — render placeholder, not a
+        // half-populated card.
+        if (json.generated === false || !json.actions || json.actions.length === 0) {
+          setData(null)
+          return
+        }
         setData(json as PreDepTimelineLite)
       } catch {
         /* swallow — placeholder fallback covers it */

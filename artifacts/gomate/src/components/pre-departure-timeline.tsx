@@ -200,8 +200,16 @@ export function PreDepartureTimeline() {
         setError(`Failed to load (HTTP ${res.status})`);
         return;
       }
-      const data = (await res.json()) as TimelineResponse;
-      setTimeline(data);
+      const data = (await res.json()) as Partial<TimelineResponse> & { generated?: boolean };
+      // Server returns 200 { generated:false, actions:[] } when no
+      // timeline has been generated yet. Treat as the empty state so
+      // the Generate button is shown instead of trying to render
+      // moveDate/longestLeadTimeWeeks on an empty payload.
+      if (data.generated === false || !data.actions || data.actions.length === 0) {
+        setTimeline(null);
+        return;
+      }
+      setTimeline(data as TimelineResponse);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
