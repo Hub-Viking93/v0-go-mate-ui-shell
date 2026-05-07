@@ -50,6 +50,11 @@ export { pensionContinuitySpecialist } from "./pension_continuity.js";
 export { registrationSpecialist } from "./registration.js";
 export { bankingSpecialistV2 } from "./banking_v2.js";
 
+// Phase B2 — researched-contract specialists for documents + housing.
+// Same contract + hardening as B1.
+export { documentsSpecialistV2 } from "./documents_v2.js";
+export { housingSpecialistV2 } from "./housing_v2.js";
+
 export {
   scrapeOfficialSource,
   searchAndScrape,

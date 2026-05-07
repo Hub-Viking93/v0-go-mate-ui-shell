@@ -71,6 +71,8 @@ const REGISTRY: Record<string, CountrySources> = {
     ],
     documents: [
       { url: "https://www.migrationsverket.se/English/", kind: "authority", priority: 1, hint: "checklists per permit type" },
+      { url: "https://www.swedenabroad.se/en/embassies/", kind: "authority", priority: 2, hint: "Swedish embassy services + apostille handling abroad" },
+      { url: "https://www.regeringen.se/legaliseringar/", kind: "authority", priority: 3, hint: "MFA legalisations / apostilles for documents issued in Sweden" },
     ],
     registration: [
       { url: "https://www.skatteverket.se/servicelankar/otherlanguages/inenglish.4.12815e4f14a62bc048f4edc.html", kind: "authority", priority: 1, hint: "personnummer + folkbokföring" },
@@ -93,7 +95,9 @@ const REGISTRY: Record<string, CountrySources> = {
     cultural: [],
     cost: [],
     housing: [
-      { url: "https://www.boverket.se/en/", kind: "authority", priority: 2, hint: "national housing authority" },
+      { url: "https://bostad.stockholm.se/en/", kind: "institution", priority: 1, hint: "Stockholm Bostadsförmedlingen — first-hand rental queue" },
+      { url: "https://www.hyresgastforeningen.se/in-english/", kind: "institution", priority: 2, hint: "Swedish Tenants' Union — rights + market" },
+      { url: "https://www.boverket.se/en/", kind: "authority", priority: 3, hint: "national housing authority" },
     ],
     pet: [
       { url: "https://jordbruksverket.se/languages/english", kind: "authority", priority: 1, hint: "Jordbruksverket — pet import" },

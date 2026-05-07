@@ -102,6 +102,9 @@ export {
   // Phase B1 — researched-contract specialists
   registrationSpecialist,
   bankingSpecialistV2,
+  // Phase B2 — researched-contract specialists for documents + housing
+  documentsSpecialistV2,
+  housingSpecialistV2,
 } from "./specialists/index.js";
 // Phase B1 — validation helpers re-exported so test harnesses + a
 // future composer-side validator can exercise the same primitives

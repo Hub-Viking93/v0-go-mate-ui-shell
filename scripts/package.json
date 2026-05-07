@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "dry-run-b1": "tsx ./src/dry-run-b1-specialists.ts",
+    "dry-run-b2": "tsx ./src/dry-run-b2-specialists.ts",
     "dry-run-a1": "tsx ./src/dry-run-a1-composer.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
