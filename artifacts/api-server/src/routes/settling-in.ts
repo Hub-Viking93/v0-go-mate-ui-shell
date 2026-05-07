@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, hasFeatureAccess } from "../lib/gomate/tier";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatchAt } from "../lib/research-meta-patch";
+import { applyResearchMetaPatchAt, captureProfileSnapshot } from "../lib/research-meta-patch";
 import {
   composeSettlingInTimeline,
   computeUrgency,
@@ -127,12 +127,20 @@ async function generateAndPersistSettlingInTasks(args: {
     // (registration + banking + healthcare in this surface), they
     // serialise via Promise resolution but never collide on each
     // other's slot.
+    // Phase E3-A — alongside each bundle, persist a profileSnapshot
+    // so /api/research/suggestions can later detect what the user
+    // changed since this domain was researched.
+    const profileSnapshot = captureProfileSnapshot(args.profile as unknown as Record<string, unknown>);
     for (const [domain, bundle] of Object.entries(fresh)) {
       if (bundle === undefined) continue;
       await applyResearchMetaPatchAt(args.supabase, args.planId, [
         "researchedSpecialists",
         domain,
       ], bundle);
+      await applyResearchMetaPatchAt(args.supabase, args.planId, [
+        "profileSnapshots",
+        domain,
+      ], profileSnapshot);
     }
   } else {
     logger.info({ planId: args.planId }, "settling-in: post-move researched cache hit");

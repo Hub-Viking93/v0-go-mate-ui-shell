@@ -45,7 +45,7 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatch, applyResearchMetaPatchAt } from "../lib/research-meta-patch";
+import { applyResearchMetaPatch, applyResearchMetaPatchAt, captureProfileSnapshot } from "../lib/research-meta-patch";
 import { resolveMoveDate } from "../lib/gomate/move-date";
 
 const router: IRouter = Router();
@@ -604,6 +604,7 @@ router.post("/pre-departure/generate", async (req, res) => {
     //   (3) direct UPDATE for non-jsonb columns (stage flip,
     //       user_triggered_pre_departure_at).
     const nowIso = new Date().toISOString();
+    const profileSnapshot = captureProfileSnapshot(plan.profile_data);
     try {
       await applyResearchMetaPatch(ctx.supabase, plan.id, {
         preDeparture: stored,
@@ -615,6 +616,13 @@ router.post("/pre-departure/generate", async (req, res) => {
           plan.id,
           ["researchedSpecialists", domain],
           bundle,
+        );
+        // Phase E3-A — capture profile snapshot per persisted bundle.
+        await applyResearchMetaPatchAt(
+          ctx.supabase,
+          plan.id,
+          ["profileSnapshots", domain],
+          profileSnapshot,
         );
       }
     } catch (err) {

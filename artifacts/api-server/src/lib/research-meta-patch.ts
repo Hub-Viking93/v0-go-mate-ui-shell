@@ -38,6 +38,35 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ResearchMetaPatch = Record<string, unknown>;
 
+/**
+ * Phase E3-A — capture the profile-data subset that's relevant to
+ * specialist research. Stored as a sibling under
+ * research_meta.profileSnapshots[domain] each time a domain's
+ * bundle is persisted. Used by /api/research/suggestions to detect
+ * which domains the user has changed since their last research run.
+ *
+ * Strategy: snapshot the full profile_data wholesale rather than
+ * only the trigger-mapped subset. Profile_data is ~30 small scalar
+ * fields, so the storage cost is trivial; keeping the snapshot
+ * symmetric with what writers actually saw simplifies the diff
+ * call-site (one input, one output, no per-domain filtering at
+ * snapshot-write time).
+ */
+export function captureProfileSnapshot(
+  profileData: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  // Defensive copy + drop functions / undefined / non-serialisable
+  // entries so what we save round-trips cleanly through JSONB.
+  const out: Record<string, unknown> = {};
+  if (!profileData) return out;
+  for (const [k, v] of Object.entries(profileData)) {
+    if (v === undefined) continue;
+    if (typeof v === "function") continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 export interface ApplyResearchMetaPatchResult {
   /** The merged research_meta after the patch was applied. Null when
    *  the plan id didn't match any row (caller should treat as a

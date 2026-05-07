@@ -117,6 +117,17 @@ async function main(): Promise<void> {
       ? today
       : plan.arrival_date;
 
+  // E3-A — capture profileSnapshot per warmed bundle so the
+  // /api/research/suggestions endpoint has a baseline to diff
+  // against. Without this, suggestions would skip these freshly-
+  // warmed domains until the user triggered a real refresh.
+  const profileSnapshot: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(profileRaw)) {
+    if (v === undefined) continue;
+    if (typeof v === "function") continue;
+    profileSnapshot[k] = v;
+  }
+
   const newMeta = {
     ...(plan.research_meta ?? {}),
     researchedSpecialists: {
@@ -124,6 +135,12 @@ async function main(): Promise<void> {
       registration,
       banking,
       healthcare,
+    },
+    profileSnapshots: {
+      ...((plan.research_meta as { profileSnapshots?: Record<string, unknown> })?.profileSnapshots ?? {}),
+      registration: profileSnapshot,
+      banking: profileSnapshot,
+      healthcare: profileSnapshot,
     },
   };
 

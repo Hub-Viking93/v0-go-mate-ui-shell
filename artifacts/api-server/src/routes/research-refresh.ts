@@ -49,6 +49,8 @@ import {
   healthcareSpecialistV2,
   createSupabaseLogWriter,
   IMPLEMENTED_RESEARCHED_DOMAINS,
+  PROFILE_FIELD_TO_DOMAINS,
+  diffProfileForDomains,
   type ResearchedOutput,
   type ResearchedSpecialistFn,
   type ResearchedSteps,
@@ -56,7 +58,7 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
-import { applyResearchMetaPatchAt } from "../lib/research-meta-patch";
+import { applyResearchMetaPatchAt, captureProfileSnapshot } from "../lib/research-meta-patch";
 
 const router: IRouter = Router();
 
@@ -220,7 +222,11 @@ router.post("/research/refresh", async (req, res) => {
   // of different domains don't race on the researchedSpecialists
   // parent object (which they would under top-level-merge semantics
   // — see dry-run-f1-nested-race for the demonstration).
+  // Phase E3-A — alongside each bundle, persist a profileSnapshot
+  // so /api/research/suggestions can later diff current profile vs
+  // the state at research-time, per domain.
   const persistedAt = new Date().toISOString();
+  const profileSnapshot = captureProfileSnapshot(plan.profile_data);
   try {
     for (const r of refreshed) {
       await applyResearchMetaPatchAt(
@@ -228,6 +234,12 @@ router.post("/research/refresh", async (req, res) => {
         plan.id,
         ["researchedSpecialists", r.domain],
         newCache[r.domain],
+      );
+      await applyResearchMetaPatchAt(
+        ctx.supabase,
+        plan.id,
+        ["profileSnapshots", r.domain],
+        profileSnapshot,
       );
     }
   } catch (err) {
@@ -241,5 +253,143 @@ router.post("/research/refresh", async (req, res) => {
 
   res.json({ refreshed, skipped, persistedAt });
 });
+
+// =============================================================
+// GET /api/research/suggestions — Phase E3-A
+// =============================================================
+// Detect which domains' research is now stale relative to the
+// user's CURRENT profile by diffing against the per-domain
+// profileSnapshot captured at research-time.
+//
+// Response shape (UI-friendly):
+//   {
+//     suggestions: Array<{
+//       domain: SpecialistDomain,
+//       changedFields: string[],        // fields that affect THIS domain
+//       reason: string,                 // human-readable summary
+//       lastResearchedAt: string,       // bundle's retrievedAt
+//     }>,
+//     lastResearchedAt: string | null,  // most recent across cache
+//   }
+//
+// Honesty rules:
+//   - Domains without a profileSnapshot (never researched, or
+//     researched before E3-A landed) are SKIPPED — we can't
+//     compute a diff without a baseline, and inventing one would
+//     either over-suggest ("everything changed!") or under-suggest.
+//   - Snapshot.kind isn't checked; the bundle being researched
+//     vs fallback is orthogonal — if user changed destination,
+//     even a fallback bundle should be re-attempted.
+// =============================================================
+
+interface PlanSuggestionsRow {
+  id: string;
+  profile_data: Record<string, unknown> | null;
+  research_meta: {
+    researchedSpecialists?: Record<string, ResearchedSteps>;
+    profileSnapshots?: Record<string, Record<string, unknown>>;
+  } | null;
+}
+
+router.get("/research/suggestions", async (req, res) => {
+  const ctx = await authenticate(req, res);
+  if (!ctx) return;
+
+  const { data: plan, error: planErr } = await ctx.supabase
+    .from("relocation_plans")
+    .select("id, profile_data, research_meta")
+    .eq("user_id", ctx.user.id)
+    .eq("is_current", true)
+    .maybeSingle<PlanSuggestionsRow>();
+  if (planErr || !plan) {
+    res.status(404).json({ error: "No active plan" });
+    return;
+  }
+
+  const currentProfile = (plan.profile_data ?? {}) as Record<string, unknown>;
+  const cache = plan.research_meta?.researchedSpecialists ?? {};
+  const snapshots = plan.research_meta?.profileSnapshots ?? {};
+
+  type Suggestion = {
+    domain: SpecialistDomain;
+    changedFields: string[];
+    reason: string;
+    lastResearchedAt: string;
+  };
+  const suggestions: Suggestion[] = [];
+
+  // Build the reverse-map field → SpecialistDomain[] for fast
+  // lookup when we narrow changedFields per domain.
+  const fieldToDomains: Record<string, ReadonlyArray<SpecialistDomain>> = PROFILE_FIELD_TO_DOMAINS;
+
+  let mostRecentRetrievedAt: string | null = null;
+
+  for (const [domain, bundle] of Object.entries(cache)) {
+    if (!bundle || bundle.kind !== "steps") continue;
+    if (typeof bundle.retrievedAt !== "string") continue;
+    if (!mostRecentRetrievedAt || bundle.retrievedAt > mostRecentRetrievedAt) {
+      mostRecentRetrievedAt = bundle.retrievedAt;
+    }
+    const snapshot = snapshots[domain];
+    if (!snapshot) continue; // never captured — can't compute diff
+
+    const affectedDomains = diffProfileForDomains(snapshot, currentProfile);
+    if (!affectedDomains.includes(domain as SpecialistDomain)) continue;
+
+    // Narrow the diff to fields that specifically affect THIS domain.
+    // Loop over snapshot ∪ current keys, find the ones that (a) differ,
+    // (b) appear in PROFILE_FIELD_TO_DOMAINS, and (c) the mapping
+    // includes the current domain.
+    const allKeys = new Set([
+      ...Object.keys(snapshot),
+      ...Object.keys(currentProfile),
+    ]);
+    const changedFields: string[] = [];
+    for (const key of allKeys) {
+      const before = snapshot[key];
+      const after = currentProfile[key];
+      const isEquivalent = isFieldEquivalent(before, after);
+      if (isEquivalent) continue;
+      const mapping = fieldToDomains[key];
+      if (!mapping) continue;
+      if (!mapping.includes(domain as SpecialistDomain)) continue;
+      changedFields.push(key);
+    }
+    if (changedFields.length === 0) continue; // shouldn't happen given affectedDomains check, but defensive
+
+    changedFields.sort();
+    const reason = renderSuggestionReason(changedFields);
+    suggestions.push({
+      domain: domain as SpecialistDomain,
+      changedFields,
+      reason,
+      lastResearchedAt: bundle.retrievedAt,
+    });
+  }
+
+  // Stable order: by domain name.
+  suggestions.sort((a, b) => a.domain.localeCompare(b.domain));
+
+  res.json({ suggestions, lastResearchedAt: mostRecentRetrievedAt });
+});
+
+// Mirrors lib/agents/research-triggers.ts's isEquivalent — kept
+// inline here so the route doesn't import a private module of the
+// agents package. Both definitions agree on the null≡undefined rule
+// and the conservative "objects are never equal" rule.
+function isFieldEquivalent(x: unknown, y: unknown): boolean {
+  if (x == null && y == null) return true;
+  if (x == null || y == null) return false;
+  if (typeof x !== typeof y) return false;
+  if (typeof x === "object") return false;
+  return x === y;
+}
+
+function renderSuggestionReason(changedFields: ReadonlyArray<string>): string {
+  if (changedFields.length === 0) return "Profile changed since research";
+  if (changedFields.length === 1) return `${changedFields[0]} changed since research`;
+  if (changedFields.length === 2) return `${changedFields[0]} + ${changedFields[1]} changed since research`;
+  return `${changedFields[0]}, ${changedFields[1]} +${changedFields.length - 2} more changed since research`;
+}
 
 export default router;
