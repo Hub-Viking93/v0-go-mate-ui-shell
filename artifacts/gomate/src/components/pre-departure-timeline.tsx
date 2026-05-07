@@ -30,6 +30,10 @@ import {
   type TaskWalkthroughView,
   type VaultDocRefView,
 } from "@/components/task-detail-sheet";
+import {
+  ResearchProvenanceBadge,
+  type ResearchProvenance,
+} from "@/components/research-provenance-badge";
 
 type ActionStatus = "not_started" | "in_progress" | "complete" | "blocked" | "skipped";
 type Urgency = "overdue" | "urgent" | "approaching" | "normal";
@@ -74,6 +78,8 @@ interface TimelineResponse {
   moveDate: string;
   generatedAt: string;
   stats?: { total: number; overdue: number; urgent: number; approaching: number };
+  /** Phase D-B — per-domain provenance (researched / legacy_research / generic). */
+  provenance?: Record<string, ResearchProvenance>;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -363,6 +369,12 @@ export function PreDepartureTimeline() {
           <StatCell label="In progress" value={stats.inProgress} valueColor="text-[#8C6B2F]" />
           <StatCell label="Not started" value={stats.notStarted} valueColor="text-[#1F2A24]" />
         </div>
+        {/* Phase D-B — per-domain provenance summary. /pre-move is
+            grouped by week (not by domain), so a top-of-page summary
+            is the cleanest spot for the user to see which domains
+            are research-backed at a glance. Click any chip for the
+            source list. */}
+        <TimelineProvenanceSummary provenance={timeline.provenance ?? null} />
       </section>
 
       {/* Overdue / urgent strip */}
@@ -500,6 +512,62 @@ export function PreDepartureTimeline() {
           await handleStatusChange(a, mapped);
         }}
       />
+    </div>
+  );
+}
+
+// =============================================================
+// TimelineProvenanceSummary — Phase D-B
+// =============================================================
+// Compact row of per-domain badges for /pre-move. Each chip shows
+// the domain's provenance kind (researched / legacy_research /
+// generic) using the shared <ResearchProvenanceBadge>; clicking the
+// chip opens its popover with the source list.
+//
+// Order is fixed so the chip layout is stable across runs:
+// Visa, Documents, Housing, Banking, Healthcare. Domains absent
+// from the API response render as "Generic" — same convention as
+// the post-move version.
+const PRE_DEPARTURE_DOMAIN_LABELS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "visa", label: "Visa" },
+  { key: "documents", label: "Documents" },
+  { key: "housing", label: "Housing" },
+  { key: "banking", label: "Banking" },
+  { key: "healthcare", label: "Healthcare" },
+];
+
+function TimelineProvenanceSummary({
+  provenance,
+}: {
+  provenance: Record<string, ResearchProvenance> | null;
+}) {
+  // Safety net for old persisted timelines that lack provenance.
+  // Renders the chip row as all-generic so the section is never
+  // missing/blank — also makes "this content is not researched"
+  // visible until the user regenerates.
+  const safe: Record<string, ResearchProvenance> = provenance ?? {};
+  return (
+    <div
+      className="gm-surface px-3.5 py-2.5 flex items-center gap-2 flex-wrap"
+      data-testid="timeline-provenance-summary"
+    >
+      <span className="text-[10px] uppercase tracking-wide text-[#7E9088] mr-1">
+        Sources
+      </span>
+      {PRE_DEPARTURE_DOMAIN_LABELS.map(({ key, label }) => {
+        const p = safe[key] ?? { kind: "generic" as const };
+        return (
+          <span
+            key={key}
+            className="inline-flex items-center gap-1"
+            data-testid={`provenance-chip-${key}`}
+            data-domain={key}
+          >
+            <span className="text-[11px] text-[#1F2A24]">{label}</span>
+            <ResearchProvenanceBadge provenance={p} compact />
+          </span>
+        );
+      })}
     </div>
   );
 }

@@ -17,7 +17,7 @@
 // =============================================================
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ExternalLink, FlaskConical, Sparkles, AlertTriangle } from "lucide-react"
+import { ExternalLink, FlaskConical, Sparkles, AlertTriangle, Archive } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type ResearchProvenance =
@@ -29,6 +29,24 @@ export type ResearchProvenance =
       sources: ReadonlyArray<{
         url: string
         domain: string
+        kind: "authority" | "institution" | "reference"
+        title?: string
+      }>
+    }
+  | {
+      // "Real research, but from the older pipeline (pre-contract).
+      // Sources persisted but not run through the new validators
+      // (strict enum + ProfilePredicate + URL ref integrity).
+      // Visible on /pre-move's visa domain until that specialist
+      // migrates to the new contract.
+      kind: "legacy_research"
+      retrievedAt: string
+      sources: ReadonlyArray<{
+        url: string
+        domain: string
+        // Legacy persistence didn't tag source kind; we default to
+        // "authority" since the producing specialist was meant to
+        // scrape official sites only. Honest fallback.
         kind: "authority" | "institution" | "reference"
         title?: string
       }>
@@ -81,6 +99,15 @@ function qualityClass(quality: "full" | "partial" | "fallback"): { bg: string; t
   }
 }
 
+// Visual treatment for the legacy_research kind. Distinct from the
+// new-pipe palette (emerald/amber/rose) — slate/blue, with an Archive
+// icon that signals "older but still real research".
+const LEGACY_CLASS = {
+  bg: "bg-slate-500/10",
+  text: "text-slate-700 dark:text-slate-300",
+  border: "border-slate-500/30",
+} as const
+
 export function ResearchProvenanceBadge({ provenance, compact = false }: Props) {
   if (provenance.kind === "generic") {
     return (
@@ -96,6 +123,77 @@ export function ResearchProvenanceBadge({ provenance, compact = false }: Props) 
         <Sparkles className="w-3 h-3 opacity-60" />
         Generic
       </span>
+    )
+  }
+
+  if (provenance.kind === "legacy_research") {
+    const legacyLabel = compact ? "Researched · legacy" : "Researched · legacy"
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            data-testid="provenance-badge"
+            data-provenance-kind="legacy_research"
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
+              "text-[10px] uppercase tracking-wide font-medium transition-colors",
+              "hover:brightness-95",
+              LEGACY_CLASS.bg,
+              LEGACY_CLASS.text,
+              LEGACY_CLASS.border,
+            )}
+            aria-label={`${legacyLabel} — click for sources`}
+          >
+            <Archive className="w-3 h-3" strokeWidth={2} />
+            {legacyLabel}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72 p-3 text-[12px]">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={cn("inline-flex items-center gap-1 font-medium", LEGACY_CLASS.text)}>
+                <Archive className="w-3.5 h-3.5" strokeWidth={2} />
+                Researched · legacy
+              </span>
+              <span className="text-[11px] text-muted-foreground">{formatRelative(provenance.retrievedAt)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              This section came from the older research pipeline. It was researched per destination, but isn't yet
+              upgraded to the current validation standard (strict source-URL integrity, predicate validation, quality
+              grading). Future migrations will move it onto the same pipeline as the rest.
+            </p>
+            {provenance.sources.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Sources ({provenance.sources.length})
+                </div>
+                <ul className="space-y-1">
+                  {provenance.sources.slice(0, 6).map((s) => (
+                    <li key={s.url}>
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[12px] text-foreground hover:underline"
+                      >
+                        <span className="text-[10px] uppercase text-muted-foreground tabular-nums w-[64px] shrink-0">
+                          {s.kind}
+                        </span>
+                        <span className="truncate">{s.title ?? s.domain}</span>
+                        <ExternalLink className="w-3 h-3 opacity-60 shrink-0" strokeWidth={2} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">No source URLs persisted from the legacy run.</p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     )
   }
 

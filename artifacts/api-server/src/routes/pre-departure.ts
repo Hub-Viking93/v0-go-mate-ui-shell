@@ -71,7 +71,51 @@ interface StoredPreDeparture {
   longestLeadTimeWeeks: number;
   criticalPath: string[];
   actions: StoredAction[];
+  /**
+   * Phase D-B — per-domain provenance snapshot taken at generation
+   * time. Persisted alongside the timeline so GET /api/pre-departure
+   * doesn't have to re-scan visa_research / local_requirements_research
+   * to answer "was this researched, legacy, or generic?". Older
+   * persisted timelines (pre-D-B) won't have this field; the route
+   * tolerates absence by treating it as "generic everywhere".
+   */
+  provenance?: Record<string, TimelineDomainProvenance>;
 }
+
+// =============================================================
+// Phase D-B — pre-departure provenance map
+// =============================================================
+// Three honest kinds:
+//   researched      — new ResearchedSpecialist contract (full
+//                     enum/predicate/URL-ref validation). Surfaces
+//                     quality + sources + retrievedAt.
+//   legacy_research — older pipeline. Real research from a
+//                     previous specialist persisted to the
+//                     visa_research or local_requirements_research
+//                     column; not run through the new validators.
+//                     Visible on /pre-move's visa domain (and any
+//                     domain that hasn't migrated yet) until the
+//                     specialist is rewritten.
+//   generic         — deterministic / template-based; no LLM
+//                     research per destination.
+//
+// The label "Researched · legacy" is for honesty: hiding the
+// architectural distinction would let users over-trust visa
+// content that hasn't been through URL_GUARDRAIL et al.
+type TimelineDomainProvenance =
+  | {
+      kind: "researched";
+      quality: "full" | "partial" | "fallback";
+      fallbackReason?: string;
+      retrievedAt: string;
+      sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
+    }
+  | {
+      kind: "legacy_research";
+      retrievedAt: string;
+      sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
+    }
+  | { kind: "generic" };
 
 interface PlanRowForRead {
   id: string;
@@ -171,6 +215,82 @@ async function runResearchedSpecialistsForPreDeparture(args: {
   return out;
 }
 
+// Domains the pre-departure composer renders. Order is the order they
+// appear in the summary card on /pre-move.
+const PRE_DEPARTURE_DOMAINS: ReadonlyArray<string> = [
+  "visa",
+  "documents",
+  "housing",
+  "banking",
+  "healthcare",
+];
+
+/**
+ * Decide the provenance kind for one pre-departure domain. Honest
+ * three-way:
+ *   - cache present + usable    →  researched (new pipe)
+ *   - legacy adapter produced  →  legacy_research
+ *   - neither                  →  generic
+ *
+ * "usable" mirrors mergeResearchedByDomain's gate: quality !==
+ * "fallback" OR ≥1 step. A pure-fallback bundle that the merge
+ * skipped also doesn't count as "researched" here.
+ */
+function provenanceForDomain(args: {
+  domain: string;
+  cache: ResearchedSpecialistsCache;
+  legacyByDomain: Record<string, ResearchedStepsLite>;
+}): TimelineDomainProvenance {
+  const cached = args.cache[args.domain];
+  if (
+    cached &&
+    cached.kind === "steps" &&
+    (cached.quality !== "fallback" || cached.steps.length > 0)
+  ) {
+    return {
+      kind: "researched",
+      quality: cached.quality,
+      ...(cached.fallbackReason ? { fallbackReason: cached.fallbackReason } : {}),
+      retrievedAt: cached.retrievedAt,
+      sources: cached.sources.map((s) => ({
+        url: s.url,
+        domain: s.domain,
+        kind: s.kind,
+        ...(s.title ? { title: s.title } : {}),
+      })),
+    };
+  }
+  const legacy = args.legacyByDomain[args.domain];
+  if (legacy && Array.isArray(legacy.steps) && legacy.steps.length > 0) {
+    return {
+      kind: "legacy_research",
+      retrievedAt: new Date().toISOString(),
+      sources: (legacy.sources ?? []).map((s) => ({
+        url: s.url,
+        domain: s.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""),
+        // Legacy adapter doesn't tag source kind; default to authority.
+        kind: "authority" as const,
+      })),
+    };
+  }
+  return { kind: "generic" };
+}
+
+function buildPreDepartureProvenance(args: {
+  cache: ResearchedSpecialistsCache;
+  legacyByDomain: Record<string, ResearchedStepsLite>;
+}): Record<string, TimelineDomainProvenance> {
+  const out: Record<string, TimelineDomainProvenance> = {};
+  for (const domain of PRE_DEPARTURE_DOMAINS) {
+    out[domain] = provenanceForDomain({
+      domain,
+      cache: args.cache,
+      legacyByDomain: args.legacyByDomain,
+    });
+  }
+  return out;
+}
+
 /**
  * Apply the precedence rule: researched cache wins over legacy adapter
  * output for any domain it covers with usable quality. Domains absent
@@ -262,6 +382,10 @@ router.get("/pre-departure", async (req, res) => {
       longestLeadTimeWeeks: stored.longestLeadTimeWeeks,
       moveDate: stored.moveDateIso.split("T")[0],
       generatedAt: stored.generatedAt,
+      // Phase D-B — provenance comes from the persisted snapshot;
+      // older timelines (pre-D-B) lack the field, so default to an
+      // all-generic map the UI can render without breaking.
+      provenance: stored.provenance ?? defaultGenericProvenance(),
       stats: {
         total: sorted.length,
         overdue: sorted.filter((a) => a.urgency === "overdue").length,
@@ -274,6 +398,12 @@ router.get("/pre-departure", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+function defaultGenericProvenance(): Record<string, TimelineDomainProvenance> {
+  const out: Record<string, TimelineDomainProvenance> = {};
+  for (const d of PRE_DEPARTURE_DOMAINS) out[d] = { kind: "generic" };
+  return out;
+}
 
 router.post("/pre-departure/generate", async (req, res) => {
   const ctx = await authenticate(req, res);
@@ -397,12 +527,21 @@ router.post("/pre-departure/generate", async (req, res) => {
       };
     });
 
+    // Phase D-B — snapshot per-domain provenance at generation time so
+    // GET /api/pre-departure can answer "where did each section come
+    // from?" without re-scanning visa_research / local_requirements.
+    const provenance = buildPreDepartureProvenance({
+      cache: researchedSpecialistsCache,
+      legacyByDomain,
+    });
+
     const stored: StoredPreDeparture = {
       generatedAt: timeline.generatedAt,
       moveDateIso: timeline.moveDateIso,
       longestLeadTimeWeeks: timeline.longestLeadTimeWeeks,
       criticalPath: timeline.criticalPath.map((c) => c.id),
       actions: storedActions,
+      provenance,
     };
 
     const newResearchMeta: ResearchMetaWithSpecialists = {
@@ -451,6 +590,7 @@ router.post("/pre-departure/generate", async (req, res) => {
       longestLeadTimeWeeks: stored.longestLeadTimeWeeks,
       moveDate: stored.moveDateIso.split("T")[0],
       generatedAt: stored.generatedAt,
+      provenance,
       stats: {
         total: sorted.length,
         overdue: sorted.filter((a) => a.urgency === "overdue").length,
