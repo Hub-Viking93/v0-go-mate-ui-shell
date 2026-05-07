@@ -48,10 +48,10 @@ function GuestModeBanner({ variant = "sidebar" }: { variant?: "sidebar" | "mobil
       type="button"
       onClick={openSaveModal}
       data-testid="guest-mode-indicator"
-      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left rounded-lg transition-colors hover:bg-[#C8EBD6]"
+      className="flex w-full items-center gap-2 px-3 py-2 text-left rounded-md transition-colors hover:bg-[#2A3830]"
     >
-      <UserCircle2 className="w-3.5 h-3.5 text-sidebar-foreground/70 shrink-0" />
-      <span className="text-xs text-sidebar-foreground/70 truncate">Guest — save progress</span>
+      <UserCircle2 className="w-3.5 h-3.5 text-[#9CB0A4] shrink-0" />
+      <span className="text-[12.5px] text-[#C8D5CC] truncate">Guest — save progress</span>
     </button>
   );
 }
@@ -100,18 +100,18 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="min-h-screen gm-canvas">
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-52 lg:flex-col">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-56 lg:flex-col">
         <div
-          className="relative flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar px-3 py-5"
+          className="relative flex grow flex-col gap-y-6 overflow-y-auto px-3 py-5"
           style={{
-            borderRight: "1px solid #C9DDD0",
-            boxShadow: "1px 0 0 rgba(31, 42, 36, 0.02)",
+            background: "#1F2A24",
+            borderRight: "1px solid #14201A",
           }}
         >
           <Link href="/dashboard" className="relative flex items-center gap-2.5 group px-1">
             <img src="/images/gomate-logo.png" alt="GoMate" className="w-7 h-7 object-contain" />
             <span
-              className="font-sans text-[#1F2A24] text-[15px] font-semibold tracking-tight"
+              className="font-sans text-white text-[15px] font-semibold tracking-tight"
             >
               GoMate
             </span>
@@ -130,21 +130,23 @@ export function AppShell({ children }: AppShellProps) {
                     <Link
                       href={item.href}
                       className={cn(
-                        "group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[14px] font-semibold transition-all duration-150",
+                        "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] font-medium",
+                        "transition-colors duration-150",
                         isActive
-                          ? "text-[#1F2A24] bg-[#DDF0E4]"
-                          : "text-[#4E5F57] hover:text-[#1F2A24] hover:bg-[#E4F1E8]"
+                          ? "text-white"
+                          : "text-[#C8D5CC] hover:text-white hover:bg-[#2A3830]"
                       )}
+                      style={isActive ? { background: "#2C3E33" } : undefined}
                     >
                       {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-[#7BB091]" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#7BB091]" />
                       )}
                       <item.icon
                         className={cn(
                           "w-[16px] h-[16px] transition-colors duration-150",
-                          isActive ? "text-[#24332C]" : "text-[#4E5F57] group-hover:text-[#1F2A24]"
+                          isActive ? "text-[#7BB091]" : "text-[#9CB0A4] group-hover:text-white"
                         )}
-                        strokeWidth={isActive ? 2 : 1.6}
+                        strokeWidth={isActive ? 2 : 1.7}
                       />
                       {item.name}
                     </Link>
@@ -154,11 +156,11 @@ export function AppShell({ children }: AppShellProps) {
             </ul>
           </nav>
 
-          <div className="relative space-y-1">
+          <div className="relative space-y-1" style={{ borderTop: "1px solid #2A3830", paddingTop: "12px" }}>
             <GuestModeBanner variant="sidebar" />
             <Link
               href="/chat"
-              className="flex items-center gap-2 px-2.5 py-1.5 text-[13px] font-semibold text-[#4E5F57] hover:text-[#1F2A24] rounded-md transition-colors hover:bg-[#E4F1E8]"
+              className="flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-[#C8D5CC] hover:text-white rounded-md transition-colors hover:bg-[#2A3830]"
               data-testid="sidebar-ask-gomate"
             >
               <MessageSquare className="w-3.5 h-3.5" />
@@ -168,7 +170,7 @@ export function AppShell({ children }: AppShellProps) {
               href="https://gomaterelocate.com/country-guides"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-2.5 py-1.5 text-[13px] font-medium text-[#4E5F57] hover:text-[#1F2A24] rounded-md transition-colors hover:bg-[#E4F1E8]"
+              className="flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-[#C8D5CC] hover:text-white rounded-md transition-colors hover:bg-[#2A3830]"
             >
               <Globe className="w-3.5 h-3.5" />
               Country Guides
@@ -176,7 +178,7 @@ export function AppShell({ children }: AppShellProps) {
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[13px] font-medium text-[#7E9088] hover:text-[#1F2A24] rounded-md transition-colors hover:bg-[#E4F1E8]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-[#9CB0A4] hover:text-white rounded-md transition-colors hover:bg-[#2A3830]"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign out
@@ -197,10 +199,10 @@ export function AppShell({ children }: AppShellProps) {
         const isChatSurface =
           pathname.startsWith("/chat") || pathname.startsWith("/onboarding")
         if (isChatSurface) {
-          return <main className="lg:pl-52">{children}</main>
+          return <main className="lg:pl-56">{children}</main>
         }
         return (
-          <main className="lg:pl-52">
+          <main className="lg:pl-56">
             <div className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-20 lg:pb-0">
               {children}
             </div>

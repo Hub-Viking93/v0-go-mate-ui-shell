@@ -41,7 +41,7 @@ export function CityInput({ value, onChange, country, placeholder, id }: CityInp
                 className={cn(
                   "h-7 px-3 text-[11.5px] font-medium rounded-full transition-colors",
                   isSelected
-                    ? "bg-[#24332C] hover:bg-[#2D3E36] text-white border-[#24332C]"
+                    ? "bg-[#1B7A40] hover:bg-[#15663A] text-white border-[#1B7A40]"
                     : "border-[#DCE7DF] text-[#7E9088] hover:text-[#1F2A24] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]",
                 )}
               >

@@ -121,7 +121,7 @@ export default function OnboardingWelcomePage() {
             onClick={handleStart}
             disabled={loading}
             size="sm"
-            className="gap-1.5 rounded-md bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm h-9 px-4 text-[12.5px]"
+            className="gap-1.5 rounded-md bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm h-9 px-4 text-[12.5px]"
           >
             {loading ? (
               <>

@@ -45,7 +45,7 @@ export function OptionPills({
               "transition-all duration-[150ms] [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3F6B53]/30 focus-visible:ring-offset-1",
               selected
-                ? "bg-[#24332C] text-white border border-[#24332C] shadow-sm"
+                ? "bg-[#1B7A40] text-white border border-[#1B7A40] shadow-sm"
                 : "bg-white border border-[#DCE7DF] text-[#1F2A24] hover:border-[#B5D2BC] hover:bg-[#F7FAF7]",
             )}
           >

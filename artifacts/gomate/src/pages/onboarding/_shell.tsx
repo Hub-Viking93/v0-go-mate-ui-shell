@@ -147,7 +147,7 @@ export function OnboardingShell({
             type="button"
             onClick={onPrimary}
             disabled={primaryDisabled || primaryLoading}
-            className="gap-2 rounded-md h-9 px-5 bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm disabled:opacity-50 disabled:bg-[#DCE7DF] disabled:text-[#7E9088]"
+            className="gap-2 rounded-md h-9 px-5 bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm disabled:opacity-50 disabled:bg-[#DCE7DF] disabled:text-[#7E9088]"
           >
             {primaryLoading ? (
               <>

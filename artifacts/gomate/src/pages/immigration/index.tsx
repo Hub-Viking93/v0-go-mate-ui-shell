@@ -44,7 +44,7 @@ export default function ImmigrationPage() {
           type="button"
           onClick={() => setLocation("/pre-move")}
           data-testid="immigration-open-tasks"
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium text-white bg-[#24332C] hover:bg-[#2D3E36] shadow-sm transition-colors"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium text-white bg-[#1B7A40] hover:bg-[#15663A] shadow-sm transition-colors"
         >
           Immigration tasks
           <ArrowRight className="w-3.5 h-3.5" />

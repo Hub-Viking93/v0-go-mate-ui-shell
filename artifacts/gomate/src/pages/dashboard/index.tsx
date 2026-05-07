@@ -1260,7 +1260,7 @@ export default function DashboardPage() {
           <Button
             asChild
             size="sm"
-            className="gap-1.5 h-8 px-3 text-xs rounded-md bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm"
+            className="gap-1.5 h-8 px-3 text-xs rounded-md bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm"
           >
             <Link href="/onboarding">
               <MessageSquare className="w-3.5 h-3.5" />
@@ -1386,59 +1386,60 @@ export default function DashboardPage() {
         <span className="gm-eyebrow">Workspaces</span>
         <WorkspaceTiles />
       </div>
-      {/* Compact stats bar */}
+      {/* Profile stats — real grid card with vertical dividers */}
       {hasDestination && (
-        <div className="mb-5 gm-animate-in gm-delay-1">
+        <div className="mb-6 gm-animate-in gm-delay-1">
           {hasCitizenship && (
             <div className="mb-3">
               <VisaStatusBadge citizenship={citizenship} destination={targetCountry} />
             </div>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-3 border-b border-[#DCE7DF]">
-            <div>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+          <div className="gm-surface grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#E2E8E1]">
+            <div className="px-4 py-3.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <MapPin className="w-3 h-3" strokeWidth={1.7} />
                 Destination
               </div>
-              <div className="mt-0.5 text-sm font-medium text-foreground flex items-center gap-1.5">
+              <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24] flex items-center gap-1.5">
                 <CountryFlag country={targetCountry} size="sm" />
                 {targetCountry}
               </div>
               {profile.current_location && (
-                <div className="text-[11px] text-muted-foreground">from {profile.current_location}</div>
+                <div className="text-[11px] text-[#7E9088] mt-0.5">from {profile.current_location}</div>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+            <div className="px-4 py-3.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <Calendar className="w-3 h-3" strokeWidth={1.7} />
                 Purpose
               </div>
-              <div className="mt-0.5 text-sm font-medium text-foreground">
+              <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24]">
                 {formatEnumLabel(profile.purpose)}
               </div>
               {profile.visa_role && (
-                <div className="text-[11px] text-muted-foreground">{formatEnumLabel(profile.visa_role)}</div>
+                <div className="text-[11px] text-[#7E9088] mt-0.5">{formatEnumLabel(profile.visa_role)}</div>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+            <div className="px-4 py-3.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <TrendingUp className="w-3 h-3" strokeWidth={1.7} />
                 Profile
               </div>
-              <div className="mt-0.5 text-sm font-medium text-foreground">
+              <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24]">
                 {dashboardState.profileProgressLabel}
               </div>
+              <div className="text-[11px] text-[#7E9088] mt-0.5">complete</div>
             </div>
-            <div>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-muted-foreground">
+            <div className="px-4 py-3.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] font-semibold text-[#7E9088]">
                 <Clock className="w-3 h-3" strokeWidth={1.7} />
                 Timeline
               </div>
-              <div className="mt-0.5 text-sm font-medium text-foreground">
+              <div className="mt-1.5 text-[14px] font-semibold text-[#1F2A24]">
                 {profile.timeline || (hasTimeline ? formatTimeUntilMove(monthsUntilMove) : "Not set")}
               </div>
               {hasTimeline && profile.timeline && (
-                <div className="text-[11px] text-muted-foreground">≈ {formatTimeUntilMove(monthsUntilMove)}</div>
+                <div className="text-[11px] text-[#7E9088] mt-0.5">≈ {formatTimeUntilMove(monthsUntilMove)}</div>
               )}
             </div>
           </div>
@@ -1601,7 +1602,7 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
             onClick={() => fire("research")}
             disabled={busy}
             data-testid="trigger-generate-research"
-            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#24332C] hover:bg-[#2D3E36]"
+            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#1B7A40] hover:bg-[#15663A]"
             size="sm"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -1628,7 +1629,7 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
             onClick={() => fire("preDeparture")}
             disabled={busy}
             data-testid="trigger-generate-predeparture"
-            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#24332C] hover:bg-[#2D3E36]"
+            className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#1B7A40] hover:bg-[#15663A]"
             size="sm"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -1655,7 +1656,7 @@ function ManualTriggerCard({ plan }: { plan: { id?: string; stage?: string; user
           onClick={() => fire("arrived")}
           disabled={busy}
           data-testid="trigger-mark-arrived"
-          className="gap-2 rounded-xl text-white font-semibold shadow-sm bg-[#0F172A] hover:bg-[#1E293B]"
+          className="gap-2 rounded-md text-white font-semibold shadow-sm bg-[#1B7A40] hover:bg-[#15663A]"
           size="sm"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

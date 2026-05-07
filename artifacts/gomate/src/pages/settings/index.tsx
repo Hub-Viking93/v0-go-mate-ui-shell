@@ -145,7 +145,7 @@ export default function SettingsPage() {
           )}
           <Button
             size="sm"
-            className="h-8 px-3 text-xs rounded-md bg-[#24332C] text-white hover:bg-[#2D3E36] shadow-sm"
+            className="h-8 px-3 text-xs rounded-md bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm"
             onClick={handleSaveName}
             disabled={saving}
           >

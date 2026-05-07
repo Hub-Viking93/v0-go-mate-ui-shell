@@ -10,8 +10,10 @@
    off-white canvas. Solid white cards with defined borders, not glass.
    Reference: WorkFlex / Personio / JumpCloud calmness, but warmer. */
 :root {
-  /* Surfaces — three real layers: page / card / sub-surface */
-  --background: #EEF3EE;       /* App canvas — slightly more saturated, reads as paper */
+  /* Surfaces — three real layers: page / card / sub-surface.
+     Page is near-white with a hint of green warmth; cards lift on
+     shadow, not on hue contrast. SaaS-style separation. */
+  --background: #F6F8F5;       /* App canvas — near-white, hint of warmth */
   --foreground: #1F2A24;       /* Primary heading text */
   --card: #FFFFFF;             /* Solid white card surface */
   --card-foreground: #1F2A24;
@@ -51,27 +53,32 @@
   /* Slightly tighter radius — less Figma-wireframe, more app */
   --radius: 0.625rem;
 
-  /* Sidebar — defined against content with a clear right border */
-  --sidebar: #C8E0D0;
-  --sidebar-foreground: #1F2A24;
-  --sidebar-primary: #166534;
+  /* Sidebar — dark forest anchor, high contrast against white canvas.
+     Saturated active row + bright mint left-stripe so navigation reads
+     instantly. Pattern lifted from Personio / JumpCloud / Linear. */
+  --sidebar: #1F2A24;
+  --sidebar-foreground: #C8D5CC;
+  --sidebar-primary: #7BB091;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #A8C8B8;
-  --sidebar-accent-foreground: #1F2A24;
-  --sidebar-border: #90B8A4;
-  --sidebar-ring: #16A34A;
+  --sidebar-accent: #2C3E33;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #14201A;
+  --sidebar-ring: #7BB091;
 
-  /* Card shadow — barely there, just enough to lift off the canvas */
+  /* Card shadow — visible enough to lift off the page, not heavy */
   --gm-card-bg: #FFFFFF;
-  --gm-card-border: #DCE7DF;
+  --gm-card-border: #E2E8E1;
   --gm-card-border-hover: #B5D2BC;
-  --gm-card-shadow: 0 1px 0 rgba(31, 42, 36, 0.02), 0 4px 12px -8px rgba(31, 42, 36, 0.06);
-  --gm-card-shadow-hover: 0 2px 0 rgba(31, 42, 36, 0.03), 0 10px 24px -10px rgba(31, 42, 36, 0.10);
+  --gm-card-shadow: 0 1px 1px rgba(31, 42, 36, 0.04), 0 4px 12px -6px rgba(31, 42, 36, 0.08);
+  --gm-card-shadow-hover: 0 2px 2px rgba(31, 42, 36, 0.06), 0 12px 28px -8px rgba(31, 42, 36, 0.14);
   --gm-success-glow: 0 0 0 2px rgba(123, 176, 145, 0.25);
 
-  /* Brand accent — used for active sidebar, active subnav, primary chip */
-  --gm-brand: #3F6B53;
-  --gm-brand-hover: #2D3E36;
+  /* Brand accent — saturated forest green, used for primary CTAs and
+     active states. The previous muted #3F6B53 read as navy/grey; this
+     pops while staying on-tone. */
+  --gm-brand: #1B7A40;
+  --gm-brand-hover: #15663A;
+  --gm-brand-soft: #E0F0E5;
 
   /* Motion — single timing function across the app */
   --gm-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -433,12 +440,11 @@
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 2px;
-  background: var(--gm-tile-accent-color, #3F6B53);
-  opacity: 0.8;
-  transition: opacity var(--gm-dur) var(--gm-ease), height var(--gm-dur) var(--gm-ease);
+  height: 4px;
+  background: var(--gm-tile-accent-color, #1B7A40);
+  opacity: 1;
+  transition: height var(--gm-dur) var(--gm-ease);
 }
 .gm-tile-accent:hover::before {
-  opacity: 1;
-  height: 3px;
+  height: 5px;
 }
