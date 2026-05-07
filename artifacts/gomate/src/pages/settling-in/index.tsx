@@ -34,6 +34,10 @@ import { Badge } from "@/components/ui/badge"
 import { FullPageGate } from "@/components/tier-gate"
 import { useTier } from "@/hooks/use-tier"
 import {
+  ResearchProvenanceBadge,
+  type ResearchProvenance,
+} from "@/components/research-provenance-badge"
+import {
   SettlingInTaskCard,
   type SettlingInTask,
 } from "@/components/settling-in-task-card"
@@ -99,6 +103,9 @@ export default function SettlingInPage() {
   const [viewMode, setViewMode] = useState<"all" | "first30">("all")
   const [activeTab, setActiveTab] = useState<"tasks" | "calendar">("tasks")
   const [vaultDocs, setVaultDocs] = useState<VaultDocRefView[]>([])
+  // Phase D-A — per-category provenance map. Keys are SettlingDomain
+  // values; absent keys render as "Generic".
+  const [provenance, setProvenance] = useState<Record<string, ResearchProvenance>>({})
 
   const refreshVault = useCallback(async () => {
     try {
@@ -190,6 +197,7 @@ export default function SettlingInPage() {
       setStats(data.stats || null)
       setArrivalDate(data.arrivalDate || null)
       setGenerated(data.generated || false)
+      setProvenance((data.provenance as Record<string, ResearchProvenance> | undefined) ?? {})
 
       // Auto-expand categories that have available tasks
       if (data.tasks?.length) {
@@ -644,6 +652,10 @@ export default function SettlingInPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <ResearchProvenanceBadge
+                      provenance={provenance[group.key] ?? { kind: "generic" }}
+                      compact
+                    />
                     {hasLegal && (
                       <Badge variant="outline" className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5 gap-0.5 px-1.5">
                         <Shield className="w-3 h-3" />

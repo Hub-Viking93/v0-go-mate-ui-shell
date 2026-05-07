@@ -233,6 +233,96 @@ function isPostArrivalStage(stage: string | null | undefined): boolean {
   return stage === "arrived";
 }
 
+// =============================================================
+// Phase D-A — provenance map for the UI
+// =============================================================
+// The /api/settling-in response now ships a `provenance` block keyed
+// by SettlingDomain. The UI uses this to render a per-category badge
+// indicating whether the section's content came from a researched
+// specialist (and what quality) vs the deterministic DAG.
+//
+// Honesty rules:
+//   - kind="researched" only when a usable bundle exists in
+//     research_meta.researchedSpecialists (quality !== "fallback" or
+//     ≥1 step). Same definition as the composer's isUsableResearched.
+//   - kind="generic" everywhere else — including domains that
+//     could be researched in principle (housing, employment, etc.)
+//     but aren't wired yet.
+//   - retrievedAt + sources are surfaced verbatim from the bundle so
+//     the UI doesn't second-guess freshness.
+
+interface CategoryProvenanceResearched {
+  kind: "researched";
+  quality: "full" | "partial" | "fallback";
+  fallbackReason?: string;
+  retrievedAt: string;
+  sources: Array<{ url: string; domain: string; kind: "authority" | "institution" | "reference"; title?: string }>;
+}
+interface CategoryProvenanceGeneric {
+  kind: "generic";
+}
+type CategoryProvenance = CategoryProvenanceResearched | CategoryProvenanceGeneric;
+
+const ALL_SETTLING_DOMAINS: ReadonlyArray<string> = [
+  "registration",
+  "banking",
+  "healthcare",
+  "housing",
+  "employment",
+  "transport",
+  "family",
+  "tax",
+];
+
+// Domains the post-move composer actually consumes from the
+// researched cache. Other domains' entries in research_meta.
+// researchedSpecialists may exist (banking + housing also live there
+// for the pre-departure pipe) but they don't drive any /post-move
+// content — surfacing "researched" for them would mislead the user
+// since the section content they see is still deterministic.
+const POSTMOVE_RESEARCHED_DOMAINS: ReadonlySet<string> = new Set([
+  "registration",
+  "banking",
+  "healthcare",
+]);
+
+function buildProvenanceMap(
+  researchedCache: PostMoveResearchedCache | null | undefined,
+): Record<string, CategoryProvenance> {
+  const out: Record<string, CategoryProvenance> = {};
+  for (const domain of ALL_SETTLING_DOMAINS) {
+    if (!POSTMOVE_RESEARCHED_DOMAINS.has(domain)) {
+      out[domain] = { kind: "generic" };
+      continue;
+    }
+    const bundle = researchedCache?.[domain];
+    if (
+      bundle &&
+      bundle.kind === "steps" &&
+      // Same usable-bundle rule as the composer; bundles that never
+      // produced a single post-arrival step shouldn't be surfaced as
+      // "researched" — UI would show a badge with no story behind it.
+      (bundle.quality !== "fallback" || bundle.steps.length > 0)
+    ) {
+      out[domain] = {
+        kind: "researched",
+        quality: bundle.quality,
+        ...(bundle.fallbackReason ? { fallbackReason: bundle.fallbackReason } : {}),
+        retrievedAt: bundle.retrievedAt,
+        sources: bundle.sources.map((s) => ({
+          url: s.url,
+          domain: s.domain,
+          kind: s.kind,
+          ...(s.title ? { title: s.title } : {}),
+        })),
+      };
+    } else {
+      out[domain] = { kind: "generic" };
+    }
+  }
+  return out;
+}
+
 router.get("/settling-in", async (req, res) => {
   try {
     const ctx = await authenticate(req, res);
@@ -244,10 +334,16 @@ router.get("/settling-in", async (req, res) => {
     }
     const { data: plan } = await ctx.supabase
       .from("relocation_plans")
-      .select("id, arrival_date, stage, post_relocation_generated")
+      .select("id, arrival_date, stage, post_relocation_generated, research_meta")
       .eq("user_id", ctx.user.id)
       .eq("is_current", true)
-      .maybeSingle();
+      .maybeSingle<{
+        id: string;
+        arrival_date: string | null;
+        stage: string | null;
+        post_relocation_generated: boolean | null;
+        research_meta: { researchedSpecialists?: PostMoveResearchedCache } | null;
+      }>();
     if (!plan) {
       res.status(404).json({ error: "No active plan found" });
       return;
@@ -256,6 +352,7 @@ router.get("/settling-in", async (req, res) => {
       res.json({
         tasks: [], stage: plan.stage, arrivalDate: null,
         generated: false, executionEnabled: false,
+        provenance: buildProvenanceMap(null),
         stats: { total: 0, completed: 0, overdue: 0, available: 0, locked: 0, legalTotal: 0, legalCompleted: 0, progressPercent: 0, compliancePercent: 0 },
       });
       return;
@@ -304,6 +401,7 @@ router.get("/settling-in", async (req, res) => {
       arrivalDate: plan.arrival_date,
       generated: Boolean(plan.post_relocation_generated),
       executionEnabled: true,
+      provenance: buildProvenanceMap(plan.research_meta?.researchedSpecialists ?? null),
       stats: {
         total: list.length,
         completed,
