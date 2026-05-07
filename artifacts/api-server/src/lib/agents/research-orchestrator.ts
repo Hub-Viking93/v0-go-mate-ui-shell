@@ -82,6 +82,7 @@ import {
   type CriticOutput,
   type AgentAuditRow,
   type AgentRunLogRow,
+  RESEARCH_LIMITS,
 } from "@workspace/agents";
 
 import { buildInvocation, decideDispatch, type DispatchDecision } from "./coordinator";
@@ -502,6 +503,25 @@ export function kickoffResearch(
 
   const dispatch: DispatchDecision = decideDispatch(profile);
 
+  // Phase 0 — hard cap on specialist count per run. Above this we
+  // log a warning and trim the tail; this protects us from a future
+  // dispatcher bug fanning out to 30+ specialists and blowing the
+  // cost budget on a single user.
+  if (dispatch.specialists.length > RESEARCH_LIMITS.maxSpecialistsPerRun) {
+    logger.warn(
+      {
+        profileId,
+        dispatched: dispatch.specialists.length,
+        cap: RESEARCH_LIMITS.maxSpecialistsPerRun,
+      },
+      "[research-orchestrator] dispatch exceeded specialist cap — trimming",
+    );
+    dispatch.specialists = dispatch.specialists.slice(
+      0,
+      RESEARCH_LIMITS.maxSpecialistsPerRun,
+    );
+  }
+
   // Initialize state with all dispatched agents in `idle`.
   const agents = new Map<string, AgentLiveState>();
   for (const s of dispatch.specialists) {
@@ -533,7 +553,7 @@ export function kickoffResearch(
     supabase,
     dispatch,
     liveWriter,
-    specialistBudgetMs: args.specialistBudgetMs ?? 90_000,
+    specialistBudgetMs: args.specialistBudgetMs ?? RESEARCH_LIMITS.specialistBudgetMs,
   })
     .catch((err) => {
       logger.error(
@@ -746,40 +766,54 @@ async function runSpecialistBatch(
   };
 
   try {
-    const settled = await Promise.allSettled(
-      invocations.map(async (s) => {
-        const fn = SPECIALIST_FNS[s.name];
-        if (!fn) {
-          throw new Error(
-            `[research-orchestrator] No implementation for specialist '${s.name}'`,
-          );
-        }
-        const out = await fn(s.inputs as SpecialistProfile, ctx);
-        return { name: s.name, output: out };
-      }),
-    );
+    // Phase 0 — concurrency cap. Specialists fire in chunks of
+    // RESEARCH_LIMITS.maxConcurrentSpecialists so we don't exhaust
+    // Anthropic + Firecrawl rate limits when the dispatch list grows.
+    // Each chunk runs Promise.allSettled internally (so one slow
+    // specialist doesn't block the others in its chunk); chunks run
+    // sequentially.
+    const concurrency = RESEARCH_LIMITS.maxConcurrentSpecialists;
+    const chunked: (typeof invocations)[] = [];
+    for (let i = 0; i < invocations.length; i += concurrency) {
+      chunked.push(invocations.slice(i, i + concurrency));
+    }
 
     const outputs: SynthesizerInput[] = [];
-    for (let i = 0; i < settled.length; i++) {
-      const r = settled[i];
-      const inv = invocations[i];
-      if (r.status === "fulfilled") {
-        outputs.push(r.value);
-      } else {
-        const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
-        logger.warn(
-          { profileId, specialist: inv.name, reason },
-          "[research-orchestrator] specialist rejected (Promise.allSettled)",
-        );
-        // Mark the panel as failed if it isn't already.
-        const state = RUNS.get(profileId);
-        const live = state?.agents.get(inv.name);
-        if (live && live.status !== "complete") {
-          live.status = "failed";
-          live.currentActivity = `Failed — ${reason}`;
-          live.errorMessage = reason;
-          live.completedAt = new Date().toISOString();
-          emit(profileId);
+    for (const chunk of chunked) {
+      const settled = await Promise.allSettled(
+        chunk.map(async (s) => {
+          const fn = SPECIALIST_FNS[s.name];
+          if (!fn) {
+            throw new Error(
+              `[research-orchestrator] No implementation for specialist '${s.name}'`,
+            );
+          }
+          const out = await fn(s.inputs as SpecialistProfile, ctx);
+          return { name: s.name, output: out };
+        }),
+      );
+
+      for (let i = 0; i < settled.length; i++) {
+        const r = settled[i];
+        const inv = chunk[i];
+        if (r.status === "fulfilled") {
+          outputs.push(r.value);
+        } else {
+          const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+          logger.warn(
+            { profileId, specialist: inv.name, reason },
+            "[research-orchestrator] specialist rejected (Promise.allSettled)",
+          );
+          // Mark the panel as failed if it isn't already.
+          const state = RUNS.get(profileId);
+          const live = state?.agents.get(inv.name);
+          if (live && live.status !== "complete") {
+            live.status = "failed";
+            live.currentActivity = `Failed — ${reason}`;
+            live.errorMessage = reason;
+            live.completedAt = new Date().toISOString();
+            emit(profileId);
+          }
         }
       }
     }

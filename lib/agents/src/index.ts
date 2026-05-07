@@ -118,6 +118,48 @@ export {
   type SearchAndScrapeResult,
 } from "./specialists/index.js";
 
+// Phase 0 — researched-output contracts (new pipeline) + cost limits
+// + canonical source registry. New specialists implement these
+// shapes; old specialists keep using the legacy SpecialistOutput
+// from ./specialists/types.js until each is refactored in Phase A/C.
+export {
+  type SpecialistDomain,
+  type SpecialistFallbackReason,
+  type SourceKind,
+  type ResearchedSource,
+  type ProfilePredicate,
+  type DeadlinePhase,
+  type DeadlineWindow,
+  type DocumentApostilleNeed,
+  type DocumentTranslationNeed,
+  // DocumentCategory in _contracts.ts is researched-pipeline shape;
+  // the existing DocumentCategory from walkthrough.ts is the legacy
+  // vault↔task taxonomy. Re-exported as ResearchedDocumentCategory
+  // here to avoid the name collision until Phase D unifies them.
+  type DocumentCategory as ResearchedDocumentCategory,
+  type DocumentRequirement,
+  type ResearchedStep,
+  type ResearchedTopic,
+  type ResearchedSteps,
+  type ResearchedAdvisory,
+  type ResearchedOutput,
+  type ResearchedSpecialistInput,
+  type ResearchedSpecialistFn,
+} from "./specialists/_contracts.js";
+export {
+  RESEARCH_LIMITS,
+  type ResearchLimits,
+  type RunTelemetry,
+  RunTelemetryAccumulator,
+  estimateCallCostUsd,
+} from "./specialists/_run-telemetry.js";
+export {
+  type RegisteredSource,
+  toCountryCode,
+  getRegisteredSources,
+  isRegisteredHost,
+} from "./specialists/_sources.js";
+
 // Wave 2.x Prompt 3.4 — Synthesizer + Critic
 export {
   synthesize,
