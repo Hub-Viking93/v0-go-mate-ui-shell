@@ -90,16 +90,21 @@ test("phase-e3b — suggestions banner appears on profile change + refreshes via
   console.log(`[e3b-spec] original destination=${original.destination}`)
 
   try {
-    // ---- 2. Visit /post-move with profile UNCHANGED — banner should
-    //         NOT be visible.
+    // ---- 2. Visit /post-move with profile UNCHANGED — banner is
+    //         expected to NOT be in the DOM (or hidden). Use
+    //         Playwright's not.toBeVisible so the assertion message
+    //         is unambiguous regardless of whether the element is
+    //         absent or present-but-hidden.
     await page.goto("/post-move", { waitUntil: "domcontentloaded" })
     await page.waitForLoadState("networkidle")
     await page.waitForTimeout(1500)
 
     const bannerLocator = page.locator('[data-testid="research-suggestions-banner"]').first()
-    const visibleBefore = await bannerLocator.isVisible().catch(() => false)
-    console.log(`[e3b-spec] banner visible before mutation: ${visibleBefore}`)
-    expect(visibleBefore, "banner must not appear when profile unchanged").toBe(false)
+    await expect(
+      bannerLocator,
+      "/post-move banner must NOT appear when profile is unchanged since last research",
+    ).not.toBeVisible({ timeout: 2000 })
+    console.log(`[e3b-spec] /post-move pre-mutation: banner absent ✓`)
     await page.screenshot({
       path: path.join(SHOTS_DIR, "01-banner-hidden-before-change.png"),
       fullPage: true,
@@ -204,17 +209,16 @@ test("phase-e3b — suggestions banner appears on profile change + refreshes via
       console.log(`[e3b-spec] banner hidden — suggestions cleared after refresh`)
     }
 
-    // ---- 7. After a fresh page load, banner must be hidden -----
+    // ---- 7. After a fresh page load, banner must be absent ------
     // (because snapshot got refreshed → 0 suggestions).
     await page.reload({ waitUntil: "domcontentloaded" })
     await page.waitForLoadState("networkidle")
     await page.waitForTimeout(1500)
-    const bannerAfterReload = await bannerLocator.isVisible().catch(() => false)
-    console.log(`[e3b-spec] banner visible after reload: ${bannerAfterReload}`)
-    expect(
-      bannerAfterReload,
-      "banner must be hidden after successful refresh + reload",
-    ).toBe(false)
+    await expect(
+      bannerLocator,
+      "/post-move banner must be absent after successful refresh + reload (snapshots are now current)",
+    ).not.toBeVisible({ timeout: 2000 })
+    console.log(`[e3b-spec] /post-move post-refresh-reload: banner absent ✓`)
   } finally {
     // ---- 8. Restore original profile --------------------------
     await sb.from("relocation_plans").update({ profile_data: original }).eq("id", planId)

@@ -102,6 +102,17 @@ async function main(): Promise<void> {
     `[seed-b2-cache] done in ${ms}ms — docs=${describe(docs)} housing=${describe(housing)} banking=${describe(banking)}`,
   );
 
+  // E3-A — capture profileSnapshot per warmed bundle so the
+  // /api/research/suggestions endpoint has a baseline to diff
+  // against. Without this, /pre-move's banner stays empty even
+  // if the user's profile drifts.
+  const profileSnapshot: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(profileRaw)) {
+    if (v === undefined) continue;
+    if (typeof v === "function") continue;
+    profileSnapshot[k] = v;
+  }
+
   const newMeta = {
     ...(plan.research_meta ?? {}),
     researchedSpecialists: {
@@ -109,6 +120,12 @@ async function main(): Promise<void> {
       documents: docs,
       housing,
       banking,
+    },
+    profileSnapshots: {
+      ...((plan.research_meta as { profileSnapshots?: Record<string, unknown> })?.profileSnapshots ?? {}),
+      documents: profileSnapshot,
+      housing: profileSnapshot,
+      banking: profileSnapshot,
     },
     // Drop any stale preDeparture payload so the next /generate call
     // reads from the fresh cache and rebuilds the timeline.

@@ -302,36 +302,45 @@ export function PreDepartureTimeline() {
 
   if (!timeline) {
     return (
-      <div className="gm-surface px-5 py-5 max-w-2xl">
-        <div className="flex items-start gap-3">
-          <span
-            className="inline-flex items-center justify-center w-9 h-9 rounded-md shrink-0"
-            style={{ background: "#E4F2EA", color: "#2C6440" }}
-          >
-            <Plane className="w-4 h-4" strokeWidth={1.8} />
-          </span>
-          <div className="flex-1 min-w-0">
-            <span className="gm-eyebrow">Pre-departure</span>
-            <h2 className="text-[16px] font-semibold text-[#1F2A24] mt-1.5">
-              Generate your week-by-week move plan
-            </h2>
-            <p className="text-[12px] text-[#7E9088] mt-1 leading-relaxed max-w-xl">
-              Our specialists sequence every pre-move action into a timeline with critical path highlighted.
-            </p>
-            {error && (
-              <div className="text-[12px] text-[#8B2F38] gm-surface-sub px-2.5 py-1.5 mt-2.5" style={{ borderColor: "#E8B8BD" }}>
-                {error}
-              </div>
-            )}
-            <Button
-              onClick={handleGenerate}
-              disabled={generating}
-              size="sm"
-              className="gap-1.5 mt-3 rounded-md bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm"
+      <div className="space-y-4">
+        {/* Phase E3-B — banner appears even on empty-state so a user
+            who lands here AFTER changing their profile sees the
+            suggestion to refresh BEFORE clicking Generate. Otherwise
+            they'd generate a timeline from stale research and only
+            then see the banner. */}
+        <ResearchSuggestionsBanner surface="pre_move" onAfterRefresh={load} />
+
+        <div className="gm-surface px-5 py-5 max-w-2xl">
+          <div className="flex items-start gap-3">
+            <span
+              className="inline-flex items-center justify-center w-9 h-9 rounded-md shrink-0"
+              style={{ background: "#E4F2EA", color: "#2C6440" }}
             >
-              {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plane className="w-3.5 h-3.5" />}
-              {generating ? "Generating…" : "Generate checklist"}
-            </Button>
+              <Plane className="w-4 h-4" strokeWidth={1.8} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <span className="gm-eyebrow">Pre-departure</span>
+              <h2 className="text-[16px] font-semibold text-[#1F2A24] mt-1.5">
+                Generate your week-by-week move plan
+              </h2>
+              <p className="text-[12px] text-[#7E9088] mt-1 leading-relaxed max-w-xl">
+                Our specialists sequence every pre-move action into a timeline with critical path highlighted.
+              </p>
+              {error && (
+                <div className="text-[12px] text-[#8B2F38] gm-surface-sub px-2.5 py-1.5 mt-2.5" style={{ borderColor: "#E8B8BD" }}>
+                  {error}
+                </div>
+              )}
+              <Button
+                onClick={handleGenerate}
+                disabled={generating}
+                size="sm"
+                className="gap-1.5 mt-3 rounded-md bg-[#1B7A40] text-white hover:bg-[#15663A] shadow-sm"
+              >
+                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plane className="w-3.5 h-3.5" />}
+                {generating ? "Generating…" : "Generate checklist"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
