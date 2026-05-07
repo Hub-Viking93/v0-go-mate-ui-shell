@@ -150,10 +150,16 @@ Produce the JSON now.`;
       });
       const synthesisMs = Date.now() - synthesisStart;
 
+      // allowedUrls = the URLs we actually fetched. Per-item
+      // step.sources + document.sources entries that don't match
+      // get dropped + counted; that count downgrades quality to
+      // "partial" so the model can't fabricate refs and have them
+      // survive validation.
+      const allowedUrls = new Set(fetchResult.asResearchedSources.map((s) => s.url));
       const parsed = parseResearchedJsonResponse<LlmPayload>(llm.content);
       const parseFailed = !parsed || parsed.steps === undefined;
-      const stepsResult = validateAndNormaliseSteps(parsed?.steps, DOMAIN);
-      const docsResult = validateAndNormaliseDocuments(parsed?.documents, DOMAIN);
+      const stepsResult = validateAndNormaliseSteps(parsed?.steps, DOMAIN, allowedUrls);
+      const docsResult = validateAndNormaliseDocuments(parsed?.documents, DOMAIN, allowedUrls);
 
       const composed = composeQuality({
         fetchQuality: fetchResult.quality,
@@ -161,6 +167,8 @@ Produce the JSON now.`;
         parseFailed,
         droppedSteps: stepsResult.dropped,
         droppedDocs: docsResult.dropped,
+        droppedSourceRefs:
+          stepsResult.sourceRefsDropped + docsResult.sourceRefsDropped,
       });
 
       if (input.profileId && input.logWriter) {
@@ -179,8 +187,10 @@ Produce the JSON now.`;
             steps_count: stepsResult.steps.length,
             steps_dropped: stepsResult.dropped,
             steps_predicates_reset: stepsResult.predicatesReset,
+            steps_source_refs_dropped: stepsResult.sourceRefsDropped,
             documents_count: docsResult.documents.length,
             documents_dropped: docsResult.dropped,
+            documents_source_refs_dropped: docsResult.sourceRefsDropped,
           },
         });
       }

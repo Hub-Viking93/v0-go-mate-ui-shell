@@ -102,15 +102,26 @@ export {
   // Phase B1 — researched-contract specialists
   registrationSpecialist,
   bankingSpecialistV2,
-  // Infra
-  runSpecialist,
-  SPECIALIST_BUDGET_MS,
-  trimParagraphToWordCap,
-  trimParagraphsToWordCap,
+} from "./specialists/index.js";
+// Phase B1 — validation helpers re-exported so test harnesses + a
+// future composer-side validator can exercise the same primitives
+// as the specialists themselves.
+export {
+  composeQuality,
+  isValidProfilePredicate,
+  validateAndNormaliseSteps,
+  validateAndNormaliseDocuments,
+  withBudget,
+  type ValidatedSteps,
+  type ValidatedDocuments,
+} from "./specialists/_researched-helpers.js";
+export {
+  // legacy
   scrapeOfficialSource,
   searchAndScrape,
   getAllSources,
   COUNTRY_DATA,
+  // legacy types
   type Citation,
   type PriorSpecialistOutputs,
   type SpecialistContext,
@@ -119,6 +130,13 @@ export {
   type SpecialistQuality,
   type ScrapeResult,
   type SearchAndScrapeResult,
+} from "./specialists/index.js";
+
+export {
+  runSpecialist,
+  SPECIALIST_BUDGET_MS,
+  trimParagraphToWordCap,
+  trimParagraphsToWordCap,
 } from "./specialists/index.js";
 
 // Phase 0 — researched-output contracts (new pipeline) + cost limits

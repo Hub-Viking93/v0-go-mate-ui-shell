@@ -289,12 +289,50 @@ export function isValidProfilePredicate(p: unknown): p is ProfilePredicate {
   return false;
 }
 
+/** Filter a string-or-anything array down to strings that appear in
+ *  `allowed`. Returns the filtered list + how many entries were
+ *  dropped. When `allowed` is omitted (legacy callers) only the
+ *  string-typed-ness is enforced. */
+function filterSourceRefs(
+  raw: unknown,
+  allowed: ReadonlySet<string> | undefined,
+): { kept: string[]; dropped: number } {
+  if (!Array.isArray(raw)) return { kept: [], dropped: 0 };
+  const kept: string[] = [];
+  let dropped = 0;
+  for (const x of raw as unknown[]) {
+    if (typeof x !== "string") {
+      dropped += 1;
+      continue;
+    }
+    if (allowed && !allowed.has(x)) {
+      dropped += 1;
+      continue;
+    }
+    kept.push(x);
+  }
+  return { kept, dropped };
+}
+
+/** Coerce a number-or-undefined deadline-window value, rejecting
+ *  non-finite or negative entries. Returns the value when valid,
+ *  otherwise undefined (omitted from the output). */
+function nonNegativeNumberOrUndefined(v: unknown): number | undefined {
+  if (typeof v !== "number") return undefined;
+  if (!Number.isFinite(v)) return undefined;
+  if (v < 0) return undefined;
+  return v;
+}
+
 export interface ValidatedSteps {
   steps: ResearchedStep[];
   /** Steps the LLM returned but we dropped because of contract drift. */
   dropped: number;
   /** Steps where appliesWhen drifted; we reset to {always: true}. */
   predicatesReset: number;
+  /** URL refs dropped from step.sources because they weren't in the
+   *  parent output's sources[] (or weren't strings). */
+  sourceRefsDropped: number;
 }
 
 /**
@@ -303,15 +341,29 @@ export interface ValidatedSteps {
  * structurally-invalid `appliesWhen` keep their other fields but
  * have the predicate reset to `{always: true}` (rather than dropping
  * the whole step over a faulty gate).
+ *
+ * `allowedSourceUrls` — when provided, every step.sources[] entry
+ * is filtered against this set. Refs that aren't recognised get
+ * dropped (counted) and the step keeps a clean sources[]. The
+ * caller (specialist) feeds in the set built from the top-level
+ * fetched-source URLs so the LLM can't smuggle in fabricated refs.
+ *
+ * `deadlineWindow.{weeksBeforeMove, daysAfterArrival, legalDeadlineDays}`
+ * are now rejected when negative or non-finite — those are clearly
+ * model drift, not "the user has -3 weeks left".
  */
 export function validateAndNormaliseSteps(
   raw: unknown,
   domain: SpecialistDomain,
+  allowedSourceUrls?: ReadonlySet<string>,
 ): ValidatedSteps {
-  if (!Array.isArray(raw)) return { steps: [], dropped: 0, predicatesReset: 0 };
+  if (!Array.isArray(raw)) {
+    return { steps: [], dropped: 0, predicatesReset: 0, sourceRefsDropped: 0 };
+  }
   const steps: ResearchedStep[] = [];
   let dropped = 0;
   let predicatesReset = 0;
+  let sourceRefsDropped = 0;
   const prefix = `${domain}:`;
   for (const item of raw) {
     if (!item || typeof item !== "object") {
@@ -339,15 +391,20 @@ export function validateAndNormaliseSteps(
       appliesWhen = { always: true };
       predicatesReset += 1;
     }
+    const weeksBeforeMove = nonNegativeNumberOrUndefined(dw.weeksBeforeMove);
+    const daysAfterArrival = nonNegativeNumberOrUndefined(dw.daysAfterArrival);
+    const legalDeadlineDays = nonNegativeNumberOrUndefined(dw.legalDeadlineDays);
+    const sourceFilter = filterSourceRefs(r.sources, allowedSourceUrls);
+    sourceRefsDropped += sourceFilter.dropped;
     steps.push({
       id: r.id,
       title: r.title,
       description: r.description,
       deadlineWindow: {
         phase: dw.phase as DeadlinePhase,
-        ...(typeof dw.weeksBeforeMove === "number" ? { weeksBeforeMove: dw.weeksBeforeMove } : {}),
-        ...(typeof dw.daysAfterArrival === "number" ? { daysAfterArrival: dw.daysAfterArrival } : {}),
-        ...(typeof dw.legalDeadlineDays === "number" ? { legalDeadlineDays: dw.legalDeadlineDays } : {}),
+        ...(weeksBeforeMove !== undefined ? { weeksBeforeMove } : {}),
+        ...(daysAfterArrival !== undefined ? { daysAfterArrival } : {}),
+        ...(legalDeadlineDays !== undefined ? { legalDeadlineDays } : {}),
       },
       appliesWhen,
       prerequisites: Array.isArray(r.prerequisites)
@@ -360,26 +417,27 @@ export function validateAndNormaliseSteps(
         ? { walkthrough: (r.walkthrough as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 5) }
         : {}),
       ...(typeof r.bottleneck === "string" ? { bottleneck: r.bottleneck } : {}),
-      sources: Array.isArray(r.sources)
-        ? (r.sources as unknown[]).filter((x): x is string => typeof x === "string")
-        : [],
+      sources: sourceFilter.kept,
     });
   }
-  return { steps, dropped, predicatesReset };
+  return { steps, dropped, predicatesReset, sourceRefsDropped };
 }
 
 export interface ValidatedDocuments {
   documents: DocumentRequirement[];
   dropped: number;
+  sourceRefsDropped: number;
 }
 
 export function validateAndNormaliseDocuments(
   raw: unknown,
   domain: SpecialistDomain,
+  allowedSourceUrls?: ReadonlySet<string>,
 ): ValidatedDocuments {
-  if (!Array.isArray(raw)) return { documents: [], dropped: 0 };
+  if (!Array.isArray(raw)) return { documents: [], dropped: 0, sourceRefsDropped: 0 };
   const documents: DocumentRequirement[] = [];
   let dropped = 0;
+  let sourceRefsDropped = 0;
   const prefix = `${domain}:`;
   for (const item of raw) {
     if (!item || typeof item !== "object") {
@@ -411,6 +469,8 @@ export function validateAndNormaliseDocuments(
       dropped += 1;
       continue;
     }
+    const sourceFilter = filterSourceRefs(r.sources, allowedSourceUrls);
+    sourceRefsDropped += sourceFilter.dropped;
     documents.push({
       id: r.id,
       label: r.label,
@@ -418,12 +478,10 @@ export function validateAndNormaliseDocuments(
       apostille: r.apostille as DocumentApostilleNeed,
       translation: r.translation as DocumentTranslationNeed,
       leadTimeDays: r.leadTimeDays,
-      sources: Array.isArray(r.sources)
-        ? (r.sources as unknown[]).filter((x): x is string => typeof x === "string")
-        : [],
+      sources: sourceFilter.kept,
     });
   }
-  return { documents, dropped };
+  return { documents, dropped, sourceRefsDropped };
 }
 
 // ---- Quality + fallback computation -----------------------------------
@@ -434,7 +492,8 @@ export function validateAndNormaliseDocuments(
  *
  * Precedence (worst wins):
  *   no LLM parse                → fallback / llm_parse_failed
- *   ≥1 step / doc dropped       → downgrade to partial (or keep
+ *   ≥1 step or doc dropped, OR
+ *   ≥1 source-ref dropped       → downgrade to partial (or keep
  *                                 fallback if already there)
  *   else                        → keep fetch quality
  */
@@ -444,11 +503,15 @@ export function composeQuality(args: {
   parseFailed: boolean;
   droppedSteps: number;
   droppedDocs: number;
+  /** Total step.sources + document.sources URL refs filtered out
+   *  because they weren't in the parent sources[] block. */
+  droppedSourceRefs: number;
 }): { quality: SpecialistQuality; fallbackReason?: SpecialistFallbackReason } {
   if (args.parseFailed) {
     return { quality: "fallback", fallbackReason: "llm_parse_failed" };
   }
-  const drift = args.droppedSteps + args.droppedDocs > 0;
+  const drift =
+    args.droppedSteps + args.droppedDocs + args.droppedSourceRefs > 0;
   if (args.fetchQuality === "fallback") {
     return {
       quality: "fallback",

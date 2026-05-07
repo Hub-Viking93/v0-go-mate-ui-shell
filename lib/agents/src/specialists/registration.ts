@@ -146,10 +146,15 @@ Produce the JSON now.`;
       const synthesisMs = Date.now() - synthesisStart;
 
       // 4. Parse + strict validation.
+      //    allowedUrls = the URLs we actually fetched. step.sources +
+      //    document.sources entries that don't match a fetched URL
+      //    get dropped (model can't smuggle fabricated refs through
+      //    the JSON validator that survived URL_GUARDRAIL).
+      const allowedUrls = new Set(fetchResult.asResearchedSources.map((s) => s.url));
       const parsed = parseResearchedJsonResponse<LlmPayload>(llm.content);
       const parseFailed = !parsed || parsed.steps === undefined;
-      const stepsResult = validateAndNormaliseSteps(parsed?.steps, DOMAIN);
-      const docsResult = validateAndNormaliseDocuments(parsed?.documents, DOMAIN);
+      const stepsResult = validateAndNormaliseSteps(parsed?.steps, DOMAIN, allowedUrls);
+      const docsResult = validateAndNormaliseDocuments(parsed?.documents, DOMAIN, allowedUrls);
 
       const composed = composeQuality({
         fetchQuality: fetchResult.quality,
@@ -157,6 +162,8 @@ Produce the JSON now.`;
         parseFailed,
         droppedSteps: stepsResult.dropped,
         droppedDocs: docsResult.dropped,
+        droppedSourceRefs:
+          stepsResult.sourceRefsDropped + docsResult.sourceRefsDropped,
       });
 
       // 5. Audit logging — only when caller provided both fields.
@@ -176,8 +183,10 @@ Produce the JSON now.`;
             steps_count: stepsResult.steps.length,
             steps_dropped: stepsResult.dropped,
             steps_predicates_reset: stepsResult.predicatesReset,
+            steps_source_refs_dropped: stepsResult.sourceRefsDropped,
             documents_count: docsResult.documents.length,
             documents_dropped: docsResult.dropped,
+            documents_source_refs_dropped: docsResult.sourceRefsDropped,
           },
         });
       }

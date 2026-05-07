@@ -31,6 +31,9 @@
 import {
   registrationSpecialist,
   bankingSpecialistV2,
+  composeQuality,
+  validateAndNormaliseDocuments,
+  validateAndNormaliseSteps,
   type ResearchedOutput,
   type ResearchedSpecialistInput,
   type ResearchedSteps,
@@ -167,12 +170,208 @@ function summary(label: string, out: ResearchedOutput): void {
   }
 }
 
+// ---- Synthetic-drift validation ---------------------------------------
+//
+// The two specialists below exercise the happy path. The defenses
+// added in B1-hardening (source-ref filter + negative-deadline
+// rejection + quality downgrade on drift) only trigger when the LLM
+// produces drift — which the URL_GUARDRAIL system prompt makes
+// rare. To prove the defense is actually wired we feed a synthetic
+// "bad" payload directly through the validators here.
+
+function syntheticDriftCheck(): { passed: boolean; messages: string[] } {
+  const messages: string[] = [];
+  let passed = true;
+
+  const allowedUrls = new Set(["https://allowed.example/a", "https://allowed.example/b"]);
+
+  // 1. Steps with: fabricated URL, negative deadline, bad enum, bad
+  //    predicate. Expect: URL dropped, negatives stripped, bad-enum
+  //    step entirely dropped, predicate reset.
+  const fakeSteps = [
+    {
+      id: "registration:good",
+      title: "Good step",
+      description: "Conforms to contract.",
+      deadlineWindow: { phase: "first_30d", daysAfterArrival: 14, weeksBeforeMove: -1 }, // -1 should be stripped
+      appliesWhen: { always: true },
+      prerequisites: [],
+      documentIds: [],
+      sources: [
+        "https://allowed.example/a",       // ok
+        "https://fabricated.example/zzz",  // should be dropped
+      ],
+    },
+    {
+      id: "registration:bad-phase",
+      title: "Bad phase",
+      description: "Should be dropped — phase not in whitelist.",
+      deadlineWindow: { phase: "first_69h" }, // not a valid phase
+      appliesWhen: { always: true },
+      prerequisites: [],
+      documentIds: [],
+      sources: ["https://allowed.example/a"],
+    },
+    {
+      id: "wrongdomain:bad",
+      title: "Wrong namespace",
+      description: "Should be dropped — id not registration:* prefixed.",
+      deadlineWindow: { phase: "first_30d" },
+      appliesWhen: { always: true },
+      prerequisites: [],
+      documentIds: [],
+      sources: [],
+    },
+    {
+      id: "registration:bad-predicate",
+      title: "Bad predicate",
+      description: "Predicate is structurally invalid; specialist should reset to {always:true} but keep the step.",
+      deadlineWindow: { phase: "ongoing" },
+      appliesWhen: { weirdOp: { foo: "bar" } }, // not a valid ProfilePredicate
+      prerequisites: [],
+      documentIds: [],
+      sources: ["https://allowed.example/b"],
+    },
+  ];
+
+  const stepsResult = validateAndNormaliseSteps(fakeSteps, "registration", allowedUrls);
+  // Expectations:
+  //   • good + bad-predicate kept → 2 steps
+  //   • bad-phase + wrongdomain dropped → dropped = 2
+  //   • predicatesReset = 1 (bad-predicate)
+  //   • sourceRefsDropped = 1 (the fabricated URL on the good step)
+  //   • good step's deadlineWindow has no weeksBeforeMove (-1 stripped)
+  if (stepsResult.steps.length !== 2) {
+    passed = false;
+    messages.push(`expected 2 surviving steps, got ${stepsResult.steps.length}`);
+  }
+  if (stepsResult.dropped !== 2) {
+    passed = false;
+    messages.push(`expected dropped=2, got ${stepsResult.dropped}`);
+  }
+  if (stepsResult.predicatesReset !== 1) {
+    passed = false;
+    messages.push(`expected predicatesReset=1, got ${stepsResult.predicatesReset}`);
+  }
+  if (stepsResult.sourceRefsDropped !== 1) {
+    passed = false;
+    messages.push(`expected sourceRefsDropped=1, got ${stepsResult.sourceRefsDropped}`);
+  }
+  const good = stepsResult.steps.find((s) => s.id === "registration:good");
+  if (good) {
+    if ("weeksBeforeMove" in good.deadlineWindow) {
+      passed = false;
+      messages.push(`expected weeksBeforeMove=-1 to be stripped from "registration:good"`);
+    }
+    if (good.sources.length !== 1 || good.sources[0] !== "https://allowed.example/a") {
+      passed = false;
+      messages.push(
+        `expected "registration:good".sources to be exactly [allowed.example/a], got ${JSON.stringify(good.sources)}`,
+      );
+    }
+  } else {
+    passed = false;
+    messages.push(`"registration:good" did not survive validation`);
+  }
+  const badPred = stepsResult.steps.find((s) => s.id === "registration:bad-predicate");
+  if (badPred) {
+    const aw = badPred.appliesWhen as { always?: boolean };
+    if (!aw.always) {
+      passed = false;
+      messages.push(`expected bad-predicate.appliesWhen to reset to {always:true}`);
+    }
+  }
+
+  // 2. Documents with bad category, negative leadTimeDays, fabricated URL.
+  const fakeDocs = [
+    {
+      id: "registration:passport",
+      label: "Passport",
+      category: "identity",
+      apostille: "not_needed",
+      translation: "not_needed",
+      leadTimeDays: 14,
+      sources: ["https://allowed.example/a", "https://fabricated.example/x"],
+    },
+    {
+      id: "registration:bad-cat",
+      label: "Bad category",
+      category: "personal", // not in whitelist
+      apostille: "not_needed",
+      translation: "not_needed",
+      leadTimeDays: 7,
+      sources: [],
+    },
+    {
+      id: "registration:negative-lead",
+      label: "Negative lead time",
+      category: "identity",
+      apostille: "not_needed",
+      translation: "not_needed",
+      leadTimeDays: -3,
+      sources: [],
+    },
+  ];
+  const docsResult = validateAndNormaliseDocuments(fakeDocs, "registration", allowedUrls);
+  if (docsResult.documents.length !== 1) {
+    passed = false;
+    messages.push(`expected 1 surviving document, got ${docsResult.documents.length}`);
+  }
+  if (docsResult.dropped !== 2) {
+    passed = false;
+    messages.push(`expected docs dropped=2, got ${docsResult.dropped}`);
+  }
+  if (docsResult.sourceRefsDropped !== 1) {
+    passed = false;
+    messages.push(`expected docs sourceRefsDropped=1, got ${docsResult.sourceRefsDropped}`);
+  }
+
+  // 3. composeQuality — drift downgrades full → partial.
+  const composed = composeQuality({
+    fetchQuality: "full",
+    parseFailed: false,
+    droppedSteps: 2,
+    droppedDocs: 2,
+    droppedSourceRefs: 2,
+  });
+  if (composed.quality !== "partial") {
+    passed = false;
+    messages.push(`composeQuality(drift, full) → expected "partial", got "${composed.quality}"`);
+  }
+
+  // 4. composeQuality — only source-ref drift also triggers partial.
+  const composedRefsOnly = composeQuality({
+    fetchQuality: "full",
+    parseFailed: false,
+    droppedSteps: 0,
+    droppedDocs: 0,
+    droppedSourceRefs: 1,
+  });
+  if (composedRefsOnly.quality !== "partial") {
+    passed = false;
+    messages.push(
+      `composeQuality(only source-ref drift, full) → expected "partial", got "${composedRefsOnly.quality}"`,
+    );
+  }
+
+  return { passed, messages };
+}
+
 async function main(): Promise<void> {
   console.log(
     `Phase B1 dry-run\n  country = ${country}\n  purpose = ${purpose}\n  profile = Filipino citizen, ${country === "Sweden" ? "Stockholm" : "main city"}, ${purpose}`,
   );
 
-  banner("1/2  registration_specialist");
+  banner("0/3  synthetic-drift validation (offline)");
+  const drift = syntheticDriftCheck();
+  if (drift.passed) {
+    console.log("✅ source-ref filter, negative-deadline rejection, predicate reset + quality downgrade all wired.");
+  } else {
+    console.log("❌ defense gaps:");
+    for (const m of drift.messages) console.log(`  • ${m}`);
+  }
+
+  banner("1/3  registration_specialist");
   const reg = await registrationSpecialist(input);
   summary("registration_specialist", reg);
   const regErrors = [
@@ -186,7 +385,7 @@ async function main(): Promise<void> {
     console.log("\n✅ contract clean");
   }
 
-  banner("2/2  bankingSpecialistV2");
+  banner("2/3  bankingSpecialistV2");
   const bank = await bankingSpecialistV2(input);
   summary("bankingSpecialistV2", bank);
   const bankErrors = [
@@ -201,12 +400,12 @@ async function main(): Promise<void> {
   }
 
   banner("done");
-  const totalErrors = regErrors.length + bankErrors.length;
+  const totalErrors = regErrors.length + bankErrors.length + (drift.passed ? 0 : 1);
   if (totalErrors > 0) {
-    console.log(`Total: ${totalErrors} contract violation(s).`);
+    console.log(`Total: ${totalErrors} issue(s).`);
     process.exit(1);
   } else {
-    console.log("Both specialists conform to the contract.");
+    console.log("Defenses verified + both specialists conform to the contract.");
   }
 }
 
