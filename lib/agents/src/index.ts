@@ -219,8 +219,14 @@ export {
 } from "./research-helpers/numbeo-data.js";
 
 // Phase 7 — settling-in DAG generator (pure code).
+// Phase C1b — composeSettlingInTimeline adds a researched-aware path:
+// register / banking domains can be sourced from the new researched
+// specialists instead of the deterministic DAG when usable bundles are
+// supplied via researchedByDomain.
 export {
   generateSettlingInDAG,
+  composeSettlingInTimeline,
+  type ComposeSettlingInArgs,
   type SettlingInProfile,
   type SettlingTask,
   type SettlingTaskGroup,
@@ -228,6 +234,10 @@ export {
   type SettlingDomain,
   type SettlingTaskStatus,
 } from "./settling-in.js";
+
+// Phase C1a — researched → settling-in adapter. Stand-alone export for
+// dry-run harnesses + future settling-in route integration.
+export { mapResearchedToSettlingTasks } from "./_settling-in-adapter.js";
 
 // Phase 1B — task walkthrough shape (used by both pre-departure + settling-in).
 // Phase 1C — structured action-link model (TaskActionLink) lives in the same

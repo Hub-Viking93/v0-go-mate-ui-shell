@@ -8,6 +8,7 @@
     "dry-run-b1": "tsx ./src/dry-run-b1-specialists.ts",
     "dry-run-b2": "tsx ./src/dry-run-b2-specialists.ts",
     "dry-run-a1": "tsx ./src/dry-run-a1-composer.ts",
+    "dry-run-c1": "tsx ./src/dry-run-c1-settling-in.ts",
     "seed-b2-cache": "tsx ./src/seed-b2-cache.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

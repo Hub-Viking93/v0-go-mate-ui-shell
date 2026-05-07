@@ -3,6 +3,8 @@
 // =============================================================
 import type { DeadlineType } from "./deadline-model.js";
 import type { TaskWalkthrough } from "./walkthrough.js";
+import type { ResearchedSteps } from "./specialists/_contracts.js";
+import { mapResearchedToSettlingTasks } from "./_settling-in-adapter.js";
 
 // Pure code, no LLM. Same shape as pre-departure.ts: a set of
 // domain-specific contributor functions produce tasks for the
@@ -1366,19 +1368,110 @@ export function generateSettlingInDAG(
   profile: SettlingInProfile,
   arrivalDate: Date,
 ): SettlingDAGResult {
+  return composeSettlingInTimeline({
+    profile,
+    arrivalDate,
+    researchedByDomain: {},
+  });
+}
+
+// =============================================================
+// Phase C1b — researched-aware composer entry point
+// =============================================================
+// Same SettlingDAGResult shape as generateSettlingInDAG above, but
+// accepts a per-domain researched-output map. For each domain present
+// in `researchedByDomain` whose bundle is usable (quality !== fallback
+// AND emits at least one step), the deterministic *Tasks contributor
+// is replaced with mapResearchedToSettlingTasks(bundle).
+//
+// PRECEDENCE RULE
+// ---------------
+//   researchedByDomain[domain] (usable)  →  WINS for that domain
+//   else                                  →  legacy *Tasks(profile)
+//
+// "Usable" means quality !== "fallback" OR at least one step survived
+// the post-arrival phase filter. A pure-fallback bundle is treated as
+// missing — the deterministic DAG produces a better baseline than an
+// empty list.
+//
+// What this composer does NOT do
+// ------------------------------
+//   - It does NOT auto-rewire legacy `dependsOn` references when a
+//     domain migrates to research. Banking's deterministic
+//     ["reg-population"] dep becomes dangling when registration is
+//     researched (new keys are domain-prefixed). topoSort drops
+//     dangling deps so the dependent surfaces earlier than legacy —
+//     C1c will revisit if the regression bites in practice.
+//   - It does NOT re-emit a stable taskKey for migrated domains; the
+//     adapter intentionally uses the researched step.id as the key so
+//     cross-specialist references chain naturally. Existing
+//     completion-history rows on legacy keys won't auto-link.
+
+export interface ComposeSettlingInArgs {
+  profile: SettlingInProfile;
+  arrivalDate: Date;
+  /**
+   * Per-domain researched output. Domains absent fall back to the
+   * deterministic contributor. Today only "registration" + "banking"
+   * are wired — other domains are silently ignored even if provided.
+   */
+  researchedByDomain: Partial<Record<SettlingDomain, ResearchedSteps>>;
+}
+
+const RESEARCHED_DOMAINS_C1: ReadonlySet<SettlingDomain> = new Set([
+  "registration",
+  "banking",
+]);
+
+function isUsableResearched(bundle: ResearchedSteps | undefined): bundle is ResearchedSteps {
+  if (!bundle) return false;
+  if (bundle.kind !== "steps") return false;
+  if (bundle.quality === "fallback" && bundle.steps.length === 0) return false;
+  return Array.isArray(bundle.steps);
+}
+
+export function composeSettlingInTimeline(
+  args: ComposeSettlingInArgs,
+): SettlingDAGResult {
+  const { profile, arrivalDate, researchedByDomain } = args;
   void arrivalDate;
-  const groups = [
-    registrationTasks(profile),
-    bankingTasks(profile),
-    housingTasks(profile),
-    healthcareTasks(profile),
-    employmentTasks(profile),
-    transportTasks(profile),
-    familyTasks(profile),
-    taxTasks(profile),
-  ];
+
   const flat: SettlingTask[] = [];
-  for (const g of groups) flat.push(...g.tasks);
+
+  // Registration — researched first, deterministic otherwise.
+  const regBundle = researchedByDomain.registration;
+  if (RESEARCHED_DOMAINS_C1.has("registration") && isUsableResearched(regBundle)) {
+    const mapped = mapResearchedToSettlingTasks(regBundle);
+    if (mapped.length > 0) {
+      flat.push(...mapped);
+    } else {
+      flat.push(...registrationTasks(profile).tasks);
+    }
+  } else {
+    flat.push(...registrationTasks(profile).tasks);
+  }
+
+  // Banking — same shape.
+  const bankBundle = researchedByDomain.banking;
+  if (RESEARCHED_DOMAINS_C1.has("banking") && isUsableResearched(bankBundle)) {
+    const mapped = mapResearchedToSettlingTasks(bankBundle);
+    if (mapped.length > 0) {
+      flat.push(...mapped);
+    } else {
+      flat.push(...bankingTasks(profile).tasks);
+    }
+  } else {
+    flat.push(...bankingTasks(profile).tasks);
+  }
+
+  // Everything else stays deterministic in C1.
+  flat.push(...housingTasks(profile).tasks);
+  flat.push(...healthcareTasks(profile).tasks);
+  flat.push(...employmentTasks(profile).tasks);
+  flat.push(...transportTasks(profile).tasks);
+  flat.push(...familyTasks(profile).tasks);
+  flat.push(...taxTasks(profile).tasks);
+
   const sorted = topoSortWithCriticalPath(flat);
   const urgentDeadlines = sorted.filter((t) => t.isLegalRequirement && t.deadlineDays <= 14);
   return {
