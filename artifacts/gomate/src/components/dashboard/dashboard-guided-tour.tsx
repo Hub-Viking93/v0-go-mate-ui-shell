@@ -4,28 +4,20 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import {
   Compass,
-  Stamp,
   Sparkles,
   ArrowRight,
   ArrowLeft,
   X,
-  LayoutGrid,
-  UserSquare2,
-  Wallet,
-  Home,
-  Menu,
+  Shield,
+  Plane,
+  HomeIcon,
+  FolderClosed,
+  RefreshCw,
 } from "lucide-react"
-import type { DashboardTabId } from "@/components/dashboard-tabs"
 
 interface DashboardGuidedTourProps {
   open: boolean
   onClose: () => void
-  /**
-   * Called when the tour wants to switch the active dashboard tab.
-   * The dashboard owns the tab state and re-renders the tab content
-   * behind the tour popup so the user sees what each step describes.
-   */
-  onTabChange?: (tab: DashboardTabId) => void
 }
 
 interface TourStep {
@@ -33,94 +25,68 @@ interface TourStep {
   icon: React.ReactNode
   title: string
   body: string
-  /** Switch the dashboard to this tab when this step is shown. */
-  tab?: DashboardTabId
 }
 
+// 6-step orientation tour for first-time users post-research.
+// Maps 1:1 to the current sidebar IA (Immigration → Pre-move → Documents
+// → Post-move → Plan & Guidance) and answers the "what do I start with?"
+// question explicitly. No tab metaphors — the dashboard tabs were
+// retired in the IA refresh and the rest of the product is route-based.
 const STEPS: TourStep[] = [
   {
     emoji: "👋",
     icon: <Sparkles className="h-5 w-5 text-[#0D9488]" />,
-    title: "Welcome to your relocation plan",
+    title: "Your plan is ready — start here",
     body:
-      "Your specialists just finished researching. Everything you need lives on this dashboard — let's take a 30-second tour. Tabs at the top group the content; the sidebar on the left jumps to deeper tools.",
-  },
-  {
-    emoji: "🗺️",
-    icon: <LayoutGrid className="h-5 w-5 text-[#0D9488]" />,
-    title: "Overview",
-    body:
-      "Your move at a glance: destination, purpose, key dates, and how confident the plan is. Start every visit here for the high-level picture.",
-    tab: "overview",
-  },
-  {
-    emoji: "👤",
-    icon: <UserSquare2 className="h-5 w-5 text-blue-500" />,
-    title: "Profile",
-    body:
-      "Everything we know about you — citizenship, savings, family, timeline. Edit a field here and the whole plan re-flows around it.",
-    tab: "profile",
+      "Research is done. The sidebar on the left is your map; this dashboard is the at-a-glance view. Recommended order: Immigration → Pre-move → Documents → Post-move (after you arrive).",
   },
   {
     emoji: "🛂",
-    icon: <Stamp className="h-5 w-5 text-amber-600" />,
-    title: "Visa & Legal",
+    icon: <Shield className="h-5 w-5 text-[#1B7A40]" />,
+    title: "Immigration — pick your path",
     body:
-      "Side-by-side visa routes shortlisted for your profile, plus the documents and deadlines each one demands. Pick a path here and the rest of the plan adapts.",
-    tab: "visa",
+      "Open Immigration first. You'll see your primary pathway, a Plan B, and any rule changes that affect entry. Confirming the route here makes the rest of the plan adapt to it.",
   },
   {
-    emoji: "💰",
-    icon: <Wallet className="h-5 w-5 text-emerald-600" />,
-    title: "Money",
+    emoji: "✈️",
+    icon: <Plane className="h-5 w-5 text-[#0D9488]" />,
+    title: "Pre-move — the actual checklist",
     body:
-      "Budget, cost of living, currency, tax exposure — your move's financials in one place so you know what's affordable and what's not.",
-    tab: "money",
+      "Pre-move is your daily driver until move day: deadlines, urgency, what's blocked, what's next. This is where the real work happens before you leave.",
+  },
+  {
+    emoji: "📁",
+    icon: <FolderClosed className="h-5 w-5 text-amber-600" />,
+    title: "Documents — proof and paperwork",
+    body:
+      "Two halves: Vault for files you've uploaded, and What you need for everything still missing — with prep guidance for each one. Upload as you collect.",
   },
   {
     emoji: "🏡",
-    icon: <Home className="h-5 w-5 text-rose-500" />,
-    title: "Settling",
+    icon: <HomeIcon className="h-5 w-5 text-rose-500" />,
+    title: "Post-move — unlocks after arrival",
     body:
-      "After arrival this becomes your day-by-day playbook: population register, bank, healthcare, schools, taxes — every local admin step in order.",
-    tab: "settling",
+      "Once you mark yourself arrived, Post-move opens up: registration, banking, healthcare, licence and orientation. It stays out of the way until you actually need it.",
   },
   {
     emoji: "🧭",
-    icon: <Menu className="h-5 w-5 text-purple-500" />,
-    title: "Sidebar shortcuts",
+    icon: <Compass className="h-5 w-5 text-purple-500" />,
+    title: "Plan & Guidance — and refreshing your plan",
     body:
-      "Look at the left sidebar — Chat opens the AI assistant for questions, Visa is the application tracker, Checklist is your task list, Guides holds the long-form playbooks, Pre-departure handles the move week, Settings manages your account.",
-  },
-  {
-    emoji: "✨",
-    icon: <Compass className="h-5 w-5 text-[#0D9488]" />,
-    title: "You're set",
-    body:
-      "Re-run this tour anytime from the “Tour” button in the dashboard header. Good luck with the move!",
+      "Plan & Guidance covers housing, departure, pets, tax and rule monitoring — context, not your daily list. One last thing: Refresh research pulls fresh facts for a section; Regenerate applies them to your checklist. Refresh first, then regenerate.",
   },
 ]
 
 export function DashboardGuidedTour({
   open,
   onClose,
-  onTabChange,
 }: DashboardGuidedTourProps) {
   const [step, setStep] = useState(0)
   const [mounted, setMounted] = useState(false)
 
-  // Reset to step 0 every time the tour opens.
   useEffect(() => {
     if (open) setStep(0)
   }, [open])
-
-  // Whenever the active step has a tab, switch to it so the dashboard
-  // content behind the popup matches what the step describes.
-  useEffect(() => {
-    if (!open) return
-    const t = STEPS[step]?.tab
-    if (t && onTabChange) onTabChange(t)
-  }, [open, step, onTabChange])
 
   useEffect(() => {
     setMounted(true)
@@ -147,8 +113,6 @@ export function DashboardGuidedTour({
 
   return createPortal(
     <AnimatePresence>
-      {/* Dimming backdrop — pulls focus to the tour popup. Click-to-close
-          so power users can dismiss without hunting for the X button. */}
       <motion.div
         key="tour-backdrop"
         initial={{ opacity: 0 }}
@@ -219,6 +183,12 @@ export function DashboardGuidedTour({
                   <p className="text-[13px] text-muted-foreground leading-relaxed">
                     {current.body}
                   </p>
+                  {isLast && (
+                    <p className="text-[11px] text-muted-foreground/80 mt-2 flex items-center gap-1.5">
+                      <RefreshCw className="h-3 w-3" />
+                      Replay anytime via the Tour button in the dashboard header.
+                    </p>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>

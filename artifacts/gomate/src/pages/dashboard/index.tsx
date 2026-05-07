@@ -699,8 +699,6 @@ export default function DashboardPage() {
   const [settlingSummary, setSettlingSummary] = useState<DashboardSettlingSummary | null>(null)
   const [changeSummary, setChangeSummary] = useState<PlanChangeSummaryData | null>(null)
   const [vaultCount, setVaultCount] = useState<number>(0)
-  // Tabs retired in IA refresh; the guided tour still calls onTabChange
-  // for backward compat — we feed it a no-op so it doesn't break.
 
   // Migrate legacy `?tab=...` deep links to the new IA pages.
   useEffect(() => {
@@ -1101,7 +1099,7 @@ export default function DashboardPage() {
         url.searchParams.delete("research")
         window.history.replaceState({}, "", url.toString())
       }
-      const tourSeen = window.localStorage.getItem("gomate.guidedTourCompleted.v1")
+      const tourSeen = window.localStorage.getItem("gomate.guidedTourCompleted.v2")
       if (!tourSeen) {
         // Defer slightly so the modal close-animation doesn't collide
         // with the tour's first highlight ring fading in.
@@ -1531,11 +1529,10 @@ export default function DashboardPage() {
     />
     <DashboardGuidedTour
       open={showGuidedTour}
-      onTabChange={() => { /* tabs retired — see IA refresh notes */ }}
       onClose={() => {
         setShowGuidedTour(false)
         if (typeof window !== "undefined") {
-          window.localStorage.setItem("gomate.guidedTourCompleted.v1", "true")
+          window.localStorage.setItem("gomate.guidedTourCompleted.v2", "true")
         }
       }}
     />

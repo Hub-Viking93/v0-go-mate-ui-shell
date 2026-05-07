@@ -24,6 +24,7 @@ import MascotPreviewPage from "@/pages/mascot-preview";
 import ProfileFieldChipPreviewPage from "@/pages/dev/profile-field-chip";
 import SpecialistCardsPreviewPage from "@/pages/dev/specialist-cards-preview";
 import AuditPopoverPreviewPage from "@/pages/dev/audit-popover";
+import TourPreviewPage from "@/pages/dev/tour";
 import OnboardingPage from "@/pages/onboarding";
 import OnboardingProfilePage from "@/pages/onboarding/profile";
 import OnboardingDestinationPage from "@/pages/onboarding/destination";
@@ -169,6 +170,7 @@ function Router() {
       <Route path="/dev/profile-field-chip"><ProfileFieldChipPreviewPage /></Route>
       <Route path="/dev/specialist-cards"><SpecialistCardsPreviewPage /></Route>
       <Route path="/dev/audit-popover"><AuditPopoverPreviewPage /></Route>
+      <Route path="/dev/tour"><TourPreviewPage /></Route>
       {/* /guides retired — see import comment. Legacy deep links bounce
           to dashboard so users aren't stranded on a 404. */}
       <Route path="/guides"><Redirect to="/dashboard" /></Route>
