@@ -10,6 +10,7 @@
     "dry-run-a1": "tsx ./src/dry-run-a1-composer.ts",
     "dry-run-c1": "tsx ./src/dry-run-c1-settling-in.ts",
     "seed-b2-cache": "tsx ./src/seed-b2-cache.ts",
+    "seed-c1-cache": "tsx ./src/seed-c1-cache.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

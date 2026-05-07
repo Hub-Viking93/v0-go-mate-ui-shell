@@ -4,23 +4,87 @@ import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, hasFeatureAccess } from "../lib/gomate/tier";
 import { logger } from "../lib/logger";
 import {
-  generateSettlingInDAG,
+  composeSettlingInTimeline,
   computeUrgency,
   daysUntil,
   compareByUrgency,
+  registrationSpecialist,
+  bankingSpecialistV2,
+  createSupabaseLogWriter,
   type SettlingInProfile,
   type SettlingTask,
+  type ResearchedSteps,
   type DeadlineType,
   type Urgency,
 } from "@workspace/agents";
 
 const router: IRouter = Router();
 
+// =============================================================
+// Phase C1c — post-move researched-specialists cache
+// =============================================================
+// Mirrors the pre-departure cache (research_meta.researchedSpecialists.
+// {documents,housing,banking}) but is OWNED by the post-move surface
+// and includes the registration domain. Banking deliberately appears
+// in both caches — the same bundle is acceptable for both surfaces;
+// each surface filters to phase-relevant steps via its composer.
+//
+// Why a separate post-move helper rather than reusing the pre-departure
+// one: registration has no pre-departure surface (the pre-departure
+// timeline filters phase ∈ {before_move, move_day} only). Pre-warming
+// it from the pre-departure side would be paying LLM cost for output
+// the route never reads. This keeps each surface's specialist set
+// scoped to what it actually consumes.
+type PostMoveResearchedCache = Partial<Record<string, ResearchedSteps>>;
+
+const POSTMOVE_BUDGET_MS = 90_000;
+
+async function runResearchedSpecialistsForPostMove(args: {
+  profile: SettlingInProfile;
+  profileId: string;
+  logWriter: ReturnType<typeof createSupabaseLogWriter>;
+}): Promise<PostMoveResearchedCache> {
+  const { profile, profileId, logWriter } = args;
+  const specialistProfile: Record<string, string | number | null | undefined> = {};
+  for (const [k, v] of Object.entries(profile as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" || typeof v === "number") specialistProfile[k] = v;
+    else if (typeof v === "boolean") specialistProfile[k] = v ? "yes" : "no";
+  }
+  const sharedInput = {
+    profile: specialistProfile,
+    profileId,
+    logWriter,
+    budgetMs: POSTMOVE_BUDGET_MS,
+  } as const;
+
+  const [registration, banking] = await Promise.all([
+    registrationSpecialist(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "registration_specialist threw");
+      return null;
+    }),
+    bankingSpecialistV2(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "banking_v2 threw");
+      return null;
+    }),
+  ]);
+
+  const out: PostMoveResearchedCache = {};
+  if (registration && registration.kind === "steps") out.registration = registration;
+  if (banking && banking.kind === "steps") out.banking = banking;
+  return out;
+}
+
 /**
  * Phase 7.2 — settling-in DAG persistence.
  * Triggered automatically when /api/settling-in/arrive flips stage→arrived.
  * Idempotent: deletes prior tasks for the plan, regenerates from profile +
- * arrival_date, persists. Returns the inserted rows.
+ * arrival_date + researched cache, persists. Returns the inserted rows.
+ *
+ * Phase C1c — composes via composeSettlingInTimeline so registration +
+ * banking can come from researched specialists when the cache is warm.
+ * Cache lives at relocation_plans.research_meta.researchedSpecialists;
+ * the same JSON column the pre-departure path reads/writes.
  */
 async function generateAndPersistSettlingInTasks(args: {
   supabase: SupabaseClient;
@@ -28,8 +92,42 @@ async function generateAndPersistSettlingInTasks(args: {
   planId: string;
   profile: SettlingInProfile;
   arrivalDate: Date;
+  researchMeta: { researchedSpecialists?: PostMoveResearchedCache } | null;
 }): Promise<{ count: number; legalCount: number; urgentCount: number }> {
-  const dag = generateSettlingInDAG(args.profile, args.arrivalDate);
+  // 1. Read cache; warm missing slots inline.
+  const meta = args.researchMeta ?? {};
+  let researchedCache: PostMoveResearchedCache = meta.researchedSpecialists ?? {};
+  const cacheMissing = !researchedCache.registration || !researchedCache.banking;
+  if (cacheMissing) {
+    logger.info({ planId: args.planId }, "settling-in: post-move researched cache miss; running specialists");
+    const fresh = await runResearchedSpecialistsForPostMove({
+      profile: args.profile,
+      profileId: args.planId,
+      logWriter: createSupabaseLogWriter(args.supabase),
+    });
+    researchedCache = { ...researchedCache, ...fresh };
+    // Persist cache back to research_meta so the next regenerate is instant.
+    const newMeta = {
+      ...(meta ?? {}),
+      researchedSpecialists: researchedCache,
+    };
+    await args.supabase
+      .from("relocation_plans")
+      .update({ research_meta: newMeta, updated_at: new Date().toISOString() })
+      .eq("id", args.planId);
+  } else {
+    logger.info({ planId: args.planId }, "settling-in: post-move researched cache hit");
+  }
+
+  // 2. Compose with researched precedence (C1b).
+  const dag = composeSettlingInTimeline({
+    profile: args.profile,
+    arrivalDate: args.arrivalDate,
+    researchedByDomain: {
+      ...(researchedCache.registration ? { registration: researchedCache.registration } : {}),
+      ...(researchedCache.banking ? { banking: researchedCache.banking } : {}),
+    },
+  });
 
   // Wipe any prior tasks for this plan (regen path).
   await args.supabase
@@ -274,10 +372,10 @@ router.post("/settling-in/arrive", async (req, res) => {
     const arrivalDate = (req.body as { arrivalDate?: string })?.arrivalDate || new Date().toISOString().split("T")[0];
     const { data: plan } = await ctx.supabase
       .from("relocation_plans")
-      .select("id, stage, profile_data")
+      .select("id, stage, profile_data, research_meta")
       .eq("user_id", ctx.user.id)
       .eq("is_current", true)
-      .maybeSingle();
+      .maybeSingle<{ id: string; stage: string | null; profile_data: Record<string, unknown> | null; research_meta: { researchedSpecialists?: PostMoveResearchedCache } | null }>();
     if (!plan) {
       res.status(404).json({ error: "No active plan" });
       return;
@@ -310,6 +408,8 @@ router.post("/settling-in/arrive", async (req, res) => {
     }
 
     // Phase 7.2 — auto-generate settling-in DAG immediately after arrival.
+    // Phase C1c — generation now reads research_meta.researchedSpecialists
+    // and prefers researched output for registration + banking.
     let generation: { count: number; legalCount: number; urgentCount: number } | null = null;
     try {
       generation = await generateAndPersistSettlingInTasks({
@@ -318,6 +418,7 @@ router.post("/settling-in/arrive", async (req, res) => {
         planId: plan.id,
         profile: (plan.profile_data ?? {}) as SettlingInProfile,
         arrivalDate: new Date(arrivalDate),
+        researchMeta: plan.research_meta ?? null,
       });
     } catch (genErr) {
       // Non-fatal: stage flip succeeded; user can manually re-trigger.
@@ -339,12 +440,64 @@ router.post("/settling-in/arrive", async (req, res) => {
   }
 });
 
-router.all("/settling-in/generate", async (req, res) => {
-  const ctx = await authenticate(req, res);
-  if (!ctx) return;
-  res.status(503).json({
-    error: "Settling-in plan generation requires the AI research worker (Firecrawl + OpenAI). This is part of a follow-up integration task.",
-  });
+// Phase C1c — manual regenerate endpoint. Reads the current plan,
+// re-runs generateAndPersistSettlingInTasks (which reads/warms the
+// researched cache + composes), responds with summary stats. Used
+// from the /post-move checklist's "Regenerate" affordance + the C1d
+// Playwright proof.
+router.post("/settling-in/generate", async (req, res) => {
+  try {
+    const ctx = await authenticate(req, res);
+    if (!ctx) return;
+    const tier = await getUserTier(ctx.supabase, ctx.user.id);
+    if (!hasFeatureAccess(tier, "settling_in_tasks")) {
+      res.status(403).json({ error: "Pro required" });
+      return;
+    }
+    const { data: plan, error: planErr } = await ctx.supabase
+      .from("relocation_plans")
+      .select("id, stage, arrival_date, profile_data, research_meta")
+      .eq("user_id", ctx.user.id)
+      .eq("is_current", true)
+      .maybeSingle<{
+        id: string;
+        stage: string | null;
+        arrival_date: string | null;
+        profile_data: Record<string, unknown> | null;
+        research_meta: { researchedSpecialists?: PostMoveResearchedCache } | null;
+      }>();
+    if (planErr || !plan) {
+      res.status(404).json({ error: "No active plan" });
+      return;
+    }
+    if (!isPostArrivalStage(plan.stage)) {
+      res.status(409).json({
+        error: `Settling-in tasks can only be generated after arrival (current stage: ${plan.stage}).`,
+      });
+      return;
+    }
+    const arrivalDate = plan.arrival_date
+      ? new Date(plan.arrival_date)
+      : new Date();
+    const generation = await generateAndPersistSettlingInTasks({
+      supabase: ctx.supabase,
+      userId: ctx.user.id,
+      planId: plan.id,
+      profile: (plan.profile_data ?? {}) as SettlingInProfile,
+      arrivalDate,
+      researchMeta: plan.research_meta ?? null,
+    });
+    res.json({
+      success: true,
+      planId: plan.id,
+      tasksGenerated: generation.count,
+      legalRequirements: generation.legalCount,
+      urgentDeadlines: generation.urgentCount,
+    });
+  } catch (err) {
+    logger.error({ err }, "settling-in generate error");
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 router.all("/settling-in/:id/why-it-matters", async (req, res) => {
