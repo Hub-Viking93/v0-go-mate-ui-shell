@@ -204,16 +204,63 @@ export function ResearchProgressModal({
   const isFinishing = sseTerminal && !dataReady;
   const allDone = sseTerminal && dataReady;
 
+  // Hold the latest `onComplete` in a ref so the close-effect below can
+  // depend ONLY on `allDone`. Previously the effect listed `onComplete`
+  // in its deps, which made it re-run every time the parent dashboard
+  // re-rendered (the dashboard polls /api/profile every 8s and updates
+  // many state slices, so `handleResearchModalComplete` got a fresh
+  // identity often). Each re-run cleared the pending 1.2s timeout
+  // before it could fire — so the modal reached "All set" and never
+  // closed. The ref pattern keeps the timeout alive across re-renders.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
+
   // Once both conditions are met, give the user a brief moment to read
   // "All set" before closing — so the transition into the dashboard
-  // doesn't feel abrupt.
+  // doesn't feel abrupt. Schedule the close exactly once per modal
+  // lifetime (guarded by completedRef) and read the latest onComplete
+  // from the ref at fire time.
   const completedRef = useRef(false);
   useEffect(() => {
     if (!allDone || completedRef.current) return;
     completedRef.current = true;
-    const t = setTimeout(() => onComplete(), 1_200);
+    const t = setTimeout(() => onCompleteRef.current(), 1_200);
     return () => clearTimeout(t);
-  }, [allDone, onComplete]);
+  }, [allDone]);
+
+  // Defensive URL cleanup. If the user lands here with
+  // `?research=triggered` in the URL (set by the onboarding redirect),
+  // strip it as soon as the SSE run is terminal — regardless of
+  // whether `onComplete` ever fires. This makes the fix self-healing
+  // for any user who already has a stuck URL today: refresh and the
+  // dashboard will no longer auto-reopen the modal.
+  const urlCleanedRef = useRef(false);
+  useEffect(() => {
+    if (!sseTerminal || urlCleanedRef.current) return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("research")) {
+      url.searchParams.delete("research");
+      window.history.replaceState({}, "", url.toString());
+    }
+    urlCleanedRef.current = true;
+  }, [sseTerminal]);
+
+  // Manual escape hatch: after the modal has been showing "All set"
+  // for ~3s, expose a "Continue to dashboard" button so the user is
+  // never trapped if the auto-close fails for any reason. The button
+  // stays visible indefinitely once it appears.
+  const [showManualEscape, setShowManualEscape] = useState(false);
+  useEffect(() => {
+    if (!allDone) {
+      setShowManualEscape(false);
+      return;
+    }
+    const t = setTimeout(() => setShowManualEscape(true), 3_000);
+    return () => clearTimeout(t);
+  }, [allDone]);
 
   // Cycle through in-flight specialists every 1.6s so the headline
   // message changes even when one specialist is taking a while.
@@ -491,6 +538,22 @@ export function ResearchProgressModal({
               Hold tight — research can take a few minutes. We'll redirect you to
               the dashboard automatically when your plan is ready.
             </p>
+          )}
+
+          {allDone && showManualEscape && (
+            <div className="mt-4 w-full flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onCompleteRef.current()}
+                className="rounded-md bg-[#0D9488] px-3.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[#0B7A70] transition-colors"
+                data-testid="research-modal-continue"
+              >
+                Continue to dashboard
+              </button>
+              <p className="text-[10.5px] text-muted-foreground">
+                If this doesn't redirect on its own, click the button or refresh the page.
+              </p>
+            </div>
           )}
 
           {recent.length > 0 && !allDone && (
