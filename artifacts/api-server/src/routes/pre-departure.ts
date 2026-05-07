@@ -45,6 +45,7 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
+import { applyResearchMetaPatch } from "../lib/research-meta-patch";
 
 const router: IRouter = Router();
 
@@ -589,24 +590,40 @@ router.post("/pre-departure/generate", async (req, res) => {
       provenance,
     };
 
-    const newResearchMeta: ResearchMetaWithSpecialists = {
-      ...(plan.research_meta ?? {}),
-      preDeparture: stored,
-      researchedSpecialists: researchedSpecialistsCache,
-    };
-
+    // Phase F1 — split the persist into two atomic statements:
+    //   (1) atomic JSONB-merge for the research_meta sub-keys this
+    //       writer owns (preDeparture + researchedSpecialists).
+    //       Other sub-keys (notifications.*, …) belong to other
+    //       writers and stay untouched.
+    //   (2) a direct UPDATE for the non-jsonb columns this route
+    //       does need to touch (stage flip, user_triggered_pre_departure_at).
+    //
+    // The RPC bumps updated_at on its own; the (2) UPDATE bumps it
+    // again to keep the existing freshness signal consistent.
     const nowIso = new Date().toISOString();
+    try {
+      await applyResearchMetaPatch(ctx.supabase, plan.id, {
+        preDeparture: stored,
+        researchedSpecialists: researchedSpecialistsCache,
+      });
+    } catch (err) {
+      logger.error({ err }, "pre-departure: research_meta patch failed");
+      res.status(500).json({
+        error: "Failed to persist pre-departure timeline",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
     const { error: upErr } = await ctx.supabase
       .from("relocation_plans")
       .update({
-        research_meta: newResearchMeta,
         stage: "pre_departure",
         user_triggered_pre_departure_at: plan.user_triggered_pre_departure_at ?? nowIso,
         updated_at: nowIso,
       })
       .eq("id", plan.id);
     if (upErr) {
-      logger.error({ err: upErr }, "pre-departure: persist failed");
+      logger.error({ err: upErr }, "pre-departure: stage flip failed");
       res.status(500).json({ error: "Failed to persist pre-departure timeline", detail: upErr.message });
       return;
     }
@@ -685,16 +702,15 @@ router.patch("/pre-departure/:actionId", async (req, res) => {
     };
     const newActions = [...stored.actions];
     newActions[idx] = updated;
-    const newMeta = {
-      ...(plan.research_meta ?? {}),
-      preDeparture: { ...stored, actions: newActions },
-    };
-    const { error: upErr } = await ctx.supabase
-      .from("relocation_plans")
-      .update({ research_meta: newMeta })
-      .eq("id", plan.id);
-    if (upErr) {
-      logger.error({ err: upErr }, "pre-departure PATCH persist failed");
+    // Phase F1 — atomic JSONB merge so concurrent edits to other
+    // research_meta sub-keys (notifications, researchedSpecialists,
+    // …) survive this PATCH.
+    try {
+      await applyResearchMetaPatch(ctx.supabase, plan.id, {
+        preDeparture: { ...stored, actions: newActions },
+      });
+    } catch (err) {
+      logger.error({ err }, "pre-departure PATCH persist failed");
       res.status(500).json({ error: "Failed to update action" });
       return;
     }

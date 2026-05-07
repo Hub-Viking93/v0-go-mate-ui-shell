@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authenticate } from "../lib/supabase-auth";
 import { getUserTier, hasFeatureAccess } from "../lib/gomate/tier";
 import { logger } from "../lib/logger";
+import { applyResearchMetaPatch } from "../lib/research-meta-patch";
 import {
   composeSettlingInTimeline,
   computeUrgency,
@@ -117,15 +118,11 @@ async function generateAndPersistSettlingInTasks(args: {
       logWriter: createSupabaseLogWriter(args.supabase),
     });
     researchedCache = { ...researchedCache, ...fresh };
-    // Persist cache back to research_meta so the next regenerate is instant.
-    const newMeta = {
-      ...(meta ?? {}),
+    // Phase F1 — atomic JSONB merge so the cache write doesn't
+    // clobber other research_meta sub-keys (notifications.*, …).
+    await applyResearchMetaPatch(args.supabase, args.planId, {
       researchedSpecialists: researchedCache,
-    };
-    await args.supabase
-      .from("relocation_plans")
-      .update({ research_meta: newMeta, updated_at: new Date().toISOString() })
-      .eq("id", args.planId);
+    });
   } else {
     logger.info({ planId: args.planId }, "settling-in: post-move researched cache hit");
   }

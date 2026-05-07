@@ -30,6 +30,7 @@ import {
   type DispatchAttempt,
 } from "./email-dispatcher";
 import { logger } from "./logger";
+import { applyResearchMetaPatch } from "./research-meta-patch";
 
 const DEFAULT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -314,24 +315,29 @@ export async function runSchedulerTick(now: Date = new Date()): Promise<TickStat
       }
 
       const counts = countNotifications(merged.merged);
-      const nextMeta = {
-        ...meta,
-        notifications: merged.merged,
-        notification_deliveries: deliveries,
-        notification_last_tick: {
-          at: new Date().toISOString(),
-          counts,
-          newlyCreated: merged.newlyCreated.length,
-          dispatchAttempts: dispatchAttempts.length,
-        },
-      };
-      const { error: upErr } = await a
-        .from("relocation_plans")
-        .update({ research_meta: nextMeta })
-        .eq("id", plan.id);
-      if (upErr) {
+      // Phase F1 — atomic JSONB-merge so the scheduler tick only
+      // touches the three sub-keys it actually owns. The previous
+      // {...meta, notifications, ...} pattern was the primary cause
+      // of the lost-update race observed during E1b: when a
+      // concurrent writer (e.g. POST /api/research/refresh) mutated
+      // research_meta.researchedSpecialists between this tick's read
+      // and write, the mutation got clobbered by the stale `meta`
+      // snapshot. Patching only our keys lets concurrent writes to
+      // other sub-keys survive.
+      try {
+        await applyResearchMetaPatch(a, plan.id, {
+          notifications: merged.merged,
+          notification_deliveries: deliveries,
+          notification_last_tick: {
+            at: new Date().toISOString(),
+            counts,
+            newlyCreated: merged.newlyCreated.length,
+            dispatchAttempts: dispatchAttempts.length,
+          },
+        });
+      } catch (err) {
         logger.error(
-          { planId: plan.id, err: upErr },
+          { planId: plan.id, err },
           "[notifications-scheduler] failed to persist tick result",
         );
       }

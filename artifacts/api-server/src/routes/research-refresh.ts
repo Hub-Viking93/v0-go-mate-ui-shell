@@ -56,6 +56,7 @@ import {
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
 import { logger } from "../lib/logger";
+import { applyResearchMetaPatch } from "../lib/research-meta-patch";
 
 const router: IRouter = Router();
 
@@ -214,24 +215,20 @@ router.post("/research/refresh", async (req, res) => {
     });
   }
 
-  // ---- Persist --------------------------------------------------
-  const newMeta = {
-    ...(plan.research_meta ?? {}),
-    researchedSpecialists: newCache,
-  };
+  // ---- Persist via atomic JSONB-merge RPC (Phase F1) ------------
+  // Sub-key write only: just researchedSpecialists. Other top-level
+  // keys (preDeparture, notifications, …) keep whatever value the
+  // last writer set; this writer doesn't touch them.
   const persistedAt = new Date().toISOString();
-  const { error: upErr } = await ctx.supabase
-    .from("relocation_plans")
-    .update({
-      research_meta: newMeta,
-      updated_at: persistedAt,
-    })
-    .eq("id", plan.id);
-  if (upErr) {
-    logger.error({ err: upErr, planId: plan.id }, "research-refresh: persist failed");
+  try {
+    await applyResearchMetaPatch(ctx.supabase, plan.id, {
+      researchedSpecialists: newCache,
+    });
+  } catch (err) {
+    logger.error({ err, planId: plan.id }, "research-refresh: persist failed");
     res.status(500).json({
       error: "Failed to persist refreshed cache",
-      detail: upErr.message,
+      detail: err instanceof Error ? err.message : String(err),
     });
     return;
   }
