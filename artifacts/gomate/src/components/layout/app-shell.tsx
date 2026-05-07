@@ -129,6 +129,7 @@ export function AppShell({ children }: AppShellProps) {
                   <li key={item.name}>
                     <Link
                       href={item.href}
+                      data-testid={`sidebar-nav-${item.href.slice(1)}`}
                       className={cn(
                         "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] font-medium",
                         "transition-colors duration-150",

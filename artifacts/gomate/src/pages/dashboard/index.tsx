@@ -1553,7 +1553,6 @@ export default function DashboardPage() {
     />
     <DashboardGuidedTour
       open={showGuidedTour}
-      onTabChange={() => { /* tabs retired — see IA refresh notes */ }}
       onClose={() => {
         setShowGuidedTour(false)
         if (typeof window !== "undefined") {

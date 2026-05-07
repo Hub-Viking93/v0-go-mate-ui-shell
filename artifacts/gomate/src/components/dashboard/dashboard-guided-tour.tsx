@@ -3,29 +3,20 @@ import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import {
-  Compass,
-  Stamp,
   Sparkles,
   ArrowRight,
   ArrowLeft,
   X,
-  LayoutGrid,
-  UserSquare2,
-  Wallet,
-  Home,
-  Menu,
+  Shield,
+  Plane,
+  FolderClosed,
+  Home as HomeIcon,
+  Compass,
 } from "lucide-react"
-import type { DashboardTabId } from "@/components/dashboard-tabs"
 
 interface DashboardGuidedTourProps {
   open: boolean
   onClose: () => void
-  /**
-   * Called when the tour wants to switch the active dashboard tab.
-   * The dashboard owns the tab state and re-renders the tab content
-   * behind the tour popup so the user sees what each step describes.
-   */
-  onTabChange?: (tab: DashboardTabId) => void
 }
 
 interface TourStep {
@@ -33,78 +24,62 @@ interface TourStep {
   icon: React.ReactNode
   title: string
   body: string
-  /** Switch the dashboard to this tab when this step is shown. */
-  tab?: DashboardTabId
+  /** Where this step points the user — shown as a hint chip under the body. */
+  destination?: { label: string; href: string }
 }
 
+// Five-step tour grounded in the current IA (Dashboard / Immigration /
+// Pre-move / Post-move / Documents / Plan & Guidance). Order mirrors the
+// recommended sequence: pick a visa pathway → run the move checklist →
+// collect documents → unlock post-arrival admin → use Plan & Guidance for
+// deeper context. The previous tour referenced retired tabs (overview /
+// profile / visa / money / settling) and a no-op onTabChange callback —
+// both have been removed.
 const STEPS: TourStep[] = [
   {
-    emoji: "👋",
+    emoji: "✨",
     icon: <Sparkles className="h-5 w-5 text-[#0D9488]" />,
-    title: "Welcome to your relocation plan",
+    title: "Your plan is ready",
     body:
-      "Your specialists just finished researching. Everything you need lives on this dashboard — let's take a 30-second tour. Tabs at the top group the content; the sidebar on the left jumps to deeper tools.",
-  },
-  {
-    emoji: "🗺️",
-    icon: <LayoutGrid className="h-5 w-5 text-[#0D9488]" />,
-    title: "Overview",
-    body:
-      "Your move at a glance: destination, purpose, key dates, and how confident the plan is. Start every visit here for the high-level picture.",
-    tab: "overview",
-  },
-  {
-    emoji: "👤",
-    icon: <UserSquare2 className="h-5 w-5 text-blue-500" />,
-    title: "Profile",
-    body:
-      "Everything we know about you — citizenship, savings, family, timeline. Edit a field here and the whole plan re-flows around it.",
-    tab: "profile",
+      "Specialists just finished researching your move against official sources. The dashboard summarizes what they found — visa shortlist, costs, key risks. Everything else lives in dedicated workspaces in the left sidebar. 30-second tour?",
   },
   {
     emoji: "🛂",
-    icon: <Stamp className="h-5 w-5 text-amber-600" />,
-    title: "Visa & Legal",
+    icon: <Shield className="h-5 w-5 text-amber-600" />,
+    title: "Start in Immigration",
     body:
-      "Side-by-side visa routes shortlisted for your profile, plus the documents and deadlines each one demands. Pick a path here and the rest of the plan adapts.",
-    tab: "visa",
+      "Your visa shortlist is here. Compare routes side-by-side, see eligibility, fees, processing times, then pick the one you'll pursue. Picking a path is what unlocks the right checklist in Pre-move.",
+    destination: { label: "Open Immigration", href: "/immigration" },
   },
   {
-    emoji: "💰",
-    icon: <Wallet className="h-5 w-5 text-emerald-600" />,
-    title: "Money",
+    emoji: "✈️",
+    icon: <Plane className="h-5 w-5 text-[#0D9488]" />,
+    title: "Pre-move is your checklist",
     body:
-      "Budget, cost of living, currency, tax exposure — your move's financials in one place so you know what's affordable and what's not.",
-    tab: "money",
+      "Generates a dependency-aware timeline from your visa choice — apostilles, translations, bank, housing, insurance, sorted by deadline. Tick items off here as you do them.",
+    destination: { label: "Open Pre-move", href: "/pre-move" },
+  },
+  {
+    emoji: "📁",
+    icon: <FolderClosed className="h-5 w-5 text-blue-500" />,
+    title: "Documents lives separately",
+    body:
+      "\"What you need\" lists every document the visa demands. \"Vault\" is where you upload scans so they're at hand when an embassy or landlord asks. Both surfaces sit at /documents.",
+    destination: { label: "Open Documents", href: "/documents" },
   },
   {
     emoji: "🏡",
-    icon: <Home className="h-5 w-5 text-rose-500" />,
-    title: "Settling",
+    icon: <HomeIcon className="h-5 w-5 text-rose-500" />,
+    title: "After you arrive",
     body:
-      "After arrival this becomes your day-by-day playbook: population register, bank, healthcare, schools, taxes — every local admin step in order.",
-    tab: "settling",
-  },
-  {
-    emoji: "🧭",
-    icon: <Menu className="h-5 w-5 text-purple-500" />,
-    title: "Sidebar shortcuts",
-    body:
-      "Look at the left sidebar — Chat opens the AI assistant for questions, Visa is the application tracker, Checklist is your task list, Guides holds the long-form playbooks, Pre-departure handles the move week, Settings manages your account.",
-  },
-  {
-    emoji: "✨",
-    icon: <Compass className="h-5 w-5 text-[#0D9488]" />,
-    title: "You're set",
-    body:
-      "Re-run this tour anytime from the “Tour” button in the dashboard header. Good luck with the move!",
+      "Post-move unlocks once you mark arrival — population register, bank, healthcare, taxes. Plan & Guidance is the deeper-context surface (long-form explanations, source citations). Need to refresh research after a rule change? Use the refresh button on Immigration; regenerating the whole plan is in Settings.",
+    destination: { label: "See Post-move", href: "/post-move" },
   },
 ]
 
 export function DashboardGuidedTour({
   open,
   onClose,
-  onTabChange,
 }: DashboardGuidedTourProps) {
   const [step, setStep] = useState(0)
   const [mounted, setMounted] = useState(false)
@@ -114,17 +89,20 @@ export function DashboardGuidedTour({
     if (open) setStep(0)
   }, [open])
 
-  // Whenever the active step has a tab, switch to it so the dashboard
-  // content behind the popup matches what the step describes.
-  useEffect(() => {
-    if (!open) return
-    const t = STEPS[step]?.tab
-    if (t && onTabChange) onTabChange(t)
-  }, [open, step, onTabChange])
-
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // ESC closes the tour. The backdrop click already does the same; this
+  // covers keyboard users.
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [open, onClose])
 
   if (!mounted || !open) return null
 
@@ -143,6 +121,14 @@ export function DashboardGuidedTour({
   const prev = () => {
     if (isFirst) return
     setStep((s) => s - 1)
+  }
+
+  const goToDestination = () => {
+    if (!current.destination) return
+    onClose()
+    if (typeof window !== "undefined") {
+      window.location.assign(current.destination.href)
+    }
   }
 
   return createPortal(
@@ -210,7 +196,7 @@ export function DashboardGuidedTour({
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -6, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-1"
+                  className="space-y-2"
                 >
                   <h2 className="text-base font-semibold tracking-tight flex items-center gap-2">
                     {current.icon}
@@ -219,6 +205,18 @@ export function DashboardGuidedTour({
                   <p className="text-[13px] text-muted-foreground leading-relaxed">
                     {current.body}
                   </p>
+                  {current.destination && (
+                    <button
+                      type="button"
+                      onClick={goToDestination}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 text-[11.5px] font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                      data-testid={`tour-goto-${current.destination.href.slice(1)}`}
+                    >
+                      <Compass className="h-3 w-3" />
+                      {current.destination.label}
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
