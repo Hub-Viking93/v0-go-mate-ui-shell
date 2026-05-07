@@ -1376,13 +1376,15 @@ export function generateSettlingInDAG(
 }
 
 // =============================================================
-// Phase C1b — researched-aware composer entry point
+// Phase C1b / C2 — researched-aware composer entry point
 // =============================================================
 // Same SettlingDAGResult shape as generateSettlingInDAG above, but
 // accepts a per-domain researched-output map. For each domain present
 // in `researchedByDomain` whose bundle is usable (quality !== fallback
 // AND emits at least one step), the deterministic *Tasks contributor
 // is replaced with mapResearchedToSettlingTasks(bundle).
+//
+// Domains supported today: registration (C1), banking (C1), healthcare (C2).
 //
 // PRECEDENCE RULE
 // ---------------
@@ -1412,15 +1414,18 @@ export interface ComposeSettlingInArgs {
   arrivalDate: Date;
   /**
    * Per-domain researched output. Domains absent fall back to the
-   * deterministic contributor. Today only "registration" + "banking"
-   * are wired — other domains are silently ignored even if provided.
+   * deterministic contributor. Today registration + banking + healthcare
+   * are wired — other domains (housing, employment, transport, family,
+   * tax) are silently ignored even if provided.
    */
   researchedByDomain: Partial<Record<SettlingDomain, ResearchedSteps>>;
 }
 
-const RESEARCHED_DOMAINS_C1: ReadonlySet<SettlingDomain> = new Set([
+const RESEARCHED_DOMAINS_POSTMOVE: ReadonlySet<SettlingDomain> = new Set([
   "registration",
   "banking",
+  // Phase C2 — healthcare joins the post-move researched set.
+  "healthcare",
 ]);
 
 function isUsableResearched(bundle: ResearchedSteps | undefined): bundle is ResearchedSteps {
@@ -1440,7 +1445,7 @@ export function composeSettlingInTimeline(
 
   // Registration — researched first, deterministic otherwise.
   const regBundle = researchedByDomain.registration;
-  if (RESEARCHED_DOMAINS_C1.has("registration") && isUsableResearched(regBundle)) {
+  if (RESEARCHED_DOMAINS_POSTMOVE.has("registration") && isUsableResearched(regBundle)) {
     const mapped = mapResearchedToSettlingTasks(regBundle);
     if (mapped.length > 0) {
       flat.push(...mapped);
@@ -1453,7 +1458,7 @@ export function composeSettlingInTimeline(
 
   // Banking — same shape.
   const bankBundle = researchedByDomain.banking;
-  if (RESEARCHED_DOMAINS_C1.has("banking") && isUsableResearched(bankBundle)) {
+  if (RESEARCHED_DOMAINS_POSTMOVE.has("banking") && isUsableResearched(bankBundle)) {
     const mapped = mapResearchedToSettlingTasks(bankBundle);
     if (mapped.length > 0) {
       flat.push(...mapped);
@@ -1464,9 +1469,22 @@ export function composeSettlingInTimeline(
     flat.push(...bankingTasks(profile).tasks);
   }
 
-  // Everything else stays deterministic in C1.
+  // Healthcare (Phase C2) — same shape.
+  const hcBundle = researchedByDomain.healthcare;
+  if (RESEARCHED_DOMAINS_POSTMOVE.has("healthcare") && isUsableResearched(hcBundle)) {
+    const mapped = mapResearchedToSettlingTasks(hcBundle);
+    if (mapped.length > 0) {
+      flat.push(...mapped);
+    } else {
+      flat.push(...healthcareTasks(profile).tasks);
+    }
+  } else {
+    flat.push(...healthcareTasks(profile).tasks);
+  }
+
+  // Everything else stays deterministic — housing/employment/
+  // transport/family/tax own no researched specialist yet.
   flat.push(...housingTasks(profile).tasks);
-  flat.push(...healthcareTasks(profile).tasks);
   flat.push(...employmentTasks(profile).tasks);
   flat.push(...transportTasks(profile).tasks);
   flat.push(...familyTasks(profile).tasks);

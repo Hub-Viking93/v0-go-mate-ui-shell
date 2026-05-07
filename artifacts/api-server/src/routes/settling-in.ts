@@ -10,6 +10,7 @@ import {
   compareByUrgency,
   registrationSpecialist,
   bankingSpecialistV2,
+  healthcareSpecialistV2,
   createSupabaseLogWriter,
   type SettlingInProfile,
   type SettlingTask,
@@ -58,7 +59,7 @@ async function runResearchedSpecialistsForPostMove(args: {
     budgetMs: POSTMOVE_BUDGET_MS,
   } as const;
 
-  const [registration, banking] = await Promise.all([
+  const [registration, banking, healthcare] = await Promise.all([
     registrationSpecialist(sharedInput).catch((err) => {
       logger.warn({ err: err instanceof Error ? err.message : err }, "registration_specialist threw");
       return null;
@@ -67,11 +68,16 @@ async function runResearchedSpecialistsForPostMove(args: {
       logger.warn({ err: err instanceof Error ? err.message : err }, "banking_v2 threw");
       return null;
     }),
+    healthcareSpecialistV2(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "healthcare_v2 threw");
+      return null;
+    }),
   ]);
 
   const out: PostMoveResearchedCache = {};
   if (registration && registration.kind === "steps") out.registration = registration;
   if (banking && banking.kind === "steps") out.banking = banking;
+  if (healthcare && healthcare.kind === "steps") out.healthcare = healthcare;
   return out;
 }
 
@@ -97,7 +103,10 @@ async function generateAndPersistSettlingInTasks(args: {
   // 1. Read cache; warm missing slots inline.
   const meta = args.researchMeta ?? {};
   let researchedCache: PostMoveResearchedCache = meta.researchedSpecialists ?? {};
-  const cacheMissing = !researchedCache.registration || !researchedCache.banking;
+  const cacheMissing =
+    !researchedCache.registration ||
+    !researchedCache.banking ||
+    !researchedCache.healthcare;
   if (cacheMissing) {
     logger.info({ planId: args.planId }, "settling-in: post-move researched cache miss; running specialists");
     const fresh = await runResearchedSpecialistsForPostMove({
@@ -119,13 +128,14 @@ async function generateAndPersistSettlingInTasks(args: {
     logger.info({ planId: args.planId }, "settling-in: post-move researched cache hit");
   }
 
-  // 2. Compose with researched precedence (C1b).
+  // 2. Compose with researched precedence (C1b/C2).
   const dag = composeSettlingInTimeline({
     profile: args.profile,
     arrivalDate: args.arrivalDate,
     researchedByDomain: {
       ...(researchedCache.registration ? { registration: researchedCache.registration } : {}),
       ...(researchedCache.banking ? { banking: researchedCache.banking } : {}),
+      ...(researchedCache.healthcare ? { healthcare: researchedCache.healthcare } : {}),
     },
   });
 

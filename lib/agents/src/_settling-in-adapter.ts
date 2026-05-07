@@ -59,7 +59,13 @@ const RESEARCHED_DOMAIN_TO_SETTLING: Partial<
 > = {
   registration: "registration",
   banking: "banking",
-  // Future: housing, healthcare. Not enabled here in C1.
+  // Phase C2 — healthcare added; SettlingDomain "healthcare" maps to
+  // ResearchedSteps domain "healthcare" (same name, lined up across
+  // contracts).
+  healthcare: "healthcare",
+  // Future: housing. Post-move housing scope (set up utilities,
+  // home insurance) is small + currently deterministic-acceptable;
+  // a researched migration is not urgent.
 };
 
 // ---- Phase filter ----------------------------------------------------

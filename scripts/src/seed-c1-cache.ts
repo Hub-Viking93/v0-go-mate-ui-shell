@@ -1,12 +1,13 @@
 // =============================================================
-// Pre-warm research_meta.researchedSpecialists.{registration,banking}
-// for the test plan + flip stage to "arrived" so /post-move's
-// settling-in surface has data to render.
+// Pre-warm research_meta.researchedSpecialists.{registration,banking,
+// healthcare} for the test plan + flip stage to "arrived" so
+// /post-move's settling-in surface has data to render.
 // =============================================================
 // Companion to seed-b2-cache.ts but scoped to post-move:
 //   - registration (post-arrival, registration_specialist)
 //   - banking (banking_v2; same specialist as B2 — fine to share the
 //     bundle across surfaces, each composer filters phase)
+//   - healthcare (healthcare_v2 — added in C2)
 //
 // Mirrors the post-move route's runResearchedSpecialistsForPostMove
 // contract so the cache shape lines up.
@@ -16,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   registrationSpecialist,
   bankingSpecialistV2,
+  healthcareSpecialistV2,
   createSupabaseLogWriter,
   type ResearchedOutput,
 } from "@workspace/agents";
@@ -64,9 +66,10 @@ async function main(): Promise<void> {
   const cache = plan.research_meta?.researchedSpecialists ?? {};
   const haveReg = !!(cache as Record<string, unknown>).registration;
   const haveBank = !!(cache as Record<string, unknown>).banking;
+  const haveHC = !!(cache as Record<string, unknown>).healthcare;
   const stageOk = plan.stage === "arrived";
 
-  if (haveReg && haveBank && stageOk && !FORCE) {
+  if (haveReg && haveBank && haveHC && stageOk && !FORCE) {
     console.log(
       `[seed-c1-cache] cache + arrived stage already present for plan ${plan.id}; pass --force to overwrite.`,
     );
@@ -74,7 +77,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `[seed-c1-cache] running registration + banking specialists for plan ${plan.id} (force=${FORCE})…`,
+    `[seed-c1-cache] running registration + banking + healthcare specialists for plan ${plan.id} (force=${FORCE})…`,
   );
   const profileRaw = (plan.profile_data ?? {}) as Record<string, unknown>;
   const profile: Record<string, string | number | null | undefined> = {};
@@ -93,14 +96,15 @@ async function main(): Promise<void> {
   } as const;
 
   const t0 = Date.now();
-  const [registration, banking] = await Promise.all([
+  const [registration, banking, healthcare] = await Promise.all([
     registrationSpecialist(sharedInput),
     bankingSpecialistV2(sharedInput),
+    healthcareSpecialistV2(sharedInput),
   ]);
   const ms = Date.now() - t0;
 
   console.log(
-    `[seed-c1-cache] done in ${ms}ms — registration=${describe(registration)} banking=${describe(banking)}`,
+    `[seed-c1-cache] done in ${ms}ms — registration=${describe(registration)} banking=${describe(banking)} healthcare=${describe(healthcare)}`,
   );
 
   // Use today's date if arrival_date is in the future (common with
@@ -119,6 +123,7 @@ async function main(): Promise<void> {
       ...((plan.research_meta as { researchedSpecialists?: Record<string, unknown> })?.researchedSpecialists ?? {}),
       registration,
       banking,
+      healthcare,
     },
   };
 
