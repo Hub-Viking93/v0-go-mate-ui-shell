@@ -29,11 +29,15 @@ import {
   compareByUrgency,
   adaptVisaResearchToSteps,
   adaptLocalRequirementsToSteps,
+  documentsSpecialistV2,
+  housingSpecialistV2,
+  createSupabaseLogWriter,
   type PreDepartureProfile,
   type VisaPathwayLite,
   type ActionStatus,
   type PreDepartureAction,
   type ResearchedStepsLite,
+  type ResearchedSteps,
   type Urgency,
 } from "@workspace/agents";
 import { authenticate } from "../lib/supabase-auth";
@@ -81,6 +85,106 @@ interface PlanRowForGenerate extends PlanRowForRead {
   local_requirements_research: Record<string, unknown> | null;
   arrival_date: string | null;
   user_triggered_pre_departure_at: string | null;
+}
+
+// ResearchedSpecialists cache shape — Phase A2.
+//
+// Each entry is the full ResearchedSteps payload for a domain we run
+// through one of the new researched-contract specialists (B1/B2).
+// Cached under research_meta.researchedSpecialists so re-running
+// /generate doesn't re-pay the LLM + Firecrawl bill on every click;
+// the cache is re-populated when stale-marked (TODO: A3 will set the
+// staleness rule explicitly — today the only invalidation hook is the
+// research-orchestrator overwriting research_meta wholesale).
+//
+// PRECEDENCE (the contract A2 establishes):
+//   1. researchedSpecialists[domain]  — produced by the new pipe.
+//                                        Fully validated, source-
+//                                        attributed, contract-
+//                                        conforming.
+//   2. legacy adapter output          — derived from
+//                                        local_requirements_research /
+//                                        visa_research columns.
+//   When (1) is present and quality !== "fallback", it WINS for
+//   that domain — the legacy adapter is not consulted.
+type ResearchedSpecialistsCache = Partial<Record<string, ResearchedSteps>>;
+
+interface ResearchMetaWithSpecialists {
+  preDeparture?: StoredPreDeparture;
+  researchedSpecialists?: ResearchedSpecialistsCache;
+}
+
+const RESEARCHED_BUDGET_MS = 90_000;
+
+/**
+ * Run the B2 (and future) researched specialists for the given
+ * profile. Specialists run in parallel; each enforces its own
+ * budget via withBudget(). The returned map is keyed by SpecialistDomain
+ * string and only contains entries that came back with a usable shape
+ * — fallback-quality outputs are still included so the caller can
+ * decide whether to use them or drop back to legacy.
+ */
+async function runResearchedSpecialistsForPreDeparture(args: {
+  profile: PreDepartureProfile;
+  profileId: string;
+  logWriter: ReturnType<typeof createSupabaseLogWriter>;
+}): Promise<ResearchedSpecialistsCache> {
+  const { profile, profileId, logWriter } = args;
+  // SpecialistProfile = Record<string, string|number|null|undefined>.
+  // PreDepartureProfile is a richer shape; the specialist only reads
+  // a subset of fields it knows how to serialise. Coerce through the
+  // SpecialistProfile shape (string|number|null|undefined values only).
+  const specialistProfile: Record<string, string | number | null | undefined> = {};
+  for (const [k, v] of Object.entries(profile as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" || typeof v === "number") specialistProfile[k] = v;
+    else if (typeof v === "boolean") specialistProfile[k] = v ? "yes" : "no";
+    // Skip arrays / objects — specialists don't read them.
+  }
+  const sharedInput = {
+    profile: specialistProfile,
+    profileId,
+    logWriter,
+    budgetMs: RESEARCHED_BUDGET_MS,
+  } as const;
+
+  const [docs, housing] = await Promise.all([
+    documentsSpecialistV2(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "documents_v2 threw");
+      return null;
+    }),
+    housingSpecialistV2(sharedInput).catch((err) => {
+      logger.warn({ err: err instanceof Error ? err.message : err }, "housing_v2 threw");
+      return null;
+    }),
+  ]);
+
+  const out: ResearchedSpecialistsCache = {};
+  if (docs && docs.kind === "steps") out.documents = docs;
+  if (housing && housing.kind === "steps") out.housing = housing;
+  return out;
+}
+
+/**
+ * Apply the precedence rule: researched cache wins over legacy adapter
+ * output for any domain it covers with usable quality. Domains absent
+ * from the cache (or whose cached entry is fallback-only) fall back to
+ * whatever the legacy adapter produced.
+ */
+function mergeResearchedByDomain(args: {
+  legacyByDomain: Record<string, ResearchedStepsLite>;
+  cache: ResearchedSpecialistsCache;
+}): Record<string, ResearchedStepsLite> {
+  const merged: Record<string, ResearchedStepsLite> = { ...args.legacyByDomain };
+  for (const [domain, bundle] of Object.entries(args.cache)) {
+    if (!bundle) continue;
+    // Skip fallback-only output — legacy adapter (if it has anything)
+    // is at least anchored to a real persisted research run. Don't
+    // make /pre-move worse to honour cache presence.
+    if (bundle.quality === "fallback" && bundle.steps.length === 0) continue;
+    merged[domain] = bundle as unknown as ResearchedStepsLite;
+  }
+  return merged;
 }
 
 router.get("/pre-departure", async (req, res) => {
@@ -214,25 +318,55 @@ router.post("/pre-departure/generate", async (req, res) => {
       };
     }
 
-    // Phase A1 — adapt persisted research outputs into the new
-    // ResearchedSteps contract so the composer can consume them
-    // uniformly. Domains absent from researchedByDomain (today: pet,
-    // posted_worker, vehicle, lease/shipping, healthcare, alwaysApplicable)
-    // continue to flow through their hardcoded contribution functions
-    // inside the composer.
-    const researchedByDomain: Record<string, ResearchedStepsLite> = {};
+    // Phase A1 — legacy adapter produces the baseline researchedByDomain
+    // map. Visa stays on the legacy shape (visa_research column is the
+    // current source of truth). Banking / healthcare keep flowing through
+    // adaptLocalRequirementsToSteps until a future B-wave migrates them.
+    const legacyByDomain: Record<string, ResearchedStepsLite> = {};
     const visaResearched = adaptVisaResearchToSteps(plan.visa_research as Parameters<typeof adaptVisaResearchToSteps>[0]);
     if (visaResearched.steps.length > 0) {
-      researchedByDomain.visa = visaResearched;
+      legacyByDomain.visa = visaResearched;
     }
     const localRequirementsAdapted = adaptLocalRequirementsToSteps(
       plan.local_requirements_research as Parameters<typeof adaptLocalRequirementsToSteps>[0],
     );
     for (const [domain, bundle] of Object.entries(localRequirementsAdapted)) {
       if (bundle && bundle.steps.length > 0) {
-        researchedByDomain[domain] = bundle;
+        legacyByDomain[domain] = bundle;
       }
     }
+
+    // Phase A2 — read-or-warm the researched-specialists cache for
+    // domains that have a B-wave specialist on the new contract
+    // (today: documents, housing). Cache lives under
+    // research_meta.researchedSpecialists; when missing we run the
+    // specialists inline (parallel, ~60-90s each, 90s budget).
+    //
+    // Subsequent /pre-departure/generate calls are instant because
+    // the cache is reused — only stage transitions / new research
+    // runs invalidate it (the research-orchestrator overwrites
+    // research_meta wholesale, dropping the cache).
+    const meta = (plan.research_meta ?? {}) as ResearchMetaWithSpecialists;
+    let researchedSpecialistsCache: ResearchedSpecialistsCache = meta.researchedSpecialists ?? {};
+    const cacheMissing = !researchedSpecialistsCache.documents || !researchedSpecialistsCache.housing;
+    if (cacheMissing) {
+      logger.info({ planId: plan.id }, "pre-departure: researched-specialists cache miss; running B2 specialists");
+      const fresh = await runResearchedSpecialistsForPreDeparture({
+        profile,
+        profileId: plan.id,
+        logWriter: createSupabaseLogWriter(ctx.supabase),
+      });
+      researchedSpecialistsCache = { ...researchedSpecialistsCache, ...fresh };
+    } else {
+      logger.info({ planId: plan.id }, "pre-departure: researched-specialists cache hit");
+    }
+
+    // Merge — researched cache wins over legacy adapter for the
+    // domains it covers, legacy stays for everything else.
+    const researchedByDomain = mergeResearchedByDomain({
+      legacyByDomain,
+      cache: researchedSpecialistsCache,
+    });
 
     const timeline = composePreDepartureTimeline({
       profile,
@@ -262,9 +396,10 @@ router.post("/pre-departure/generate", async (req, res) => {
       actions: storedActions,
     };
 
-    const newResearchMeta = {
+    const newResearchMeta: ResearchMetaWithSpecialists = {
       ...(plan.research_meta ?? {}),
       preDeparture: stored,
+      researchedSpecialists: researchedSpecialistsCache,
     };
 
     const nowIso = new Date().toISOString();
